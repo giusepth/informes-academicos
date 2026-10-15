@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Exported reports may contain real student data — never commit them
+*.pdf
+*.zip
