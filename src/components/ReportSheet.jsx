@@ -109,9 +109,9 @@ export default function ReportSheet({
           <div className="text-sm text-slate-600">
             Promedio final{' '}
             <span className="ml-1 text-lg font-bold tabular-nums text-slate-900">
-              {student.roundedAverage === null || student.roundedAverage === undefined
+              {student.average === null || student.average === undefined
                 ? '—'
-                : student.roundedAverage.toFixed(1)}
+                : student.average.toFixed(2)}
             </span>
           </div>
           <div className="flex items-center gap-2">

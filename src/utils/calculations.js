@@ -59,18 +59,24 @@ export function toneFor(score, scale = DEFAULT_SCALE) {
   return band ? band.tone : 'slate'
 }
 
-/** Normalizes a number to one decimal as a string, for safe comparisons. */
-function oneDecimal(value) {
-  return value === null || value === undefined ? null : value.toFixed(1)
-}
+/** Two means within this distance are treated as the same value (float noise). */
+const TIE_EPSILON = 1e-9
 
 /**
  * Enriches each student with average, rounded average, qualitative label and
  * institutional position, then returns the list sorted by position ascending.
  *
- * Ties share the same position: every student with the same rounded average
- * receives the position of the first student at that score, and the next
- * distinct score skips the shared slots.
+ * The position is decided by the RAW arithmetic mean, never by the rounded one.
+ * Rounding to a tenth is coarse enough that many distinct means collapse onto
+ * the same displayed value, which would make the ranking arbitrary: with the
+ * rounded key, 40 students collapsed into 13 positions.
+ *
+ * Ties (equal raw means) share a position, and positions are DENSE: the next
+ * distinct mean takes the next consecutive number, so no slot is ever skipped.
+ * Two students tied at #1 are followed by #2, not #3.
+ *
+ * The rounded mean is still computed, because the qualitative band (RF-05) is
+ * assigned from it according to the institutional rounding rule (RF-04).
  */
 export function rankStudents(students, scale = DEFAULT_SCALE) {
   const enriched = students.map((student) => {
@@ -86,19 +92,19 @@ export function rankStudents(students, scale = DEFAULT_SCALE) {
     }
   })
 
-  const sorted = [...enriched].sort(
-    (a, b) => (b.roundedAverage ?? -1) - (a.roundedAverage ?? -1),
-  )
+  const sorted = [...enriched].sort((a, b) => (b.average ?? -1) - (a.average ?? -1))
 
   let position = 0
-  let previousKey = Symbol('start')
-  let index = 0
+  let previous = null
   return sorted.map((student) => {
-    index += 1
-    const key = oneDecimal(student.roundedAverage)
-    if (key !== previousKey) {
-      position = index
-      previousKey = key
+    const sameGroup =
+      student.average === previous ||
+      (student.average !== null &&
+        previous !== null &&
+        Math.abs(student.average - previous) <= TIE_EPSILON)
+    if (position === 0 || !sameGroup) {
+      position += 1
+      previous = student.average
     }
     return { ...student, position }
   })

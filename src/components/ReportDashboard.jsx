@@ -57,9 +57,9 @@ export default function ReportDashboard({
                       active ? 'text-white' : 'text-slate-500',
                     )}
                   >
-                    {student.roundedAverage === null || student.roundedAverage === undefined
+                    {student.average === null || student.average === undefined
                       ? '—'
-                      : student.roundedAverage.toFixed(1)}
+                      : student.average.toFixed(2)}
                   </span>
                 </button>
               </li>

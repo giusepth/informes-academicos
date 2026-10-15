@@ -11,7 +11,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
    * Importación masiva mediante archivo tabular (`.xlsx`).
    * **Modo Manual (Vanilla):** Creación e ingreso de datos 100% a mano desde una interfaz interactiva.
 2. **Estructura Dinámica de Asignaturas ($N$ Asignaturas):** Capacidad de adaptarse a cursos que manejan diferente número y nombre de asignaturas sin restricciones fijas.
-3. **Cálculos Automáticos y Edge Cases:** Redondeo institucional hacia arriba (ej. $2.92 \to 3.0$), asignación automática de escala cualitativa y cálculo de puestos por promedio descendente.
+3. **Cálculos Automáticos y Edge Cases:** Redondeo institucional hacia arriba (ej. $2.92 \to 3.0$) aplicado a la valoración cualitativa, ranking por promedio crudo descendente y visualización del promedio con dos decimales.
 4. **Desempeños Cualitativos y Carga Opcional:** Espacio editable por asignatura para el docente, con opción de pre-cargar textos mediante matriz auxiliar (opcional).
 5. **Identidad Institucional:** Inserción de escudo institucional PNG con opacidad controlada en el fondo del informe impreso/exportado.
 6. **Exportación Versátil:** Descarga individual en PDF, paquete compilado en formato `.ZIP` y opción de impresión directa optimizada (`@media print`).
@@ -32,8 +32,11 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
 *   **RF-04: Procesamiento de Notas y Redondeo:**
     *   Cálculo automático del promedio aritmético por estudiante.
     *   Aplicación de regla de redondeo hacia arriba en la centésima crítica: `Math.ceil(score * 10) / 10`.
+    *   El promedio redondeado se utiliza **únicamente** para asignar la valoración cualitativa. El promedio se muestra con **dos decimales** (valor crudo), para que el documento justifique por sí mismo el puesto asignado.
 *   **RF-05: Asignación de Puestos y Escala Cualitativa:**
-    *   Ordenamiento descendente automático de estudiantes según su promedio final para asignar el puesto institucional (empates comparten posición).
+    *   Ordenamiento descendente automático de estudiantes según su **promedio crudo sin redondear** para asignar el puesto institucional.
+    *   *Empates:* los estudiantes con el mismo promedio crudo comparten el puesto.
+    *   *Puestos densos:* el siguiente promedio distinto toma el número de puesto consecutivo, sin saltar casilleros. Dos estudiantes empatados en el 1° puesto son seguidos por el 2° puesto, no por el 3°.
     *   Asignación automática de la valoración cualitativa (Bajo, Básico, Alto, Superior) con base en la nota redondeada y la escala configurada.
 *   **RF-06: Observaciones / Desempeños por Asignatura:**
     *   Apartado de texto libre por cada asignatura para que el docente redacte el juicio valorativo o desempeño específico del estudiante.
