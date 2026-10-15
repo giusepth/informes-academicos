@@ -88,6 +88,7 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Institución educativa">
             <TextInput
+              className="w-full"
               value={draft.institution}
               onChange={(e) => setDraft({ ...draft, institution: e.target.value })}
               placeholder="Colegio Ejemplo"
@@ -95,6 +96,7 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
           </Field>
           <Field label="Periodo">
             <TextInput
+              className="w-full"
               value={draft.period}
               onChange={(e) => setDraft({ ...draft, period: e.target.value })}
               placeholder="Primer periodo 2026"

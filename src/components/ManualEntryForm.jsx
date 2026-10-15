@@ -102,10 +102,16 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Grado / Curso">
-          <TextInput value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="5° A" />
+          <TextInput
+            className="w-full"
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            placeholder="5° A"
+          />
         </Field>
         <Field label="Docente">
           <TextInput
+            className="w-full"
             value={teacher}
             onChange={(e) => setTeacher(e.target.value)}
             placeholder="Prof. Rivera"
@@ -159,6 +165,7 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
               <tr key={student.id} className="border-t border-slate-100">
                 <td className="px-3 py-2">
                   <TextInput
+                    className="w-full"
                     value={student.name}
                     onChange={(e) => setStudentName(student.id, e.target.value)}
                     placeholder="Nombre del estudiante"
