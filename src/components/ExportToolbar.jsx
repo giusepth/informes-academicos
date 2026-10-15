@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import { flushSync } from 'react-dom'
-import {
-  buildPdfZip,
-  downloadBlob,
-  downloadElementPdf,
-  safeFileName,
-} from '../utils/exporter'
+import { buildPdfZip, downloadBlob, safeFileName } from '../utils/exporter'
 import { Button } from './ui'
 
 /** Waits two animation frames so the DOM reflects the latest selection. */
@@ -16,7 +11,10 @@ function nextPaint() {
 }
 
 /**
- * Export panel (RF-07): print, single-student PDF and full-class ZIP.
+ * Export panel (RF-07): print, on-screen preview and full-class ZIP.
+ *
+ * The individual action opens an HTML print preview (via `onPreview`) instead of
+ * auto-downloading a PDF.
  *
  * ZIP generation reuses the single off-screen capture element: for each student
  * it switches the selection synchronously (flushSync) and captures. That keeps
@@ -28,13 +26,12 @@ export default function ExportToolbar({
   selectedStudentId,
   onSelectStudent,
   getPrintElement,
+  onPreview,
   onNotify,
 }) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [error, setError] = useState('')
-
-  const selected = students.find((student) => student.id === selectedStudentId) ?? students[0]
 
   const withBusy = async (task) => {
     setBusy(true)
@@ -53,14 +50,6 @@ export default function ExportToolbar({
   const handlePrint = () => {
     window.print()
   }
-
-  const handleSinglePdf = () =>
-    withBusy(async () => {
-      const element = getPrintElement()
-      if (!element) throw new Error('No hay informe seleccionado.')
-      await downloadElementPdf(element, `${safeFileName(selected?.name ?? 'estudiante')}.pdf`)
-      onNotify?.('PDF individual generado.')
-    })
 
   const handleZip = () =>
     withBusy(async () => {
@@ -90,8 +79,8 @@ export default function ExportToolbar({
         <Button onClick={handlePrint} disabled={busy}>
           Imprimir
         </Button>
-        <Button variant="secondary" onClick={handleSinglePdf} disabled={busy}>
-          Descargar PDF
+        <Button variant="secondary" onClick={onPreview} disabled={busy}>
+          Vista previa
         </Button>
         <Button variant="secondary" onClick={handleZip} disabled={busy}>
           {busy && progress.total > 0

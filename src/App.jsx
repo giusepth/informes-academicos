@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
 import ReportDashboard from './components/ReportDashboard'
+import ReportPreview from './components/ReportPreview'
 import SetupModal from './components/SetupModal'
 import { Button } from './components/ui'
 import { DEFAULT_SCALE, rankStudents } from './utils/calculations'
@@ -42,6 +43,7 @@ export default function App() {
     readStorage(STORAGE_KEYS.selected),
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
   const printSheetRef = useRef(null)
 
@@ -70,6 +72,11 @@ export default function App() {
     }
     return rankedStudents[0]?.id ?? null
   }, [rankedStudents, selectedStudentId])
+
+  const activeStudent = useMemo(
+    () => rankedStudents.find((student) => student.id === activeStudentId) ?? null,
+    [rankedStudents, activeStudentId],
+  )
 
   const handleConfigSave = (nextConfig) => {
     setConfig(nextConfig)
@@ -145,6 +152,7 @@ export default function App() {
               selectedStudentId={activeStudentId}
               onSelectStudent={setSelectedStudentId}
               getPrintElement={() => printSheetRef.current}
+              onPreview={() => setPreviewOpen(true)}
               onNotify={setToast}
             />
             <ReportDashboard
@@ -165,6 +173,15 @@ export default function App() {
           />
         )}
       </main>
+
+      {previewOpen && activeStudent ? (
+        <ReportPreview
+          config={config}
+          report={report}
+          student={activeStudent}
+          onClose={() => setPreviewOpen(false)}
+        />
+      ) : null}
 
       {!configured || settingsOpen ? (
         <SetupModal

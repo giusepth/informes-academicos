@@ -39,7 +39,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
     *   Apartado de texto libre por cada asignatura para que el docente redacte el juicio valorativo o desempeño específico del estudiante.
 *   **RF-07: Exportación y Compilación:**
     *   Generación de vista previa interactiva paginada por estudiante.
-    *   Botón de descarga individual en PDF.
+    *   Acción individual que abre una vista previa en HTML del informe con opción de impresión (botón "Imprimir" o `Ctrl + P`), en lugar de una descarga automática de PDF.
     *   Botón de compilación masiva que genera un archivo `.zip` con todos los PDFs individuales utilizando `JSZip`.
 *   **RF-08: Área de Firmas en el Informe:**
     *   El informe incluye al pie un área en blanco para las firmas del docente y del rector, con sendas líneas y leyendas ("Firma del Docente", "Firma del Rector").

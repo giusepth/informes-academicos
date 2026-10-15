@@ -23,7 +23,7 @@ export default function ReportDashboard({
     rankedStudents.find((student) => student.id === selectedStudentId) ?? rankedStudents[0]
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+    <div className="report-grid grid gap-6 lg:grid-cols-[280px_1fr]">
       <aside className="no-print rounded-2xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-800">Estudiantes</h2>

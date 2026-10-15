@@ -41,15 +41,34 @@ body {
     display: none !important;
   }
 
+  /*
+   * The dashboard lays out as a grid (280px sidebar + content). When printing,
+   * its siblings are hidden and the capture layer would fall into the 280px
+   * column, squeezing the sheet. Collapse the grid to block flow so the single
+   * remaining child spans the full printable width.
+   */
+  .report-grid {
+    display: block !important;
+  }
+
+  /*
+   * The capture layer must span the full printable width. Left in normal flow
+   * it inherits the layout wrappers (grid column, `max-w-7xl`, padding), which
+   * squeezes or offsets the sheet. Anchoring it to the page origin at 100% width
+   * takes it out of that flow.
+   */
   .capture-layer {
-    position: static !important;
-    left: auto !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
   }
 
   .report-sheet {
     box-shadow: none !important;
     border: none !important;
     width: 100% !important;
+    margin: 0 !important;
     padding: 0 !important;
   }
 
