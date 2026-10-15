@@ -123,7 +123,21 @@ export default function ReportSheet({
             )}
           </div>
         </footer>
+
+        <section className="mt-10 grid grid-cols-2 gap-10 text-center">
+          <SignatureField label="Firma del Docente" />
+          <SignatureField label="Firma del Rector" />
+        </section>
       </div>
+    </div>
+  )
+}
+
+function SignatureField({ label }) {
+  return (
+    <div>
+      <div className="h-12 border-b border-slate-400" />
+      <p className="mt-2 text-xs font-medium text-slate-600">{label}</p>
     </div>
   )
 }

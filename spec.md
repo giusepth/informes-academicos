@@ -41,6 +41,9 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
     *   Generación de vista previa interactiva paginada por estudiante.
     *   Botón de descarga individual en PDF.
     *   Botón de compilación masiva que genera un archivo `.zip` con todos los PDFs individuales utilizando `JSZip`.
+*   **RF-08: Área de Firmas en el Informe:**
+    *   El informe incluye al pie un área en blanco para las firmas del docente y del rector, con sendas líneas y leyendas ("Firma del Docente", "Firma del Rector").
+    *   En el MVP 0.0.1 estos campos permanecen en blanco: se imprimen para firma física, sin captura de firma digital ni estado asociado.
 
 ---
 
