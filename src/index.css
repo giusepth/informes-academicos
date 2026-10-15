@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-900);
+}
+
+/*
+ * The capture layer holds the clean, non-editable report sheet. On screen it is
+ * pushed off-canvas (but kept rendered so html2canvas-pro can capture it). When
+ * printing, the same element becomes the only visible content, so Ctrl+P prints
+ * a clean sheet without input boxes.
+ */
+@media screen {
+  .capture-layer {
+    position: fixed;
+    top: 0;
+    left: -10000px;
+    pointer-events: none;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .capture-layer {
+    position: static !important;
+    left: auto !important;
+  }
+
+  .report-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+}

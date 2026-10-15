@@ -1,0 +1,212 @@
+import { useState } from 'react'
+import { makeId } from '../utils/parser'
+import { Button, Field, TextInput } from './ui'
+
+/**
+ * Manual "vanilla" entry form (RF-02, option B).
+ *
+ * The user defines grade, teacher, an unbounded number of subjects (N) and the
+ * student list, all by hand. Nothing leaves the browser.
+ */
+export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
+  const [grade, setGrade] = useState(initial?.grade ?? '')
+  const [teacher, setTeacher] = useState(initial?.teacher ?? '')
+  const [subjects, setSubjects] = useState(initial?.subjects ?? ['Matemáticas'])
+  const [students, setStudents] = useState(
+    () =>
+      initial?.students ?? [
+        { id: makeId(), name: '', scores: {} },
+        { id: makeId(), name: '', scores: {} },
+      ],
+  )
+  const [error, setError] = useState('')
+
+  const addSubject = () => {
+    const name = `Asignatura ${subjects.length + 1}`
+    setSubjects((current) => [...current, name])
+  }
+
+  const renameSubject = (index, value) => {
+    const previous = subjects[index]
+    setSubjects((current) => current.map((s, i) => (i === index ? value : s)))
+    setStudents((current) =>
+      current.map((student) => {
+        const { [previous]: score, ...rest } = student.scores
+        return { ...student, scores: { ...rest, [value]: score ?? null } }
+      }),
+    )
+  }
+
+  const removeSubject = (index) => {
+    const removed = subjects[index]
+    setSubjects((current) => current.filter((_, i) => i !== index))
+    setStudents((current) =>
+      current.map((student) => {
+        const { [removed]: _drop, ...rest } = student.scores
+        return { ...student, scores: rest }
+      }),
+    )
+  }
+
+  const addStudent = () =>
+    setStudents((current) => [...current, { id: makeId(), name: '', scores: {} }])
+
+  const removeStudent = (id) =>
+    setStudents((current) => current.filter((student) => student.id !== id))
+
+  const setStudentName = (id, name) =>
+    setStudents((current) =>
+      current.map((student) => (student.id === id ? { ...student, name } : student)),
+    )
+
+  const setScore = (id, subject, raw) => {
+    const value = raw === '' ? null : Math.max(0, Math.min(5, Number(raw)))
+    setStudents((current) =>
+      current.map((student) =>
+        student.id === id
+          ? { ...student, scores: { ...student.scores, [subject]: value } }
+          : student,
+      ),
+    )
+  }
+
+  const handleSubmit = () => {
+    const validSubjects = subjects.map((s) => s.trim()).filter(Boolean)
+    if (validSubjects.length === 0) {
+      setError('Agregá al menos una asignatura.')
+      return
+    }
+    const validStudents = students
+      .filter((student) => student.name.trim() !== '')
+      .map((student) => ({
+        id: student.id,
+        name: student.name.trim(),
+        scores: Object.fromEntries(
+          validSubjects.map((subject) => [subject, student.scores[subject] ?? null]),
+        ),
+        performances: Object.fromEntries(validSubjects.map((subject) => [subject, ''])),
+      }))
+    if (validStudents.length === 0) {
+      setError('Agregá al menos un estudiante con nombre.')
+      return
+    }
+    onLoaded({
+      grade: grade.trim(),
+      teacher: teacher.trim(),
+      subjects: validSubjects,
+      students: validStudents,
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Grado / Curso">
+          <TextInput value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="5° A" />
+        </Field>
+        <Field label="Docente">
+          <TextInput
+            value={teacher}
+            onChange={(e) => setTeacher(e.target.value)}
+            placeholder="Prof. Rivera"
+          />
+        </Field>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-medium text-slate-700">Asignaturas ({subjects.length})</p>
+          <Button variant="secondary" size="sm" onClick={addSubject}>
+            Agregar asignatura
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {subjects.map((subject, index) => (
+            <div key={index} className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+              <TextInput
+                className="w-40 border-transparent bg-transparent shadow-none"
+                value={subject}
+                onChange={(e) => renameSubject(index, e.target.value)}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeSubject(index)}
+                aria-label={`Quitar ${subject}`}
+              >
+                ×
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="min-w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Estudiante</th>
+              {subjects.map((subject, index) => (
+                <th key={index} className="px-3 py-2">
+                  {subject || '—'}
+                </th>
+              ))}
+              <th className="px-3 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {students.map((student) => (
+              <tr key={student.id} className="border-t border-slate-100">
+                <td className="px-3 py-2">
+                  <TextInput
+                    value={student.name}
+                    onChange={(e) => setStudentName(student.id, e.target.value)}
+                    placeholder="Nombre del estudiante"
+                  />
+                </td>
+                {subjects.map((subject, index) => (
+                  <td key={index} className="px-3 py-2">
+                    <TextInput
+                      className="w-20"
+                      type="number"
+                      min="0"
+                      max="5"
+                      step="0.1"
+                      value={student.scores[subject] ?? ''}
+                      onChange={(e) => setScore(student.id, subject, e.target.value)}
+                    />
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeStudent(student.id)}
+                    aria-label={`Quitar ${student.name || 'estudiante'}`}
+                  >
+                    ×
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Button variant="secondary" size="sm" onClick={addStudent}>
+        Agregar estudiante
+      </Button>
+
+      {error ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      ) : null}
+
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={onCancel}>
+          Volver
+        </Button>
+        <Button onClick={handleSubmit}>Generar informe</Button>
+      </div>
+    </div>
+  )
+}
