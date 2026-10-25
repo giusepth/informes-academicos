@@ -4,6 +4,7 @@ import { DEFAULT_SCALE } from './calculations'
 import {
   buildPerformanceMatrixWorkbook,
   countMatrixFills,
+  matrixHasText,
   parsePerformanceMatrix,
 } from './parser'
 
@@ -72,6 +73,12 @@ describe('buildPerformanceMatrixWorkbook — template', () => {
       ],
     }
     expect(countMatrixFills(report, matrix, DEFAULT_SCALE, 'decimal')).toBe(0)
+  })
+
+  it('parses as textless, so the unedited template never arms a pending matrix', async () => {
+    const { workbook } = await buildPerformanceMatrixWorkbook()
+    const matrix = await parsePerformanceMatrix(toArray(workbook))
+    expect(matrixHasText(matrix)).toBe(false)
   })
 })
 

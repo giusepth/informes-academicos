@@ -4,6 +4,8 @@ import {
   downloadPerformanceSample,
   downloadPerformanceTemplate,
   downloadTemplate,
+  EMPTY_MATRIX_MESSAGE,
+  matrixHasText,
   parseBackupWorkbook,
   parsePerformanceMatrix,
   parseWorkbook,
@@ -32,6 +34,7 @@ export default function DataInputMode({
 }) {
   const [mode, setMode] = useState('choose')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef(null)
@@ -41,6 +44,7 @@ export default function DataInputMode({
     if (!file) return
     setBusy(true)
     setError('')
+    setNotice('')
     try {
       assertImportSize(file)
       const buffer = await file.arrayBuffer()
@@ -74,9 +78,16 @@ export default function DataInputMode({
     if (!file) return
     setBusy(true)
     setError('')
+    setNotice('')
     try {
       assertImportSize(file)
       const matrix = await parsePerformanceMatrix(await file.arrayBuffer())
+      // A blank matrix (the template loaded unedited) has nothing to apply:
+      // say so instead of arming a pending payload that would never fill.
+      if (!matrixHasText(matrix)) {
+        setNotice(EMPTY_MATRIX_MESSAGE)
+        return
+      }
       onLoadMatrix?.(matrix)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo leer la matriz de desempeños.')
@@ -182,6 +193,15 @@ export default function DataInputMode({
           </Button>
         </div>
       </div>
+
+      {notice ? (
+        <p
+          role="status"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          {notice}
+        </p>
+      ) : null}
 
       {error ? (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>

@@ -5,6 +5,7 @@ import {
   applyMatrixToReport,
   countMatrixFills,
   fillPerformances,
+  matrixHasText,
   parsePerformanceMatrix,
 } from './parser'
 
@@ -60,6 +61,52 @@ describe('parsePerformanceMatrix', () => {
         ['Matemáticas', 'a', 'b'],
       ])),
     ).rejects.toThrow(/columna/i)
+  })
+
+  it('skips a sheet named Instrucciones and uses the first real matrix sheet', async () => {
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior'],
+        ['NO USAR', 'x', 'x', 'x', 'x'],
+      ]),
+      'Instrucciones',
+    )
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior'],
+        ['Matemáticas', 'b', 'bs', 'a', 's'],
+      ]),
+      'Desempeños',
+    )
+
+    const matrix = await parsePerformanceMatrix(XLSX.write(workbook, { type: 'array' }))
+    expect(matrix['NO USAR']).toBeUndefined()
+    expect(matrix['Matemáticas'].Alto).toBe('a')
+  })
+})
+
+describe('matrixHasText', () => {
+  it('rejects a matrix whose band texts are all empty', () => {
+    expect(
+      matrixHasText({
+        'Matemáticas': { Bajo: '', 'Básico': '  ', Alto: '', Superior: '' },
+      }),
+    ).toBe(false)
+  })
+
+  it('accepts a matrix with at least one band text', () => {
+    expect(
+      matrixHasText({
+        'Matemáticas': { Bajo: '', 'Básico': '', Alto: 'Texto de Alto', Superior: '' },
+      }),
+    ).toBe(true)
+  })
+
+  it('reports an empty matrix object as textless', () => {
+    expect(matrixHasText({})).toBe(false)
   })
 })
 

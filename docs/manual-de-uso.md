@@ -71,8 +71,8 @@ Antes de crear el primer informe, la pantalla inicial ofrece la sección
 - **Descargar plantilla de desempeños** (`plantilla-desempenos.xlsx`): matriz
   con los encabezados `Asignatura | Bajo | Básico | Alto | Superior`, una
   segunda hoja **Instrucciones** con la guía de uso y las celdas de banda
-  **vacías** para que las completes. Cargar la plantilla sin completar no
-  aplica ningún texto.
+  **vacías** para que las completes. Si la cargas sin completar, la app
+  muestra un aviso y no la deja pendiente.
 - **Descargar ejemplo de desempeños** (`ejemplo-desempenos.xlsx`): matriz
   **lista para usar**, con cuatro asignaturas y textos redactados para cada
   banda. Sirve para ver el formato esperado o para partir de ella.
@@ -167,8 +167,8 @@ Detalles completos del módulo: `docs/final-report.md`.
   **Plantilla de desempeños** y **Ejemplo de desempeños** descargan los mismos
   archivos que ofrece el menú inicial (`plantilla-desempenos.xlsx` y
   `ejemplo-desempenos.xlsx`): la plantilla incluye la hoja Instrucciones y las
-  celdas de banda vacías (cargarla sin completar no aplica nada); el ejemplo,
-  una matriz lista para usar.
+  celdas de banda vacías (si la cargas sin completar, la app avisa y no aplica
+  nada); el ejemplo, una matriz lista para usar.
 
 ## 6. Dónde viven los datos y cuándo se pierden
 

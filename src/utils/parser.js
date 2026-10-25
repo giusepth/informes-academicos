@@ -219,6 +219,9 @@ export async function parsePerformanceMatrix(arrayBuffer) {
   const XLSX = await loadXlsx()
   const workbook = XLSX.read(arrayBuffer, { type: 'array' })
   for (const name of workbook.SheetNames) {
+    // The template ships its guide on this reserved sheet: skip it explicitly
+    // instead of paying a full sheet scan, and keep first-matrix discovery.
+    if (name === 'Instrucciones') continue
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], {
       header: 1,
       blankrows: true,
@@ -253,6 +256,22 @@ export async function parsePerformanceMatrix(arrayBuffer) {
   }
   throw new Error('No se detectó una hoja de matriz (columna "Asignatura" + bandas Bajo/Básico/Alto/Superior).')
 }
+
+/**
+ * Whether a parsed matrix carries at least one non-empty band text. The
+ * fill-in template ships every band empty: loading it unedited must not arm
+ * the pending flow, because there would be nothing to apply and the
+ * confirmation toast would mislead the teacher.
+ */
+export function matrixHasText(matrix) {
+  return Object.values(matrix ?? {}).some((bands) =>
+    Object.values(bands ?? {}).some((text) => String(text ?? '').trim().length > 0),
+  )
+}
+
+/** Neutral notice shown when an all-empty matrix is loaded. */
+export const EMPTY_MATRIX_MESSAGE =
+  'La plantilla no tiene textos de desempeño: completa las celdas antes de cargarla.'
 
 const PERFORMANCE_MATRIX_HEADER = ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior']
 

@@ -4,6 +4,8 @@ import {
   buildBackupWorkbook,
   downloadPerformanceSample,
   downloadPerformanceTemplate,
+  EMPTY_MATRIX_MESSAGE,
+  matrixHasText,
   parsePerformanceMatrix,
   parseWorkbook,
 } from '../utils/parser'
@@ -36,6 +38,7 @@ export default function PeriodBar({
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [studentName, setStudentName] = useState('')
   // A half-typed name belongs to one period and one edit session: never leak
   // it into another report or back into edit mode after committing.
@@ -76,9 +79,15 @@ export default function PeriodBar({
     if (!file) return
     setBusy(true)
     setError('')
+    setNotice('')
     try {
       assertImportSize(file)
       const matrix = await parsePerformanceMatrix(await file.arrayBuffer())
+      // A blank matrix (the template loaded unedited) has nothing to apply.
+      if (!matrixHasText(matrix)) {
+        setNotice(EMPTY_MATRIX_MESSAGE)
+        return
+      }
       onApplyMatrix?.(matrix)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo leer la matriz.')
@@ -217,6 +226,15 @@ export default function PeriodBar({
             Agregar
           </Button>
         </form>
+      ) : null}
+
+      {notice ? (
+        <p
+          role="status"
+          className="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          {notice}
+        </p>
       ) : null}
 
       {error ? (
