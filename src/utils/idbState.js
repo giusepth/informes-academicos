@@ -74,7 +74,7 @@ export async function migrateLegacy({ idb, session } = {}) {
             {
               ...legacyReport.value,
               id: makeId(),
-              label: legacyReport.value.label ?? 'Informe 1',
+              label: 'Informe 1',
             },
           ],
         ])

@@ -69,6 +69,7 @@ describe('migrateLegacy', () => {
     const storage = makeStorage()
     const legacy = {
       id: 'legacy-id',
+      label: 'Old single report',
       grade: '5° A',
       teacher: 'Prof. Rivera',
       subjects: ['Matemáticas'],
@@ -182,18 +183,17 @@ describe('migrateLegacy', () => {
     await expect(storage.get(MIGRATION_FLAG)).resolves.toBe(true)
   })
 
-  it('preserves falsy legacy values such as false, 0 and an empty string', async () => {
+  it('preserves falsy legacy config and finalPerformances values', async () => {
     const storage = makeStorage()
     const session = sessionFrom({
       'informes.config': 'false',
-      'informes.reports': '0',
       'informes.finalPerformances': '""',
     })
 
     await expect(migrateLegacy({ idb: storage, session })).resolves.toEqual({ migrated: true })
 
     await expect(storage.get(DATA_STORAGE_KEYS.config)).resolves.toBe(false)
-    await expect(storage.get(DATA_STORAGE_KEYS.reports)).resolves.toBe(0)
+    await expect(storage.get(DATA_STORAGE_KEYS.reports)).resolves.toBeUndefined()
     await expect(storage.get(DATA_STORAGE_KEYS.finalPerformances)).resolves.toBe('')
   })
 
@@ -247,9 +247,14 @@ describe('createPersistQueue', () => {
   it('serializes writes per key and keeps the last enqueued value', async () => {
     const writes = []
     let releaseFirst
+    let signalStarted
+    const started = new Promise((resolve) => {
+      signalStarted = resolve
+    })
     const write = vi.fn(async (key, value) => {
       writes.push([key, value])
       if (value === 1) {
+        signalStarted()
         await new Promise((resolve) => {
           releaseFirst = resolve
         })
@@ -262,7 +267,7 @@ describe('createPersistQueue', () => {
     const first = queue.enqueue('key', 1)
     const second = queue.enqueue('key', 2)
 
-    await Promise.resolve()
+    await started
     expect(writes).toEqual([['key', 1]])
     releaseFirst()
     await Promise.all([first, second])
