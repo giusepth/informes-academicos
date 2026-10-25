@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
-import { buildPerformanceMatrixWorkbook, parsePerformanceMatrix } from './parser'
+import { DEFAULT_SCALE } from './calculations'
+import {
+  buildPerformanceMatrixWorkbook,
+  countMatrixFills,
+  parsePerformanceMatrix,
+} from './parser'
 
 /**
  * Downloadable desempeño artifacts (issue #23): a template the teacher fills
@@ -13,39 +18,60 @@ const SAMPLE_SUBJECTS = ['Matemáticas', 'Ciencias Naturales', 'Lengua', 'Social
 
 const toArray = (workbook) => XLSX.write(workbook, { type: 'array' })
 
-function firstSheetRows(workbook) {
-  const sheet = workbook.Sheets[workbook.SheetNames[0]]
-  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+function sheetRows(workbook, name) {
+  return XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: '' })
 }
 
 describe('buildPerformanceMatrixWorkbook — template', () => {
-  it('builds the downloadable template with the matrix header and guidance rows', async () => {
+  it('builds the template with the matrix header, subject rows and empty band cells', async () => {
     const { workbook, fileName } = await buildPerformanceMatrixWorkbook()
     expect(fileName).toBe('plantilla-desempenos.xlsx')
 
-    const rows = firstSheetRows(workbook)
+    const rows = sheetRows(workbook, 'Desempeños')
     expect(rows[0]).toEqual(HEADER)
-    expect(rows.length).toBeGreaterThanOrEqual(2)
-    expect(rows[1][0]).toBe('Matemáticas')
+    expect(rows.slice(1).map((row) => row[0])).toEqual(['Matemáticas', 'Lengua'])
 
-    // Every band cell is a short guidance placeholder, never a real judgment.
+    // Data cells stay EMPTY: guidance text never lives in a band cell.
     const bandTexts = rows.slice(1).flatMap((row) => row.slice(1, 5))
     expect(bandTexts.length).toBeGreaterThan(0)
-    for (const text of bandTexts) {
-      expect(String(text).trim().length).toBeGreaterThan(0)
-      expect(String(text)).toMatch(/describe|escribe/i)
-    }
+    for (const text of bandTexts) expect(String(text).trim()).toBe('')
   })
 
-  it('round-trips through parsePerformanceMatrix unchanged', async () => {
+  it('ships the usage guide on a second Instrucciones sheet that is never parsed', async () => {
+    const { workbook } = await buildPerformanceMatrixWorkbook()
+    expect(workbook.SheetNames).toEqual(['Desempeños', 'Instrucciones'])
+
+    const guide = sheetRows(workbook, 'Instrucciones')
+      .flat()
+      .join(' ')
+    expect(guide).toMatch(/columnas/i)
+    expect(guide).toMatch(/casilleros de desempeño vacíos/i)
+    expect(guide).toMatch(/ejemplo/i)
+    expect(guide).toMatch(/archivo de ejemplo/i)
+  })
+
+  it('parses as a matrix with empty texts and applies nothing', async () => {
     const { workbook } = await buildPerformanceMatrixWorkbook()
     const matrix = await parsePerformanceMatrix(toArray(workbook))
 
     expect(Object.keys(matrix)).toEqual(['Matemáticas', 'Lengua'])
     for (const bands of Object.values(matrix)) {
       expect(Object.keys(bands)).toEqual(['Bajo', 'Básico', 'Alto', 'Superior'])
-      for (const text of Object.values(bands)) expect(text.length).toBeGreaterThan(0)
+      for (const text of Object.values(bands)) expect(text).toBe('')
     }
+
+    const report = {
+      subjects: ['Matemáticas', 'Lengua'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': 4.5, 'Lengua': 3.0 },
+          performances: { 'Matemáticas': '', 'Lengua': '' },
+        },
+      ],
+    }
+    expect(countMatrixFills(report, matrix, DEFAULT_SCALE, 'decimal')).toBe(0)
   })
 })
 
@@ -54,7 +80,7 @@ describe('buildPerformanceMatrixWorkbook — sample', () => {
     const { workbook, fileName } = await buildPerformanceMatrixWorkbook({ sample: true })
     expect(fileName).toBe('ejemplo-desempenos.xlsx')
 
-    const rows = firstSheetRows(workbook)
+    const rows = sheetRows(workbook, 'Desempeños')
     expect(rows[0]).toEqual(HEADER)
     expect(rows.slice(1).map((row) => row[0])).toEqual(SAMPLE_SUBJECTS)
   })

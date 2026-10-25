@@ -1,4 +1,4 @@
-import { roundForScale } from './calculations'
+import { DEFAULT_SCALE, roundForScale } from './calculations'
 
 /**
  * Tabular spreadsheet parser (SheetJS).
@@ -256,13 +256,35 @@ export async function parsePerformanceMatrix(arrayBuffer) {
 
 const PERFORMANCE_MATRIX_HEADER = ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior']
 
-/** Placeholder rows shipped in the downloadable template: guidance, not data. */
+/**
+ * Fill-in template rows: subject names only, every band cell EMPTY. Guidance
+ * lives in the separate `Instrucciones` sheet so loading the template as-is
+ * can never pre-load a placeholder into a report.
+ */
 const PERFORMANCE_TEMPLATE_ROWS = ['Matemáticas', 'Lengua'].map((subject) => [
   subject,
-  ...PERFORMANCE_MATRIX_HEADER.slice(1).map(
-    (band) => `Describe aquí el desempeño de un estudiante de ${subject} en ${band}.`,
-  ),
+  ...PERFORMANCE_MATRIX_HEADER.slice(1).map(() => ''),
 ])
+
+/** Neutral usage guide shipped as the template's second sheet. Never parsed. */
+const PERFORMANCE_TEMPLATE_INSTRUCTIONS = [
+  ['Instrucciones'],
+  [''],
+  ['Esta plantilla sirve para cargar textos de desempeño por asignatura y banda.'],
+  ['Columnas: Asignatura, Bajo, Básico, Alto, Superior.'],
+  ['Escribe un texto por banda en cada fila de asignatura.'],
+  [
+    'La app aplica la matriz solo en los casilleros de desempeño vacíos: lo que ya escribiste no se reemplaza.',
+  ],
+  [
+    'Ejemplo: si un estudiante obtiene 4.5 en Matemáticas, la banda es Alto y se usa el texto de la columna Alto.',
+  ],
+  [
+    'La plantilla se entrega con las celdas de banda vacías: cargarla sin completar no aplica ningún texto.',
+  ],
+  ['El archivo de ejemplo trae cuatro asignaturas con textos listos para usar.'],
+  ['La hoja Instrucciones no se lee al cargar la matriz: solo se usa la hoja Desempeños.'],
+]
 
 /**
  * Ready-to-use matrix shipped as the sample download. Neutral teacher-register
@@ -315,13 +337,20 @@ export async function buildPerformanceMatrixWorkbook({ sample = false } = {}) {
     XLSX.utils.aoa_to_sheet([PERFORMANCE_MATRIX_HEADER, ...rows]),
     'Desempeños',
   )
+  if (!sample) {
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet(PERFORMANCE_TEMPLATE_INSTRUCTIONS),
+      'Instrucciones',
+    )
+  }
   return {
     workbook,
     fileName: sample ? 'ejemplo-desempenos.xlsx' : 'plantilla-desempenos.xlsx',
   }
 }
 
-/** Downloads the fill-in matrix template (guidance placeholders). */
+/** Downloads the fill-in matrix template (empty cells + instructions sheet). */
 export async function downloadPerformanceTemplate() {
   const { workbook, fileName } = await buildPerformanceMatrixWorkbook()
   const XLSX = await loadXlsx()
@@ -393,6 +422,27 @@ export function applyMatrixToReport(report, matrix, scale = DEFAULT_SCALE, scale
     scaleType,
   )
   return students.map((student) => ({ ...student, performances: filled[student.id] }))
+}
+
+/**
+ * Counts how many desempeño cells `applyMatrixToReport` would actually fill.
+ * The pending-matrix flow uses it to wait for real grades: a roster with no
+ * numeric scores (or a template with empty band texts) yields 0 and must not
+ * consume the pending payload.
+ */
+export function countMatrixFills(report, matrix, scale = DEFAULT_SCALE, scaleType = 'decimal') {
+  const next = applyMatrixToReport(report, matrix, scale, scaleType)
+  const students = report?.students ?? []
+  const subjects = report?.subjects ?? []
+  let count = 0
+  students.forEach((student, index) => {
+    for (const subject of subjects) {
+      const before = String(student.performances?.[subject] ?? '').trim()
+      const after = String(next[index]?.performances?.[subject] ?? '').trim()
+      if (before.length === 0 && after.length > 0) count += 1
+    }
+  })
+  return count
 }
 
 /**

@@ -166,7 +166,7 @@ export default function PeriodBar({
         variant="secondary"
         size="sm"
         onClick={downloadPerformanceTemplate}
-        title="Descarga la matriz vacía con textos de ejemplo por banda, lista para completar."
+        title="Descarga la plantilla con la hoja Instrucciones y las celdas de banda vacías, lista para completar."
       >
         Plantilla de desempeños
       </Button>
@@ -183,7 +183,12 @@ export default function PeriodBar({
         type="file"
         accept=".xlsx,.xls"
         className="hidden"
-        onChange={(e) => readMatrixFile(e.target.files?.[0])}
+        onChange={(event) => {
+          const input = event.currentTarget
+          void readMatrixFile(input.files?.[0]).finally(() => {
+            input.value = ''
+          })
+        }}
       />
       <input
         ref={fileInputRef}
