@@ -23,7 +23,8 @@ import { createTabSync } from './utils/tabSync'
 const MIGRATED_TOAST = 'Trabajo anterior importado a este navegador.'
 const MIGRATION_FAILED_TOAST =
   'No se pudo importar el trabajo a este navegador: se muestra la copia de esta pestaña.'
-const PRIVATE_MODE_TOAST = 'Modo privado: el trabajo se guarda solo en esta pestaña.'
+const STORAGE_FALLBACK_TOAST =
+  'Sin almacenamiento persistente: el trabajo se guarda solo en esta pestaña.'
 const SAVE_ERROR_TOAST =
   'No se pudo guardar en este navegador; exporta el backup (.xlsx) para no perder datos.'
 
@@ -156,7 +157,7 @@ export default function App() {
     document.documentElement.dataset.hydrated = 'true'
     if (state.migrationFailed) setToast(MIGRATION_FAILED_TOAST)
     else if (state.migrated) setToast(MIGRATED_TOAST)
-    else if (!state.available) setToast(PRIVATE_MODE_TOAST)
+    else if (!state.available) setToast(STORAGE_FALLBACK_TOAST)
   }, [dataQueue])
 
   // Pull the latest committed data from IndexedDB. Only called for a remote
@@ -249,7 +250,9 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return undefined
-    const timer = setTimeout(() => setToast(''), 3500)
+    // Save errors carry a recovery instruction and need longer on screen.
+    const duration = toast.length > 60 ? 6000 : 3500
+    const timer = setTimeout(() => setToast(''), duration)
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -475,9 +478,16 @@ export default function App() {
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
   }
 
+  // The contact route is static: it must not wait on the IndexedDB hydration
+  // gate (or on a slow/hung database open).
+  if (hash === '#/contacto') return <ContactPage />
+
   if (hydrating) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f5ef] px-6">
+      <div
+        aria-busy="true"
+        className="flex min-h-screen items-center justify-center bg-[#f7f5ef] px-6"
+      >
         <p
           role="status"
           style={{ fontFamily: "'IBM Plex Mono', monospace" }}
@@ -489,14 +499,33 @@ export default function App() {
     )
   }
 
-  // The contact route bypasses the landing gate once every hook has run.
-  if (hash === '#/contacto') return <ContactPage />
+  // One notice node reachable from every post-hydration branch (landing
+  // included), so storage and migration notices are never hidden behind the
+  // landing gate.
+  const notice = toast ? (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      className="no-print fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg"
+    >
+      {toast}
+    </div>
+  ) : null
 
   // Early return after every hook: first-time visitors see only the landing.
-  if (showLanding) return <Landing onOpen={() => setEntered(true)} />
+  if (showLanding) {
+    return (
+      <>
+        <Landing onOpen={() => setEntered(true)} />
+        {notice}
+      </>
+    )
+  }
 
   return (
-    <div className="min-h-full">
+    <>
+      <div className="min-h-full">
       <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div>
@@ -585,11 +614,8 @@ export default function App() {
         />
       ) : null}
 
-      {toast ? (
-        <div className="no-print fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
-          {toast}
-        </div>
-      ) : null}
-    </div>
+      </div>
+      {notice}
+    </>
   )
 }

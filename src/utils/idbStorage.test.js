@@ -1,5 +1,5 @@
 import { IDBFactory } from 'fake-indexeddb'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createIdbStorage } from './idbStorage'
 
 let dbSequence = 0
@@ -218,6 +218,20 @@ describe('isAvailable', () => {
   it('returns true after opening and closing the real database', async () => {
     const storage = makeStorage()
     await expect(storage.isAvailable()).resolves.toBe(true)
+  })
+
+  it('reports unavailable after the open timeout instead of hanging forever', async () => {
+    vi.useFakeTimers()
+    try {
+      const storage = makeStorage({ indexedDB: { open: () => ({}) } })
+      const pending = storage.isAvailable()
+
+      await vi.advanceTimersByTimeAsync(5000)
+
+      await expect(pending).resolves.toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
