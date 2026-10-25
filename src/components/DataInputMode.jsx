@@ -1,13 +1,18 @@
 import { useRef, useState } from 'react'
-import { downloadTemplate, parseWorkbook } from '../utils/parser'
+import { downloadTemplate, parseBackupWorkbook, parseWorkbook } from '../utils/parser'
 import ManualEntryForm from './ManualEntryForm'
 import { Button } from './ui'
 
 /**
  * Entry point selector (RF-02): import a tabular .xlsx file or build the data
  * by hand. Owns the file reading and error surfacing.
+ *
+ * Imported workbooks are tried as MULTI-sheet backups first
+ * (`parseBackupWorkbook`), then as a single period sheet (`parseWorkbook`).
+ * One sheet and one sheet only still loads a single "Informe 1"; a workbook
+ * with several Informe sheets restores the whole multi-period session.
  */
-export default function DataInputMode({ onLoaded, onOpenSettings, hasConfig }) {
+export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings, hasConfig }) {
   const [mode, setMode] = useState('choose')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -20,6 +25,15 @@ export default function DataInputMode({ onLoaded, onOpenSettings, hasConfig }) {
     setError('')
     try {
       const buffer = await file.arrayBuffer()
+      try {
+        const reports = await parseBackupWorkbook(buffer)
+        if (reports.length > 0 && onLoadedBackup) {
+          onLoadedBackup(reports)
+          return
+        }
+      } catch {
+        // Not a backup workbook: fall through to the single-period import.
+      }
       const data = await parseWorkbook(buffer)
       onLoaded(data)
     } catch (err) {
