@@ -30,3 +30,6 @@ dist-ssr
 # Playwright / test artifacts
 e2e-results/
 e2e/.fixtures/
+# Impeccable engine binary (reinstall with: npx -y impeccable install)
+
+.github/skills/*/scripts/bin/
