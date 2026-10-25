@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
+import Landing from './components/Landing'
 import PeriodBar from './components/PeriodBar'
 import ReportDashboard from './components/ReportDashboard'
 import ReportPreview from './components/ReportPreview'
@@ -21,6 +22,8 @@ const STORAGE_KEYS = {
   activeReport: 'informes.activeReport',
   selected: 'informes.selected',
   tab: 'informes.tab',
+  // Landing gate: flips to true the first time the visitor opens the tool.
+  entered: 'informes.entered',
   // Final-report desempeño overrides, keyed by normalized student name.
   finalPerformances: 'informes.finalPerformances',
   // Legacy single-report key; read only, kept for one-shot migration.
@@ -61,9 +64,13 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
+  const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
   const printSheetRef = useRef(null)
 
   const configured = config !== null
+  // The landing only faces first-time visitors: existing sessions (seeded e2e
+  // included) go straight to the tool.
+  const showLanding = !entered && !configured
 
   // Session persistence with an audible failure: a full quota must warn
   // instead of silently dropping edits (re-export the .xlsx backup then).
@@ -78,6 +85,7 @@ export default function App() {
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
   useEffect(() => persist(STORAGE_KEYS.finalPerformances, finalPerformances), [finalPerformances])
+  useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -298,6 +306,9 @@ export default function App() {
     )
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
   }
+
+  // Early return after every hook: first-time visitors see only the landing.
+  if (showLanding) return <Landing onOpen={() => setEntered(true)} />
 
   return (
     <div className="min-h-full">

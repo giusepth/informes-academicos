@@ -33,6 +33,7 @@ const centesimalReports = [
 
 test('the setup flow asks for the scale and re-seeds the band ranges', async ({ page }) => {
   await page.goto('/')
+  await page.getByRole('button', { name: 'Abrir la herramienta' }).first().click()
   await expect(page.getByRole('heading', { name: 'Configuración inicial' })).toBeVisible()
 
   // Choose the centesimal scale BEFORE saving: bands re-seed with 1–100

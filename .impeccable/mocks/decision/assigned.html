@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><style>
+  body{margin:0;width:1440px;height:900px;background:#e9dfc8;color:#17233b;font-family:Georgia,serif;overflow:hidden;position:relative}
+  .stock{position:absolute;inset:0;background:
+    repeating-linear-gradient(0deg,rgba(23,35,59,.025) 0 2px,transparent 2px 4px),
+    repeating-linear-gradient(90deg,rgba(23,35,59,.02) 0 1px,transparent 1px 56px)}
+  .rule{position:absolute;left:64px;right:64px;top:52px;border-top:3px double #c33d2e}
+  .typed{position:absolute;top:70px;left:64px;letter-spacing:.35em;font-family:'Courier New',monospace;font-size:20px;font-weight:700;color:#17233b}
+  h1{position:absolute;top:150px;left:64px;width:640px;font-size:92px;line-height:.98;letter-spacing:-.02em;font-weight:800;color:#17233b;margin:0}
+  h1 em{font-style:normal;color:#c33d2e}
+  .sub{position:absolute;top:470px;left:64px;width:600px;font-size:26px;line-height:1.4;color:#3d4763}
+  .pull{position:absolute;top:640px;left:64px;display:flex;align-items:center;gap:18px}
+  .pull .label{background:#17233b;color:#f3ead8;padding:22px 44px;font-size:30px;letter-spacing:.12em;font-weight:800}
+  .pull .tab{width:26px;height:78px;background:#c33d2e}
+  .micro{position:absolute;top:760px;left:64px;font-family:'Courier New',monospace;font-size:19px;color:#3d4763;letter-spacing:.05em}
+  .card{position:absolute;top:110px;right:96px;width:560px;background:#f8f4e8;border:1px solid #cbb98d;box-shadow:8px 9px 22px rgba(23,35,59,.28);border-radius:2px}
+  .card .top{display:flex;justify-content:space-between;align-items:center;background:#c33d2e;color:#f8f4e8;padding:14px 22px;font-family:'Courier New',monospace;font-weight:700;font-size:22px;letter-spacing:.08em}
+  .card .row{display:flex;justify-content:space-between;border-bottom:1px solid #d8c9a4;padding:17px 22px;font-size:23px;color:#17233b}
+  .card .row .val{font-family:'Courier New',monospace;font-weight:700}
+  .card .foot{padding:15px 22px;font-family:'Courier New',monospace;font-size:19px;color:#3d4763}
+</style></head>
+<body>
+  <div class="stock"></div>
+  <div class="rule"></div>
+  <div class="typed">COLEGIO · INFORME · ESTUDIANTE Nº 14</div>
+  <h1>Cada estudiante,<br>su <em>tarjeta</em> lista.</h1>
+  <p class="sub">De la planilla de notas a los informes impresos: promedios, valoraciones y quinto informe, todo en el navegador del colegio.</p>
+  <div class="pull"><div class="tab"></div><div class="label">ABRIR LA HERRAMIENTA</div></div>
+  <div class="micro">Sin cuentas · Sin servidores · Nada se instala</div>
+  <div class="card">
+    <div class="top"><span>ANA GÓMEZ · 5° A</span><span>P2</span></div>
+    <div class="row"><span>Matemáticas</span><span class="val">4.5 · Alto</span></div>
+    <div class="row"><span>Ciencias</span><span class="val">4.2 · Alto</span></div>
+    <div class="row"><span>Español</span><span class="val">3.8 · Básico</span></div>
+    <div class="foot">Informe A4 · escudo del colegio como marca de agua · listo para imprimir</div>
+  </div>
+</body></html>
