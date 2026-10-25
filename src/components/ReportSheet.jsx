@@ -1,4 +1,4 @@
-import { qualitativeFor, toneFor } from '../utils/calculations'
+import { qualitativeFor, roundUpTenth, toneFor } from '../utils/calculations'
 import { cx } from '../utils/cx'
 import { Info, SignatureField, ToneBadge } from './ui'
 
@@ -80,8 +80,13 @@ export default function ReportSheet({
           <tbody>
             {subjects.map((subject) => {
               const score = student.scores?.[subject]
-              const tone = toneFor(score, scale)
-              const label = qualitativeFor(score, scale)
+              // Institutional rounding applies to EVERY qualitative lookup,
+              // including per-subject cells: a raw 2.92 sits in the gap
+              // between bands, but its rounded 3.0 is Básico.
+              const roundedScore =
+                score === null || score === undefined ? null : roundUpTenth(score)
+              const tone = toneFor(roundedScore, scale)
+              const label = qualitativeFor(roundedScore, scale)
               return (
                 <tr key={subject}>
                   <td className="border border-slate-200 px-3 py-2 align-top">

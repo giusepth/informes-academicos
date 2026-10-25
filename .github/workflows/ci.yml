@@ -28,5 +28,13 @@ jobs:
       - name: Lint (oxlint)
         run: npx oxlint src
 
+      - name: Unit tests (vitest)
+        run: npx vitest run
+
+      - name: E2E tests (Playwright)
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+
       - name: Build (Vite)
         run: npm run build

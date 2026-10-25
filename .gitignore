@@ -26,3 +26,7 @@ dist-ssr
 # Exported reports may contain real student data — never commit them
 *.pdf
 *.zip
+
+# Playwright / test artifacts
+e2e-results/
+e2e/.fixtures/
