@@ -182,6 +182,14 @@ export default function Landing({ onOpen }) {
               <p style={typed} className="mt-3 text-[12.5px] tracking-[0.03em] text-[#6f6757]">
                 Sin cuentas ni servidores: todo sucede en tu navegador y nada sale del colegio.
               </p>
+              <a
+                href="/manual-de-uso.md"
+                download
+                style={typed}
+                className="mt-4 inline-block text-[13px] text-[#6f6757] underline decoration-[#c9b48f] underline-offset-4 transition-colors hover:decoration-[#3e6fa8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3e6fa8]"
+              >
+                Descargar el manual de uso (.md)
+              </a>
             </div>
           </div>
 
