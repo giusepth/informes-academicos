@@ -7,8 +7,11 @@ import { Button, Field, TextInput } from './ui'
  *
  * The user defines grade, teacher, an unbounded number of subjects (N) and the
  * student list, all by hand. Nothing leaves the browser.
+ *
+ * `maxScore` follows the configured scoring scale (5 for 1.0–5.0, 100 for
+ * 1–100) so manual entry clamps to the school's real range.
  */
-export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
+export default function ManualEntryForm({ onCancel, onLoaded, initial, maxScore = 5 }) {
   const [grade, setGrade] = useState(initial?.grade ?? '')
   const [teacher, setTeacher] = useState(initial?.teacher ?? '')
   const [subjects, setSubjects] = useState(initial?.subjects ?? ['Matemáticas'])
@@ -74,7 +77,7 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
     )
 
   const setScore = (id, subject, raw) => {
-    const value = raw === '' ? null : Math.max(0, Math.min(5, Number(raw)))
+    const value = raw === '' ? null : Math.max(0, Math.min(maxScore, Number(raw)))
     setStudents((current) =>
       current.map((student) =>
         student.id === id
@@ -207,7 +210,7 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
                       className="w-20"
                       type="number"
                       min="0"
-                      max="5"
+                      max={String(maxScore)}
                       step="0.1"
                       value={student.scores[subject] ?? ''}
                       onChange={(e) => setScore(student.id, subject, e.target.value)}

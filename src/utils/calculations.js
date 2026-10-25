@@ -13,6 +13,33 @@ export const DEFAULT_SCALE = [
   { key: 'superior', label: 'Superior', min: 4.6, max: 5.0, tone: 'emerald' },
 ]
 
+/**
+ * Scale types (RF-01 extended). Every school grades on ONE of these:
+ * - decimal: 1.0 – 5.0 with tenth precision.
+ * - centesimal: 1 – 100.
+ * The setup modal asks which one and seeds the editable bands from here.
+ */
+export const SCALE_TYPES = [
+  { key: 'decimal', label: 'Decimal (1.0 a 5.0)' },
+  { key: 'centesimal', label: 'Centesimal (1 a 100)' },
+]
+
+/** Default lookups — keys match SCALE_TYPES keys. */
+export const DEFAULT_SCALES = {
+  decimal: DEFAULT_SCALE,
+  centesimal: [
+    { key: 'bajo', label: 'Bajo', min: 1, max: 59, tone: 'red' },
+    { key: 'basico', label: 'Básico', min: 60, max: 79, tone: 'amber' },
+    { key: 'alto', label: 'Alto', min: 80, max: 89, tone: 'blue' },
+    { key: 'superior', label: 'Superior', min: 90, max: 100, tone: 'emerald' },
+  ],
+}
+
+/** Coerces a persisted scale type; unknown/legacy values fall back to decimal. */
+export function normalizeScaleType(scaleType) {
+  return scaleType === 'centesimal' ? 'centesimal' : 'decimal'
+}
+
 /** Maps a scale band tone to a Tailwind-friendly class set. */
 export const TONE_CLASSES = {
   red: 'bg-red-100 text-red-700',
@@ -28,6 +55,29 @@ export const TONE_CLASSES = {
  */
 export function roundUpTenth(score) {
   return Math.ceil(score * 10) / 10
+}
+
+/**
+ * Institutional rounding by scale type:
+ * - decimal: up to the next tenth (same rule as always).
+ * - centesimal: up to the next integer — driving a borderline 59.3 into the
+ *   Básico band mirrors the tenth rule at the scale's natural precision.
+ */
+export function roundForScale(score, scaleType = 'decimal') {
+  return normalizeScaleType(scaleType) === 'centesimal' ? Math.ceil(score) : roundUpTenth(score)
+}
+
+/**
+ * Score cell formatting by scale type: decimal keeps the classic one-decimal
+ * display; centesimal shows the score verbatim (80, not 80.0) trimming the
+ * 2-decimal tail; empty scores map to `—` by the caller (returns undefined
+ * values are passed through as null).
+ */
+export function formatScore(score, scaleType = 'decimal') {
+  if (score === null || score === undefined) return null
+  return normalizeScaleType(scaleType) === 'centesimal'
+    ? String(Number(score.toFixed(2)))
+    : score.toFixed(1)
 }
 
 /**
@@ -78,11 +128,11 @@ const TIE_EPSILON = 1e-9
  * The rounded mean is still computed, because the qualitative band (RF-05) is
  * assigned from it according to the institutional rounding rule (RF-04).
  */
-export function rankStudents(students, scale = DEFAULT_SCALE) {
+export function rankStudents(students, scale = DEFAULT_SCALE, scaleType = 'decimal') {
   const enriched = students.map((student) => {
     const scores = Object.values(student.scores || {})
     const average = averageScore(scores)
-    const rounded = average === null ? null : roundUpTenth(average)
+    const rounded = average === null ? null : roundForScale(average, scaleType)
     return {
       ...student,
       average,
@@ -157,7 +207,7 @@ function tempId() {
  * Returns a Report-shaped object (final: true) plus `periodScores` on each
  * student so the sheet can render one column per period.
  */
-export function buildFinalReport(reports, scale = DEFAULT_SCALE, finalPerformances = null) {
+export function buildFinalReport(reports, scale = DEFAULT_SCALE, finalPerformances = null, scaleType = 'decimal') {
   const periodReports = (reports ?? []).filter(Boolean)
   if (periodReports.length === 0) return null
 
@@ -221,7 +271,7 @@ export function buildFinalReport(reports, scale = DEFAULT_SCALE, finalPerformanc
     teacher: last.teacher ?? '',
     subjects,
     teachers,
-    students: rankStudents(baseStudents, scale),
+    students: rankStudents(baseStudents, scale, scaleType),
     final: true,
     periodLabels: periodReports.map((report, index) => report.label ?? `Informe ${index + 1}`),
   }

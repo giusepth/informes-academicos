@@ -1,5 +1,6 @@
 import FinalReportSheet from './FinalReportSheet'
 import ReportSheet from './ReportSheet'
+import { formatScore } from '../utils/calculations'
 import { cx } from '../utils/cx'
 import { ToneBadge } from './ui'
 
@@ -22,6 +23,7 @@ export default function ReportDashboard({
   printSheetRef,
   variant = 'period',
 }) {
+  const scaleType = config.scaleType ?? 'decimal'
   const selected =
     rankedStudents.find((student) => student.id === selectedStudentId) ?? rankedStudents[0]
 
@@ -79,7 +81,7 @@ export default function ReportDashboard({
               <li key={band.key} className="flex items-center justify-between text-xs">
                 <ToneBadge tone={band.tone}>{band.label}</ToneBadge>
                 <span className="tabular-nums text-slate-500">
-                  {band.min.toFixed(1)} – {band.max.toFixed(1)}
+                  {formatScore(band.min, scaleType)} – {formatScore(band.max, scaleType)}
                 </span>
               </li>
             ))}
