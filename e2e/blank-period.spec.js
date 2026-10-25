@@ -52,10 +52,30 @@ test('a student can be added by hand in the blank period', async ({ page }) => {
   await expect(page.locator('input[aria-label="Nota de Matemáticas para Bruno"]')).toBeVisible()
 })
 
+test('a blank period keeps a manual score across period switches (AC3)', async ({ page }) => {
+  await seed(page, { reports })
+  await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
+
+  await page.getByPlaceholder('Nombre del estudiante').fill('Bruno')
+  await page.getByRole('button', { name: 'Agregar', exact: true }).click()
+  await page.locator('input[aria-label="Nota de Matemáticas para Bruno"]').fill('3.5')
+  await page.keyboard.press('Enter')
+
+  await page.getByRole('button', { name: 'Informe 1', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await expect(page.locator('input[aria-label^="Nota de"]')).toHaveCount(0)
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('4.5')
+
+  await page.getByRole('button', { name: 'Informe 2', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('3.5')
+})
+
 test('manual scores survive a reload', async ({ page }) => {
   await seed(page, { reports })
   await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
   await page.locator('input[aria-label^="Nota de Matemáticas"]').fill('3.5')
+  await page.keyboard.press('Enter')
 
   await waitForPersisted(page, 'informes.reports', (value) =>
     JSON.stringify(value).includes('3.5'),
