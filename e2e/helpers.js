@@ -69,6 +69,14 @@ export async function readDataKey(page, key) {
   }, key)
 }
 
+/** Number of writer locks currently held for this origin. */
+export async function heldWriterLocks(page) {
+  return page.evaluate(async () => {
+    const { held } = await navigator.locks.query()
+    return held.filter((lock) => lock.name === 'informes.writer').length
+  })
+}
+
 export async function waitForPersisted(
   page,
   key,

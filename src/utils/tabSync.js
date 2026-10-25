@@ -18,9 +18,9 @@ const newTabId = () =>
     ? crypto.randomUUID()
     : `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 
-const safeCall = (callback) => {
+const safeCall = (callback, ...args) => {
   try {
-    callback?.()
+    callback?.(...args)
   } catch {
     /* A convergence callback must never break the page. */
   }
@@ -43,12 +43,12 @@ export function createTabSync({ channelName = 'informes.tab-sync', onRemoteChang
     if (!payload || payload.type !== MESSAGE_TYPE) return
     // Our own write: this tab already has that state in memory.
     if (payload.source === tabId) return
-    safeCall(onRemoteChange)
+    safeCall(onRemoteChange, 'channel')
   }
 
   const handleVisibility = () => {
     if (typeof document === 'undefined') return
-    if (document.visibilityState === 'visible') safeCall(onRemoteChange)
+    if (document.visibilityState === 'visible') safeCall(onRemoteChange, 'visibility')
   }
 
   if (channel) channel.onmessage = handleMessage

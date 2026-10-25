@@ -25,6 +25,7 @@ export default function ReportSheet({
   student,
   editable = false,
   editableScores = false,
+  readOnly = false,
   onPerformanceChange,
   onScoreChange,
   className,
@@ -188,9 +189,10 @@ export default function ReportSheet({
                   <td className="border border-slate-200 px-3 py-2 align-top">
                     {editable ? (
                       <textarea
-                        className="min-h-[56px] w-full resize-y rounded-md border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400"
+                        className="min-h-[56px] w-full resize-y rounded-md border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400 read-only:bg-slate-50 read-only:text-slate-700"
                         placeholder="Juicio valorativo del docente…"
                         value={student.performances?.[subject] ?? ''}
+                        readOnly={readOnly}
                         onChange={(e) => onPerformanceChange?.(student.id, subject, e.target.value)}
                       />
                     ) : (

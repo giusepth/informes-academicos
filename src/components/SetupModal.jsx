@@ -25,6 +25,7 @@ export default function SetupModal({
   persistenceStatus,
   onSave,
   onClose,
+  readOnly = false,
 }) {
   const [draft, setDraft] = useState(() => toDraft(initialConfig))
   const [error, setError] = useState('')
@@ -104,12 +105,20 @@ export default function SetupModal({
               Cancelar
             </Button>
           ) : null}
-          <Button onClick={handleSubmit}>Guardar configuración</Button>
+          <Button onClick={handleSubmit} disabled={readOnly}>
+            Guardar configuración
+          </Button>
         </>
       }
     >
       <div className="space-y-5">
         <div role="status" aria-live="polite" className="min-h-[2.25rem]">
+          {readOnly ? (
+            <p className="text-sm text-slate-600">
+              Solo lectura: la configuración no se puede guardar mientras otra pestaña edita
+              los informes.
+            </p>
+          ) : null}
           {persistenceStatus === 'granted' || persistenceStatus === 'denied' ? (
             <p
               style={{ fontFamily: "'IBM Plex Mono', monospace" }}

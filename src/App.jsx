@@ -15,12 +15,23 @@ import {
   rankStudents,
 } from './utils/calculations'
 import { idb } from './utils/idbStorage'
-import { createPersistQueue, loadDataState, migrateLegacy } from './utils/idbState'
+import {
+  createPersistQueue,
+  loadDataState,
+  migrateLegacy,
+  MIGRATION_FLAG,
+} from './utils/idbState'
 import { fillPerformances, makeId } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync } from './utils/tabSync'
+import { writerLock } from './utils/writerLock'
 
+const PROMOTED_TOAST = 'Otra pestaña dejó de editar: esta pestaña ya puede editar.'
+const MULTI_TAB_ADVISORY_TOAST =
+  'Otra pestaña también está editando: revisa los cambios antes de seguir.'
+const READ_ONLY_BANNER =
+  'Solo lectura: otra pestaña está editando los informes. Esta pestaña se activará cuando esa pestaña se cierre.'
 const MIGRATED_TOAST = 'Trabajo anterior importado a este navegador.'
 const MIGRATION_FAILED_TOAST =
   'No se pudo importar el trabajo a este navegador: se muestra la copia de esta pestaña.'
@@ -64,6 +75,7 @@ const initReports = () => {
 const readSessionFallback = () => ({
   available: false,
   storageMode: 'session',
+  lockMode: 'unsupported',
   migrated: false,
   config: readStorage(STORAGE_KEYS.config),
   reports: initReports(),
@@ -72,31 +84,61 @@ const readSessionFallback = () => ({
 
 const persistence = createPersistenceRequester()
 
-let bootPromise = null
+// Data slices the pre-IndexedDB build kept in sessionStorage. Their presence
+// marks a tab that already used the tool, not a first-time visitor.
+const LEGACY_SESSION_DATA_KEYS = [
+  STORAGE_KEYS.config,
+  STORAGE_KEYS.reports,
+  STORAGE_KEYS.legacyReport,
+  STORAGE_KEYS.finalPerformances,
+]
 
-const boot = () => {
-  if (!bootPromise) {
-    bootPromise = (async () => {
+const hasLegacySessionData = () => {
+  if (readStorage(STORAGE_KEYS.entered) === true) return false
+  try {
+    return LEGACY_SESSION_DATA_KEYS.some((key) => sessionStorage.getItem(key) !== null)
+  } catch {
+    return false
+  }
+}
+
+let hydratePromise = null
+
+/**
+ * Read-only hydration: loads the three persisted data keys (or the session
+ * copy) without touching the writer lock, the migration or the persist queue.
+ * Safe to run while the landing is visible, and the only boot step a tab needs
+ * before it can decide whether the tool should be shown.
+ */
+const hydrate = () => {
+  if (!hydratePromise) {
+    hydratePromise = (async () => {
       try {
         if (!(await idb.isAvailable())) return readSessionFallback()
-        const migration = await migrateLegacy({ idb, session: sessionStorage })
-        if (migration.failed) {
-          // Never boot into an empty IndexedDB after a failed import: the
-          // session copy is the only complete work left.
-          return { ...readSessionFallback(), migrationFailed: true }
-        }
+        const [data, migrationFlag] = await Promise.all([
+          loadDataState(idb),
+          idb.get(MIGRATION_FLAG),
+        ])
+        // Legacy tabs already used the tool: keep them out of the landing so
+        // their pre-deploy session is migrated (under the writer lock) before
+        // it can die with the tab. This detection stays read-only on
+        // IndexedDB; only the session flag is written, never the data.
+        const resumeLegacySession =
+          migrationFlag === undefined && hasLegacySessionData()
+        if (resumeLegacySession) writeStorage(STORAGE_KEYS.entered, true)
         return {
           available: true,
           storageMode: 'idb',
-          migrated: migration.migrated,
-          ...(await loadDataState(idb)),
+          migrated: false,
+          resumeLegacySession,
+          ...data,
         }
       } catch {
         return readSessionFallback()
       }
     })()
   }
-  return bootPromise
+  return hydratePromise
 }
 
 /**
@@ -117,6 +159,9 @@ export default function App() {
   const [finalPerformances, setFinalPerformances] = useState({})
   const [scoreEntry, setScoreEntry] = useState(false)
   const [hydrating, setHydrating] = useState(true)
+  const [activated, setActivated] = useState(false)
+  const [readOnly, setReadOnly] = useState(false)
+  const [lockState, setLockState] = useState('pending')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
@@ -126,6 +171,13 @@ export default function App() {
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
+  const hydratedStateRef = useRef(null)
+  const hydrationPromiseRef = useRef(null)
+  const activatedRef = useRef(false)
+  const activationPromiseRef = useRef(null)
+  const pendingResyncRef = useRef(false)
+  const readOnlyRef = useRef(false)
+  const lockModeRef = useRef('pending')
   const tabSyncRef = useRef(null)
   // A duplicated blank period switches the report and enters score entry in
   // the same render: skip the navigation reset exactly once.
@@ -135,6 +187,9 @@ export default function App() {
   const [dataQueue] = useState(() =>
     createPersistQueue({
       write: async (key, value) => {
+        // Defense in depth: a read-only tab never commits data, even if a
+        // state effect slipped past the enqueue guard.
+        if (readOnlyRef.current) return false
         if (storageModeRef.current === 'session') {
           if (!writeStorage(key, value)) throw new Error('sessionStorage write failed')
           return true
@@ -156,42 +211,104 @@ export default function App() {
     }),
   )
 
+  // Read-only hydration used by the landing: it may read IndexedDB to find out
+  // whether the visitor already configured the tool, but it never acquires the
+  // writer lock, writes, migrates or enables the persist queue.
   const applyHydratedState = useCallback((state) => {
+    if (hydratedRef.current) return
     const nextConfig = state.config ?? null
     const nextReports = Array.isArray(state.reports) ? state.reports : []
     const nextFinalPerformances = state.finalPerformances ?? {}
 
+    hydratedStateRef.current = {
+      ...state,
+      config: nextConfig,
+      reports: nextReports,
+      finalPerformances: nextFinalPerformances,
+    }
     storageModeRef.current = state.storageMode ?? (state.available ? 'idb' : 'session')
     hydratedRef.current = true
-    dataQueue.prime(STORAGE_KEYS.config, nextConfig)
-    dataQueue.prime(STORAGE_KEYS.reports, nextReports)
-    dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
-    dataQueue.enable()
-
+    if (state.resumeLegacySession) setEntered(true)
     setConfig(nextConfig)
     setReports(nextReports)
     setFinalPerformances(nextFinalPerformances)
     setHydrating(false)
     document.documentElement.dataset.hydrated = 'true'
-    if (state.migrationFailed) setToast(MIGRATION_FAILED_TOAST)
-    else if (state.migrated) setToast(MIGRATED_TOAST)
-    else if (!state.available) setToast(STORAGE_FALLBACK_TOAST)
-  }, [dataQueue])
+  }, [])
 
-  // Pull the latest committed data from IndexedDB. Only called for a remote
-  // change or a visible tab, and only when no local write is in flight: a
-  // stale tab must refresh, never overwrite newer work from another tab.
+  // Activation happens only when the tool UI (or its initial setup modal) is
+  // actually shown. Lock mode and read-only flag land in the same React batch
+  // as the data and the queue enablement, and the tool is not rendered before
+  // `activated`, so there is no editable flash for a reader.
+  const applyActivatedState = useCallback(
+    (
+      state,
+      {
+        lockMode,
+        readOnly: nextReadOnly,
+        enableQueue,
+        migrated = false,
+        migrationFailed = false,
+        fallback = false,
+      },
+    ) => {
+      const nextConfig = state.config ?? null
+      const nextReports = Array.isArray(state.reports) ? state.reports : []
+      const nextFinalPerformances = state.finalPerformances ?? {}
+      const snapshot = {
+        ...state,
+        config: nextConfig,
+        reports: nextReports,
+        finalPerformances: nextFinalPerformances,
+      }
+
+      hydratedStateRef.current = snapshot
+      storageModeRef.current = state.storageMode ?? (state.available ? 'idb' : 'session')
+      hydratedRef.current = true
+      readOnlyRef.current = nextReadOnly
+      lockModeRef.current = lockMode
+
+      setConfig(nextConfig)
+      setReports(nextReports)
+      setFinalPerformances(nextFinalPerformances)
+      setReadOnly(nextReadOnly)
+      setLockState(lockMode)
+      setHydrating(false)
+      setActivated(true)
+      activatedRef.current = true
+      document.documentElement.dataset.hydrated = 'true'
+
+      if (enableQueue) {
+        dataQueue.prime(STORAGE_KEYS.config, nextConfig)
+        dataQueue.prime(STORAGE_KEYS.reports, nextReports)
+        dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+        dataQueue.enable()
+      }
+
+      if (migrationFailed) setToast(MIGRATION_FAILED_TOAST)
+      else if (migrated) setToast(MIGRATED_TOAST)
+      else if (fallback) setToast(STORAGE_FALLBACK_TOAST)
+    },
+    [dataQueue],
+  )
+
+  // Pull the latest committed data from IndexedDB. Returns whether the
+  // snapshot was actually refreshed so promotion can refuse to enable editing
+  // on a failed read. Only called for a remote change or a visible tab, and
+  // only when no local write is in flight: a stale tab must refresh, never
+  // overwrite newer work from another tab.
   const resyncFromIdb = useCallback(async () => {
-    if (!hydratedRef.current || storageModeRef.current !== 'idb') return
-    if (!dataQueue.isIdle()) return
+    if (!hydratedRef.current || !activatedRef.current) return false
+    if (storageModeRef.current !== 'idb') return false
+    if (!dataQueue.isIdle()) return false
 
     let state
     try {
       state = await loadDataState(idb)
     } catch {
-      return
+      return false
     }
-    if (!dataQueue.isIdle()) return
+    if (!dataQueue.isIdle()) return false
 
     const nextConfig = state.config ?? null
     const nextReports = Array.isArray(state.reports) ? state.reports : []
@@ -202,15 +319,173 @@ export default function App() {
     dataQueue.prime(STORAGE_KEYS.config, nextConfig)
     dataQueue.prime(STORAGE_KEYS.reports, nextReports)
     dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+    hydratedStateRef.current = {
+      ...state,
+      config: nextConfig,
+      reports: nextReports,
+      finalPerformances: nextFinalPerformances,
+    }
     setConfig(nextConfig)
     setReports(nextReports)
     setFinalPerformances(nextFinalPerformances)
+    return true
   }, [dataQueue])
+
+  // Remote changes that arrive before activation (landing, contact, or a tab
+  // still waiting on the lock) are replayed once the tool finishes activating.
+  const requestResync = useCallback(() => {
+    if (!hydratedRef.current || !activatedRef.current) {
+      pendingResyncRef.current = true
+      return
+    }
+    void resyncFromIdb()
+  }, [resyncFromIdb])
+
+  const replayPendingResync = useCallback(() => {
+    if (!pendingResyncRef.current) return
+    pendingResyncRef.current = false
+    void resyncFromIdb()
+  }, [resyncFromIdb])
+
+  // The previous writer released the lock (usually because its tab closed):
+  // keep read-only, re-read the three data keys and only enable editing when
+  // that read succeeded. A failed read (or flush) releases the lock again so
+  // the banner's «Reintentar» can ask for it with a clean lifecycle.
+  const handlePromoted = useCallback(async () => {
+    if (!mountedRef.current) {
+      writerLock.release()
+      return
+    }
+    await dataQueue.flush()
+    const refreshed = await resyncFromIdb()
+    if (!mountedRef.current) {
+      writerLock.release()
+      return
+    }
+    if (!refreshed) {
+      writerLock.release()
+      return
+    }
+    pendingResyncRef.current = false
+    dataQueue.enable()
+    readOnlyRef.current = false
+    lockModeRef.current = 'writer'
+    setReadOnly(false)
+    setLockState('writer')
+    setToast(PROMOTED_TOAST)
+  }, [dataQueue, resyncFromIdb])
+
+  const activateTool = useCallback(async () => {
+    let state = hydratedStateRef.current
+    if (!state) {
+      state = await hydrate()
+      applyHydratedState(state)
+    }
+
+    // Session fallback is per tab: nothing to coordinate, both tabs may edit.
+    if (state.storageMode !== 'idb') {
+      applyActivatedState(state, {
+        lockMode: 'unsupported',
+        readOnly: false,
+        enableQueue: true,
+        fallback: !state.available,
+      })
+      replayPendingResync()
+      return
+    }
+
+    // The lock is acquired before the legacy migration and before anything is
+    // written: a reader never migrates, never primes or enables the queue.
+    let mode
+    try {
+      mode = await writerLock.acquire()
+    } catch {
+      mode = 'unsupported'
+    }
+    if (!mountedRef.current) {
+      if (mode === 'writer') writerLock.release()
+      return
+    }
+
+    if (mode === 'reader') {
+      let fresh = state
+      try {
+        fresh = { ...state, ...(await loadDataState(idb)) }
+      } catch {
+        /* Keep the hydrated snapshot if the refresh fails. */
+      }
+      applyActivatedState(fresh, { lockMode: 'reader', readOnly: true, enableQueue: false })
+      replayPendingResync()
+      void writerLock.promote(handlePromoted)
+      return
+    }
+
+    if (mode === 'unsupported') {
+      let fresh = state
+      try {
+        fresh = { ...state, ...(await loadDataState(idb)) }
+      } catch {
+        /* Keep the hydrated snapshot if the refresh fails. */
+      }
+      applyActivatedState(fresh, { lockMode: 'unsupported', readOnly: false, enableQueue: true })
+      replayPendingResync()
+      return
+    }
+
+    let migration
+    try {
+      migration = await migrateLegacy({ idb, session: sessionStorage })
+    } catch {
+      migration = { migrated: false, failed: true }
+    }
+    if (migration.failed) {
+      // Never hold the writer lock while falling back to per-tab storage: it
+      // would block the tabs that still share IndexedDB.
+      writerLock.release()
+      applyActivatedState(readSessionFallback(), {
+        lockMode: 'unsupported',
+        readOnly: false,
+        enableQueue: true,
+        migrationFailed: true,
+      })
+      replayPendingResync()
+      return
+    }
+    if (migration.migrated) tabSyncRef.current?.notify()
+
+    let fresh = state
+    try {
+      fresh = { ...state, ...(await loadDataState(idb)) }
+    } catch {
+      /* Keep the hydrated snapshot if the refresh fails. */
+    }
+    applyActivatedState(fresh, {
+      lockMode: 'writer',
+      readOnly: false,
+      enableQueue: true,
+      migrated: migration.migrated,
+    })
+    replayPendingResync()
+  }, [applyActivatedState, applyHydratedState, handlePromoted, replayPendingResync])
+
+  const configured = config !== null
+  // The landing only faces first-time visitors: existing sessions (seeded e2e
+  // included) go straight to the tool.
+  const showLanding = !entered && !configured
 
   useEffect(() => {
     const sync = createTabSync({
-      onRemoteChange: () => {
-        void resyncFromIdb()
+      onRemoteChange: (origin) => {
+        requestResync()
+        // Without Web Locks both tabs can write. Never claim exclusivity:
+        // just warn when another tab actually committed something.
+        if (
+          origin === 'channel' &&
+          lockModeRef.current === 'unsupported' &&
+          storageModeRef.current === 'idb'
+        ) {
+          setToast(MULTI_TAB_ADVISORY_TOAST)
+        }
       },
     })
     tabSyncRef.current = sync
@@ -218,7 +493,7 @@ export default function App() {
       sync.close()
       if (tabSyncRef.current === sync) tabSyncRef.current = null
     }
-  }, [resyncFromIdb])
+  }, [requestResync])
 
   // Give the last scheduled writes a chance to commit before the tab is
   // hidden (a hard close can still race the asynchronous IndexedDB commit).
@@ -237,20 +512,26 @@ export default function App() {
     }
   }, [])
 
+  // Hydration is the only step the landing waits for: no lock, no writes. The
+  // contact route skips it entirely.
   useEffect(() => {
-    let active = true
-    boot().then((state) => {
-      if (active) applyHydratedState(state)
+    if (hash === '#/contacto') return
+    if (hydratedRef.current) return
+    if (!hydrationPromiseRef.current) hydrationPromiseRef.current = hydrate()
+    void hydrationPromiseRef.current.then((state) => {
+      if (hydratedRef.current) return
+      applyHydratedState(state)
     })
-    return () => {
-      active = false
-    }
-  }, [applyHydratedState])
+  }, [hash, applyHydratedState])
 
-  const configured = config !== null
-  // The landing only faces first-time visitors: existing sessions (seeded e2e
-  // included) go straight to the tool.
-  const showLanding = !entered && !configured
+  // Activation is a single shot per page, and only when the tool is visible:
+  // contact is excluded and the landing never acquires the lock.
+  useEffect(() => {
+    if (hash === '#/contacto') return
+    if (hydrating || showLanding || activated) return
+    if (!activationPromiseRef.current) activationPromiseRef.current = activateTool()
+    void activationPromiseRef.current
+  }, [hash, hydrating, showLanding, activated, activateTool])
 
   // Session persistence with an audible failure: a full quota must warn
   // instead of silently dropping edits (re-export the .xlsx backup then).
@@ -260,11 +541,13 @@ export default function App() {
     }
   }
   useEffect(() => {
+    if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.config, config)
-  }, [config, dataQueue])
+  }, [config, dataQueue, readOnly])
   useEffect(() => {
+    if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.reports, reports)
-  }, [reports, dataQueue])
+  }, [reports, dataQueue, readOnly])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
@@ -278,8 +561,9 @@ export default function App() {
     setScoreEntry(false)
   }, [activeReportId, tab])
   useEffect(() => {
+    if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
-  }, [finalPerformances, dataQueue])
+  }, [finalPerformances, dataQueue, readOnly])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
@@ -341,12 +625,14 @@ export default function App() {
   )
 
   const handleConfigSave = (nextConfig) => {
+    if (readOnlyRef.current) return
     setConfig(nextConfig)
     setSettingsOpen(false)
     setToast('Configuración guardada.')
   }
 
   const handleLoaded = (data) => {
+    if (readOnlyRef.current) return
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -359,6 +645,7 @@ export default function App() {
   }
 
   const handleLoadedBackup = (rawReports, skipped = []) => {
+    if (readOnlyRef.current) return
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -379,6 +666,7 @@ export default function App() {
   }
 
   const handleImportPeriod = (data) => {
+    if (readOnlyRef.current) return
     const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
     setReports((current) => [...current, next])
     setActiveReportId(next.id)
@@ -388,7 +676,7 @@ export default function App() {
   }
 
   const handleDuplicatePeriod = () => {
-    if (!activeReport || tab !== 'period') return
+    if (readOnlyRef.current || !activeReport || tab !== 'period') return
     const subjects = activeReport.subjects ?? []
     const copy = {
       ...activeReport,
@@ -420,6 +708,7 @@ export default function App() {
   const handleSelectFinal = () => setTab('final')
 
   const handlePerformanceChange = (studentId, subject, text) => {
+    if (readOnlyRef.current) return
     // On the final tab the annotation belongs to the finalPerformances slice,
     // keyed by normalized name — the same matching rule as period reports.
     if (isFinal) {
@@ -453,7 +742,7 @@ export default function App() {
   }
 
   const handleScoreChange = (studentId, subject, value) => {
-    if (!activeReport) return
+    if (readOnlyRef.current || !activeReport) return
     setReports((current) =>
       current.map((reportEntry) =>
         reportEntry.id === activeReport.id
@@ -471,6 +760,7 @@ export default function App() {
   }
 
   const handleAddStudent = (rawName) => {
+    if (readOnlyRef.current) return
     const name = rawName.trim()
     if (!name || !activeReport || tab !== 'period') return
     const subjects = activeReport.subjects ?? []
@@ -492,6 +782,7 @@ export default function App() {
   }
 
   const handleReset = () => {
+    if (readOnlyRef.current) return
     setReports([])
     setActiveReportId(null)
     setTab('period')
@@ -507,6 +798,7 @@ export default function App() {
    * EMPTY cells, teacher-written judgments stay untouched.
    */
   const handleApplyMatrix = (matrix) => {
+    if (readOnlyRef.current) return
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
 
     if (tab === 'final' && finalReport) {
@@ -553,11 +845,13 @@ export default function App() {
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
   }
 
-  // The contact route is static: it must not wait on the IndexedDB hydration
-  // gate (or on a slow/hung database open).
+  // The contact route is static: it must not mount the data boot at all (no
+  // hydration, no lock, no IndexedDB read) and never waits on it.
   if (hash === '#/contacto') return <ContactPage />
 
-  if (hydrating) {
+  // The landing waits only for hydration. A tab heading to the tool keeps the
+  // splash until activation has applied its lock mode and read-only flag.
+  if (hydrating || (!showLanding && !activated)) {
     return (
       <div
         aria-busy="true"
@@ -614,13 +908,30 @@ export default function App() {
               Configuración
             </Button>
             {reports.length > 0 ? (
-              <Button variant="secondary" size="sm" onClick={handleReset}>
+              <Button variant="secondary" size="sm" onClick={handleReset} disabled={readOnly}>
                 Nuevo informe
               </Button>
             ) : null}
           </div>
         </div>
       </header>
+
+      {lockState === 'reader' ? (
+        <div role="status" className="no-print border-b border-slate-200 bg-slate-50">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2">
+            <p className="text-sm text-slate-700">{READ_ONLY_BANNER}</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                void writerLock.promote(handlePromoted)
+              }}
+            >
+              Reintentar
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <main className="mx-auto max-w-7xl px-4 py-6">
         {!configured ? (
@@ -641,6 +952,7 @@ export default function App() {
               scoreEntry={scoreEntry}
               onToggleScoreEntry={() => setScoreEntry((current) => !current)}
               onAddStudent={handleAddStudent}
+              readOnly={readOnly}
             />
             <ExportToolbar
               report={displayReport}
@@ -662,6 +974,7 @@ export default function App() {
               editableScores={tab === 'period' && scoreEntry}
               printSheetRef={printSheetRef}
               variant={isFinal ? 'final' : 'period'}
+              readOnly={readOnly}
             />
           </div>
         ) : (
@@ -671,6 +984,7 @@ export default function App() {
             onOpenSettings={() => setSettingsOpen(true)}
             hasConfig={configured}
             maxScore={maxScore}
+            readOnly={readOnly}
           />
         )}
       </main>
@@ -692,6 +1006,7 @@ export default function App() {
           persistenceStatus={persistenceStatus}
           onSave={handleConfigSave}
           onClose={() => setSettingsOpen(false)}
+          readOnly={readOnly}
         />
       ) : null}
 
