@@ -195,6 +195,9 @@ export default function App() {
   // A duplicated blank period switches the report and enters score entry in
   // the same render: skip the navigation reset exactly once.
   const keepScoreEntryRef = useRef(false)
+  // A restored backup must not consume a pending matrix while it shows its own
+  // restore summary. The hold stays until the teacher edits or scores again.
+  const pendingHoldRef = useRef(false)
   const mountedRef = useRef(true)
   const persistenceRequestedRef = useRef(false)
   const [dataQueue] = useState(() =>
@@ -614,6 +617,8 @@ export default function App() {
     // Activation lands the real lock mode/readOnly flag; before it, a reader
     // must never consume the pending payload.
     if (!activated || !pendingMatrix || readOnly || tab === 'final') return
+    // A restored backup keeps the pending matrix until the teacher edits/scores.
+    if (pendingHoldRef.current) return
     if (!activeReport || (activeReport.students ?? []).length === 0) return
 
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
@@ -683,6 +688,9 @@ export default function App() {
 
   const handleLoadedBackup = (rawReports, skipped = [], restoredFinalPerformances = {}) => {
     if (readOnlyRef.current) return
+    // The restore summary owns the toast. Keep any pending matrix on hold so
+    // the auto-apply effect cannot consume it (and overwrite that summary).
+    pendingHoldRef.current = Boolean(pendingMatrix)
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -755,6 +763,7 @@ export default function App() {
    */
   const handleLoadMatrix = (matrix) => {
     if (readOnlyRef.current) return
+    pendingHoldRef.current = false
     setPendingMatrix(matrix)
     setToast(PENDING_MATRIX_TOAST)
   }
@@ -763,6 +772,7 @@ export default function App() {
 
   const handlePerformanceChange = (studentId, subject, text) => {
     if (readOnlyRef.current) return
+    pendingHoldRef.current = false
     // On the final tab the annotation belongs to the finalPerformances slice,
     // keyed by normalized name — the same matching rule as period reports.
     if (isFinal) {
@@ -797,6 +807,7 @@ export default function App() {
 
   const handleScoreChange = (studentId, subject, value) => {
     if (readOnlyRef.current || !activeReport) return
+    pendingHoldRef.current = false
     setReports((current) =>
       current.map((reportEntry) =>
         reportEntry.id === activeReport.id
@@ -837,6 +848,7 @@ export default function App() {
 
   const handleReset = () => {
     if (readOnlyRef.current) return
+    pendingHoldRef.current = false
     setReports([])
     setActiveReportId(null)
     setTab('period')
