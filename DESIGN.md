@@ -42,5 +42,6 @@ Restricción del usuario (vinculante): paleta clara, amable y gentil — nada de
 
 ## Verificación
 - `impeccable detect` limpio (0 anti-patrones, 0 avisos) sobre la página sirviendo. Todo texto nuevo pasa AA: navbar y form-link usan `#6f6757`/`#3e6fa8` (ya verificados en tokens); el verde `#55704f` del sello mide 5.36:1 (AA pleno) y es decorativo `aria-hidden`.
+- Línea de persistencia en Configuración (Plex Mono 12.5px, `#6f6757`): «Almacenamiento protegido en este navegador.» o aviso de backup; aparece solo al resolverse la solicitud, sin toast ni cambio de layout.
 - Capturas: `.impeccable/review/landing-v2-desktop.png`, `landing-v2-mobile.png` (fresh load, settle + thump terminados, 1.5s).
 - e2e: `e2e/landing.spec.js` (5 tests) + suite trackeada completa 17/17. (Un `e2e/contact.spec.js` WIP de PR paralelo vive sin trackear; no corre en este gate.)

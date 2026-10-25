@@ -17,6 +17,7 @@ import {
 import { idb } from './utils/idbStorage'
 import { createPersistQueue, loadDataState, migrateLegacy } from './utils/idbState'
 import { fillPerformances, makeId } from './utils/parser'
+import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync } from './utils/tabSync'
 
@@ -69,6 +70,8 @@ const readSessionFallback = () => ({
   finalPerformances: readStorage(STORAGE_KEYS.finalPerformances) ?? {},
 })
 
+const persistence = createPersistenceRequester()
+
 let bootPromise = null
 
 const boot = () => {
@@ -116,12 +119,15 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
+  const [persistenceStatus, setPersistenceStatus] = useState()
   const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
   const [hash, setHash] = useState(() => window.location.hash)
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
   const tabSyncRef = useRef(null)
+  const mountedRef = useRef(true)
+  const persistenceRequestedRef = useRef(false)
   const [dataQueue] = useState(() =>
     createPersistQueue({
       write: async (key, value) => {
@@ -132,6 +138,14 @@ export default function App() {
         const saved = await idb.set(key, value)
         // Announce the committed batch so other tabs converge on it.
         tabSyncRef.current?.notify()
+        // Persistence is requested only after the first committed write: a
+        // page that never stored anything must not trigger the prompt.
+        if (saved && !persistenceRequestedRef.current && storageModeRef.current === 'idb') {
+          persistenceRequestedRef.current = true
+          void persistence.requestOnce().then(() => {
+            if (mountedRef.current) setPersistenceStatus(persistence.getStatus())
+          })
+        }
         return saved
       },
       onError: () => setToast(SAVE_ERROR_TOAST),
@@ -213,6 +227,13 @@ export default function App() {
   }, [dataQueue])
 
   useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     let active = true
     boot().then((state) => {
       if (active) applyHydratedState(state)
@@ -231,7 +252,7 @@ export default function App() {
   // instead of silently dropping edits (re-export the .xlsx backup then).
   const persist = (key, value) => {
     if (!writeStorage(key, value)) {
-      setToast('La pestaña no pudo guardar la sesión (cuota llena): exportá el backup (.xlsx) para no perder datos.')
+      setToast('La pestaña no pudo guardar la sesión (cuota llena): exporta el backup (.xlsx) para no perder datos.')
     }
   }
   useEffect(() => {
@@ -609,6 +630,7 @@ export default function App() {
         <SetupModal
           initialRun={!configured}
           initialConfig={config}
+          persistenceStatus={persistenceStatus}
           onSave={handleConfigSave}
           onClose={() => setSettingsOpen(false)}
         />
