@@ -1,10 +1,10 @@
-# SPEC.md - MVP 0.0.1: Generador SPA de Informes Académicos sin Persistencia
+# SPEC.md - MVP 0.0.1: Generador SPA de Informes Académicos con persistencia local
 
 ---
 
 ## 1. Visión General del Producto y Objetivos
 
-El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **React + Vite + Tailwind CSS**, diseñada para la generación y exportación de informes académicos institucionales de manera **100% del lado del cliente**, sin almacenamiento en bases de datos y con una política de seguridad estricta basada en sesiones volátiles (`sessionStorage`).
+El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **React + Vite + Tailwind CSS**, diseñada para la generación y exportación de informes académicos institucionales de manera **100% del lado del cliente**: los datos del colegio se guardan en IndexedDB del navegador (sin backend ni telemetría) y el estado de vista de cada pestaña en `sessionStorage`.
 
 ### Principales Características del MVP:
 1. **Modo Dual de Entrada:** 
@@ -23,7 +23,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
 
 *   **RF-01: Configuración Inicial de Escala y Escudo:**
     *   Al abrir la SPA, se presenta un modal de configuración inicial con valores predeterminados (Bajo: 0.0-2.9, Básico: 3.0-3.9, Alto: 4.0-4.5, Superior: 4.6-5.0) editables por el usuario.
-    *   Permite cargar una imagen PNG transparente (`logo.png`) que se almacena en memoria volátil para aplicarla como marca de agua en los informes.
+    *   Permite cargar una imagen PNG transparente (`logo.png`) que se guarda en el navegador junto con la configuración para aplicarla como marca de agua en los informes.
 *   **RF-02: Ingreso de Datos por Importación o Manual (Vanilla):**
     *   *Opción A:* Subir archivo `.xlsx` (formato tabular horizontal con columnas de Estudiante, Grado, Docente y asignaturas dinámicas).
     *   *Opción B:* Interfaz interactiva "Crear Manualmente" donde el usuario define el grado, docente, lista de estudiantes y un número variable de asignaturas ($N$).
@@ -52,7 +52,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
 
 ## 3. Requerimientos No Funcionales (RNF)
 
-*   **RNF-01: Privacidad y Volatilidad (Sin Base de Datos):** Ninguna información se envía a servidores externos ni se almacena permanentemente. El estado reside en la memoria de la pestaña mediante `sessionStorage`, resurgiendo ante recargas de página y destruyéndose al cerrar el navegador.
+*   **RNF-01: Privacidad y persistencia local (sin backend):** Ninguna información se envía a servidores externos ni se recolecta telemetría. Los datos del colegio —configuración, informes de periodo, desempeños y desempeños del informe final— se guardan en IndexedDB del navegador para este sitio. El trabajo sobrevive a recargas y a reinicios del equipo; las escrituras ya confirmadas se conservan al cerrar la pestaña, aunque una edición hecha justo antes de cerrar puede no alcanzar a guardarse. Se pierde si se cambia de navegador o de computadora (otro navegador no ve estos datos), si se borran los datos del sitio (cookies y almacenamiento del sitio; vaciar solo la caché no siempre alcanza), si se usa el modo privado, si el navegador puede liberar espacio bajo presión de cuota o si se usa **Nuevo informe**, que borra los informes y los desempeños finales guardados (sin confirmación). El respaldo `.xlsx` —periodos, notas, desempeños de período y desempeños finales— es el puente entre equipos y navegadores. Una sola pestaña edita a la vez cuando el navegador ofrece Web Locks: las demás quedan en solo lectura y se activan al cerrarse la editora; sin esa API ambas pueden editar y vale la última escritura. Sin IndexedDB, el trabajo vive por pestaña y no hay coordinación entre pestañas.
 *   **RNF-02: Rendimiento y Despliegue:** Aplicación ligera construida con Vite, optimizada para despliegue instantáneo en el tier gratuito de Vercel.
 *   **RNF-03: Estilos de Impresión y Marca de Agua:** Uso de Tailwind CSS con utilidades específicas de impresión (`@media print`) y posicionamiento absoluto para el escudo con opacidad reducida (`opacity-10`) que garantiza legibilidad sin obstruir el contenido textual.
 
@@ -71,4 +71,4 @@ src/
 ├── utils/
 │   ├── parser.js               # Lectura SheetJS y generador de estructura de datos manual
 │   └── exporter.js             # Lógica de impresión, html2canvas/jsPDF y empaquetado JSZip
-└── App.jsx                     # Orquestador principal y gestión de sessionStorage
+└── App.jsx                     # Orquestador principal: hidratación desde IndexedDB y estado de vista por pestaña

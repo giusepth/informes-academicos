@@ -15,14 +15,15 @@ produce el boletín final con:
 - **Valoración cualitativa** por asignatura (aplica redondeo institucional),
 - promedio general final, valoración general y puesto (ranking denso).
 
-El informe final es **derivado, no persistido**: no se guarda aparte ni se
-edita; siempre se recalcula desde los informes de periodos cargados.
+El informe final es **derivado**: siempre se recalcula desde los informes de
+periodos cargados. Solo sus desempeños editables se persisten en una capa
+aparte, para que reimportar periodos no los pise.
 
 ## 2. Flujo del docente
 
-1. **Informe 1**: al abrir la app por primera vez, importá `informe-1.xlsx`
-   (o creá todo a mano con "Crear manualmente"). Queda como el único informe.
-2. **Informe 2..4**: en la barra **Gestión de informes** usá
+1. **Informe 1**: al abrir la app por primera vez, importa `informe-1.xlsx`
+   (o crea todo a mano con "Crear manualmente"). Queda como el único informe.
+2. **Informe 2..4**: en la barra **Gestión de informes** usa
    **"Importar Excel (periodo)"** para cada archivo nuevo, o
    **"Nuevo periodo en blanco"** que clona el informe activo (mismos
    estudiantes/asignaturas/docentes, notas vacías) para llenarlo a mano.
@@ -63,25 +64,42 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 | Promedio general | Promedio **crudo** de los promedios por asignatura (dos decimales visibles). |
 | Puesto | `rankStudents`: orden por promedio crudo, empates comparten puesto y la numeración es **densa** (sin saltos) — RF-05. |
 | Docente por asignatura | **Gana el informe más reciente**: si el docente cambió a mitad de año, el final refleja el último cargado. |
-| Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. En cada asignatura solo pueden verlos los informes de periodo. |
+| Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. Se muestran solo en la pestaña del informe final; los informes de periodo no ven estas anotaciones. |
 | Matriz descriptiva | `Cargar desempeños (excel)` importa una hoja `Asignatura × Bajo/Básico/Alto/Superior` con textos, y **precarga solo casilleros vacíos** usando la banda del redondeo institucional (`roundUpTenth` antes de `qualitativeFor`). Aplica en el informe activo o en el final (claves por nombre); los juicios ya escritos por el docente no se pisan. |
 
 ## 5. Modelo y persistencia (RNF-01)
 
-Todo en `sessionStorage` (volátil: sobrevive a recargas, muere al cerrar la
-pestaña), clave por clave:
+Los datos del colegio viven en IndexedDB del navegador (base `informes`, store
+`kv`), por sitio: sobreviven a recargas y a reinicios del equipo; las escrituras
+ya confirmadas se conservan al cerrar la pestaña, aunque una edición hecha justo
+antes de cerrar puede no alcanzar a guardarse. El estado de vista vive en
+`sessionStorage`, por pestaña. Se pierde si se cambia de navegador o
+computadora, si se borran los datos del sitio, en modo privado, si el navegador
+puede liberar espacio bajo presión de cuota o si se usa **Nuevo informe** (borra los
+informes y los desempeños finales guardados, sin confirmación). El backup
+`.xlsx` —periodos, notas, desempeños de período y desempeños finales— es el
+puente entre equipos: se exporta desde **Exportar backup (.xlsx)** y se
+re-importa al abrir la app en el otro navegador.
 
-| Clave | Contenido |
+| Clave (IndexedDB) | Contenido |
 |---|---|
 | `informes.reports` | Array de informes de periodo: `{ id, label, grade, teacher, subjects[], teachers{}, students[] }`. `label` es `Informe N`. |
-| `informes.activeReport` | `id` del informe activo. |
-| `informes.tab` | `period` o `final`. |
-| `informes.selected` | Estudiante seleccionado. |
 | `informes.finalPerformances` | Desempeños del informe final: `{ NOMBRE: { Asignatura: texto } }`. |
 | `informes.config` | Escala, institución, periodo, escudo en base64. |
-| `informes.report` | ⚠ clave legacy (primitivo). Se migra una sola vez a `informes.reports` como `Informe 1`. |
+| `informes.migratedFromSession` | Bandera de la migración única desde la versión anterior. |
+
+Claves de estado de vista (`sessionStorage`, por pestaña): `informes.activeReport`
+(informe activo), `informes.tab` (`period` o `final`), `informes.selected`
+(estudiante seleccionado) e `informes.entered` (si la pestaña ya entró a la
+herramienta).
 
 Notas del modelo:
+
+- **Migración legacy**: la versión anterior guardaba datos en `sessionStorage`.
+  En la primera apertura se importan una sola vez a IndexedDB y se marca
+  `informes.migratedFromSession`; `informes.report` (clave primitiva) se
+  envuelve como `Informe 1`. Si la migración falla, la app sigue con la copia
+  de la pestaña en modo sesión, sin bloquear el arranque.
 
 - `subjects` sigue siendo `string[]` porque es la **clave** de `scores` y
   `teachers` por estudiante; el docente por asignatura vive en el mapa
@@ -89,6 +107,11 @@ Notas del modelo:
 - Al duplicar un periodo (`Nuevo periodo en blanco`) los estudiantes se
   regeneran con ids nuevos: las observaciones/desempeños son por periodo y
   compartir id filtraría ediciones a todos los informes a la vez.
+- El backup reserva la hoja `Final (desempeños)` (formato largo
+  `Estudiante | Asignatura | Desempeño`) para las anotaciones del informe final;
+  la exportación la escribe solo si hay al menos una anotación con texto y la
+  importación la restaura junto con los periodos. Un backup anterior, sin esa
+  hoja, no borra las anotaciones que ya tenga el navegador.
 
 ## 6. Verificación
 
@@ -112,8 +135,9 @@ node samples/make-sample-workbooks.cjs ~/Downloads
 
 - El import **de periodo individual** (`Importar Excel (periodo)`) ejecuta una
   sola hoja. El **backup** (`Exportar backup (.xlsx)` / re-import desde la
-  pantalla inicial) en cambio trabaja con una hoja por informe y restaura la
-  sesión multi-periodo completa, desempeños incluidos.
+  pantalla inicial) en cambio trabaja con una hoja por informe más la hoja
+  `Final (desempeños)`, y restaura la sesión multi-periodo completa: periodos,
+  notas, desempeños de período y desempeños finales.
 - Cambiar nombres de estudiantes entre periodos los desempareja (se combinan
   por nombre; es la identidad institucional esperada). Los desempeños finales
   siguen la misma identidad: si se renombra a un estudiante, el texto guardado

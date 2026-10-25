@@ -17,7 +17,7 @@ export default function ReportPreview({ config, report, student, variant = 'peri
       <div className="no-print sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-sm font-semibold text-slate-800">Vista previa del informe</h2>
-          <span className="text-xs text-slate-500">También podés imprimir con Ctrl + P</span>
+          <span className="text-xs text-slate-500">También puedes imprimir con Ctrl + P</span>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => window.print()}>Imprimir</Button>

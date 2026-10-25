@@ -155,8 +155,8 @@ export default function SetupModal({
             Escala de calificación
           </p>
           <p className="mb-2 text-xs text-slate-500">
-            ¿Calificás de 1.0 a 5.0 o de 1 a 100? Esto define los rangos por defecto de
-            cada banda; después los podés ajustar a mano.
+            ¿Calificas de 1.0 a 5.0 o de 1 a 100? Esto define los rangos por defecto de
+            cada banda; después puedes ajustarlos a mano.
           </p>
           <div className="flex flex-wrap gap-2">
             {SCALE_TYPES.map((type) => (
@@ -253,7 +253,7 @@ export default function SetupModal({
             </div>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Se usa como marca de agua en el informe. La imagen queda solo en memoria.
+            Se usa como marca de agua en el informe. Se guarda en este navegador junto con la configuración.
           </p>
         </div>
 

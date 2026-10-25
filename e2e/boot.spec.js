@@ -12,4 +12,8 @@ test('UI copy states the no-server privacy promise (RNF-01)', async ({ page }) =
   await expect(
     page.getByText('Nada se sube a un servidor.'),
   ).toBeVisible()
+  await expect(
+    page.getByText('Genera y exporta informes 100% en tu navegador.'),
+  ).toBeVisible()
+  await expect(page.getByText(/Generá y exportá/)).toHaveCount(0)
 })

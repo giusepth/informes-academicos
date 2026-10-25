@@ -120,7 +120,7 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial, maxScore 
   const handleSubmit = () => {
     const validSubjects = subjects.map((s) => s.trim()).filter(Boolean)
     if (validSubjects.length === 0) {
-      setError('Agregá al menos una asignatura.')
+      setError('Agrega al menos una asignatura.')
       return
     }
     const validStudents = students
@@ -134,7 +134,7 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial, maxScore 
         performances: Object.fromEntries(validSubjects.map((subject) => [subject, ''])),
       }))
     if (validStudents.length === 0) {
-      setError('Agregá al menos un estudiante con nombre.')
+      setError('Agrega al menos un estudiante con nombre.')
       return
     }
     onLoaded({

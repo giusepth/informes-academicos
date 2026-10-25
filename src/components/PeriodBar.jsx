@@ -14,6 +14,7 @@ import { Button, TextInput } from './ui'
  */
 export default function PeriodBar({
   reports,
+  finalPerformances = {},
   activeReportId,
   activeTab,
   onSelectReport,
@@ -56,7 +57,7 @@ export default function PeriodBar({
     setBusy(true)
     setError('')
     try {
-      await buildBackupWorkbook(reports)
+      await buildBackupWorkbook(reports, finalPerformances)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo generar el backup.')
     } finally {
@@ -141,7 +142,7 @@ export default function PeriodBar({
         size="sm"
         disabled={busy || reports.length === 0}
         onClick={handleBackup}
-        title="Descarga un .xlsx con una hoja por informe (notas, docentes y desempeños). Podés volver a importarlo más tarde."
+        title="Descarga un .xlsx con una hoja por informe (notas, docentes y desempeños de período) y los desempeños del informe final. Puedes volver a importarlo más tarde."
       >
         Exportar backup (.xlsx)
       </Button>
