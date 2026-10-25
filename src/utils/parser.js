@@ -1,4 +1,4 @@
-import { roundForScale } from './calculations'
+import { DEFAULT_SCALE, roundForScale } from './calculations'
 
 /**
  * Tabular spreadsheet parser (SheetJS).
@@ -219,6 +219,9 @@ export async function parsePerformanceMatrix(arrayBuffer) {
   const XLSX = await loadXlsx()
   const workbook = XLSX.read(arrayBuffer, { type: 'array' })
   for (const name of workbook.SheetNames) {
+    // The template ships its guide on this reserved sheet: skip it explicitly
+    // instead of paying a full sheet scan, and keep first-matrix discovery.
+    if (name === 'Instrucciones') continue
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], {
       header: 1,
       blankrows: true,
@@ -252,6 +255,132 @@ export async function parsePerformanceMatrix(arrayBuffer) {
     return matrix
   }
   throw new Error('No se detectó una hoja de matriz (columna "Asignatura" + bandas Bajo/Básico/Alto/Superior).')
+}
+
+/**
+ * Whether a parsed matrix carries at least one non-empty band text. The
+ * fill-in template ships every band empty: loading it unedited must not arm
+ * the pending flow, because there would be nothing to apply and the
+ * confirmation toast would mislead the teacher.
+ */
+export function matrixHasText(matrix) {
+  return Object.values(matrix ?? {}).some((bands) =>
+    Object.values(bands ?? {}).some((text) => String(text ?? '').trim().length > 0),
+  )
+}
+
+/** Neutral notice shown when an all-empty matrix is loaded. */
+export const EMPTY_MATRIX_MESSAGE =
+  'La plantilla no tiene textos de desempeño: completa las celdas antes de cargarla.'
+
+const PERFORMANCE_MATRIX_HEADER = ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior']
+
+/**
+ * Fill-in template rows: subject names only, every band cell EMPTY. Guidance
+ * lives in the separate `Instrucciones` sheet so loading the template as-is
+ * can never pre-load a placeholder into a report.
+ */
+const PERFORMANCE_TEMPLATE_ROWS = ['Matemáticas', 'Lengua'].map((subject) => [
+  subject,
+  ...PERFORMANCE_MATRIX_HEADER.slice(1).map(() => ''),
+])
+
+/** Neutral usage guide shipped as the template's second sheet. Never parsed. */
+const PERFORMANCE_TEMPLATE_INSTRUCTIONS = [
+  ['Instrucciones'],
+  [''],
+  ['Esta plantilla sirve para cargar textos de desempeño por asignatura y banda.'],
+  ['Columnas: Asignatura, Bajo, Básico, Alto, Superior.'],
+  ['Escribe un texto por banda en cada fila de asignatura.'],
+  [
+    'La app aplica la matriz solo en los casilleros de desempeño vacíos: lo que ya escribiste no se reemplaza.',
+  ],
+  [
+    'Ejemplo: si un estudiante obtiene 4.5 en Matemáticas, la banda es Alto y se usa el texto de la columna Alto.',
+  ],
+  [
+    'La plantilla se entrega con las celdas de banda vacías: cargarla sin completar no aplica ningún texto.',
+  ],
+  ['El archivo de ejemplo trae cuatro asignaturas con textos listos para usar.'],
+  ['La hoja Instrucciones no se lee al cargar la matriz: solo se usa la hoja Desempeños.'],
+]
+
+/**
+ * Ready-to-use matrix shipped as the sample download. Neutral teacher-register
+ * Spanish, one sentence per band, no exclamations; `parsePerformanceMatrix`
+ * reads it exactly as a teacher-authored file.
+ */
+const PERFORMANCE_SAMPLE_MATRIX = {
+  'Matemáticas': {
+    Bajo: 'Resuelve operaciones básicas con dificultad y necesita acompañamiento constante.',
+    Básico: 'Comprende los procedimientos esenciales y resuelve ejercicios con apoyo ocasional.',
+    Alto: 'Resuelve problemas con seguridad y aplica los procedimientos de forma autónoma.',
+    Superior: 'Resuelve problemas complejos con estrategias propias y explica sus procedimientos.',
+  },
+  'Ciencias Naturales': {
+    Bajo: 'Reconoce algunos conceptos del área y requiere orientación para organizar sus observaciones.',
+    Básico: 'Identifica los conceptos principales y describe fenómenos sencillos con apoyo.',
+    Alto: 'Relaciona conceptos y explica fenómenos naturales con argumentos claros.',
+    Superior: 'Formula explicaciones propias, relaciona conceptos y aplica el método científico con autonomía.',
+  },
+  'Lengua': {
+    Bajo: 'Lee textos cortos con dificultad y requiere apoyo para expresar sus ideas por escrito.',
+    Básico: 'Comprende textos sencillos y escribe ideas claras con apoyo ocasional.',
+    Alto: 'Comprende y produce textos coherentes, con vocabulario adecuado y buena organización.',
+    Superior: 'Produce textos originales y bien estructurados, y argumenta sus ideas con precisión.',
+  },
+  'Sociales': {
+    Bajo: 'Reconoce algunos hechos históricos y necesita ayuda para ubicarlos en el tiempo.',
+    Básico: 'Identifica los procesos sociales principales y los describe con apoyo.',
+    Alto: 'Relaciona hechos históricos y sociales y explica sus causas y consecuencias.',
+    Superior: 'Analiza procesos sociales con criterio propio y establece relaciones complejas entre ellos.',
+  },
+}
+
+const PERFORMANCE_SAMPLE_ROWS = Object.entries(PERFORMANCE_SAMPLE_MATRIX).map(
+  ([subject, bands]) => [subject, ...PERFORMANCE_MATRIX_HEADER.slice(1).map((band) => bands[band])],
+)
+
+/**
+ * Builds a performance-matrix workbook in memory (no download side effect) so
+ * it can be unit-tested and reused by both download wrappers. `sample: false`
+ * ships the fill-in template; `sample: true` ships the ready-to-use example.
+ * Returns { workbook, fileName }.
+ */
+export async function buildPerformanceMatrixWorkbook({ sample = false } = {}) {
+  const XLSX = await loadXlsx()
+  const rows = sample ? PERFORMANCE_SAMPLE_ROWS : PERFORMANCE_TEMPLATE_ROWS
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([PERFORMANCE_MATRIX_HEADER, ...rows]),
+    'Desempeños',
+  )
+  if (!sample) {
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet(PERFORMANCE_TEMPLATE_INSTRUCTIONS),
+      'Instrucciones',
+    )
+  }
+  return {
+    workbook,
+    fileName: sample ? 'ejemplo-desempenos.xlsx' : 'plantilla-desempenos.xlsx',
+  }
+}
+
+/** Downloads the fill-in matrix template (empty cells + instructions sheet). */
+export async function downloadPerformanceTemplate() {
+  const { workbook, fileName } = await buildPerformanceMatrixWorkbook()
+  const XLSX = await loadXlsx()
+  XLSX.writeFile(workbook, fileName)
+}
+
+/** Downloads a ready-to-use matrix with four subjects and plausible texts. */
+export async function downloadPerformanceSample() {
+  const { workbook, fileName } = await buildPerformanceMatrixWorkbook({ sample: true })
+  const XLSX = await loadXlsx()
+  XLSX.writeFile(workbook, fileName)
 }
 
 /**
@@ -291,6 +420,48 @@ export function fillPerformances(
     next[student.id] = performances
   }
   return next
+}
+
+/**
+ * Applies a matrix to one period report: returns a new student list with ONLY
+ * the empty desempeño cells filled. Pure helper shared by the manual matrix
+ * import and the pending menu apply flow; the source report is never mutated.
+ */
+export function applyMatrixToReport(report, matrix, scale = DEFAULT_SCALE, scaleType = 'decimal') {
+  const students = report?.students ?? []
+  const scoresById = Object.fromEntries(
+    students.map((student) => [student.id, student.scores ?? {}]),
+  )
+  const filled = fillPerformances(
+    students,
+    report?.subjects ?? [],
+    scoresById,
+    scale,
+    matrix,
+    scaleType,
+  )
+  return students.map((student) => ({ ...student, performances: filled[student.id] }))
+}
+
+/**
+ * Counts how many desempeño cells `applyMatrixToReport` would actually fill.
+ * The pending-matrix flow uses it to wait for real grades: a roster with no
+ * numeric scores (or a template with empty band texts) yields 0 and must not
+ * consume the pending payload.
+ */
+export function countMatrixFills(report, matrix, scale = DEFAULT_SCALE, scaleType = 'decimal') {
+  const next = applyMatrixToReport(report, matrix, scale, scaleType)
+  const students = report?.students ?? []
+  const subjects = report?.subjects ?? []
+  let count = 0
+  students.forEach((student, index) => {
+    for (const subject of subjects) {
+      const before = String(student.performances?.[subject] ?? '').trim()
+      const after = String(next[index]?.performances?.[subject] ?? '').trim()
+      if (before.length === 0 && after.length > 0) count += 1
+    }
+  })
+  return count
 }
 
 /**

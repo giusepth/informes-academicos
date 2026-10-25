@@ -21,7 +21,13 @@ import {
   migrateLegacy,
   MIGRATION_FLAG,
 } from './utils/idbState'
-import { fillPerformances, finalPerformanceKey, makeId } from './utils/parser'
+import {
+  applyMatrixToReport,
+  countMatrixFills,
+  fillPerformances,
+  finalPerformanceKey,
+  makeId,
+} from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync } from './utils/tabSync'
@@ -39,6 +45,12 @@ const STORAGE_FALLBACK_TOAST =
   'Sin almacenamiento persistente: el trabajo se guarda solo en esta pestaña.'
 const SAVE_ERROR_TOAST =
   'No se pudo guardar en este navegador; exporta el backup (.xlsx) para no perder datos.'
+const PENDING_MATRIX_TOAST =
+  'Desempeños cargados: se aplicarán al primer informe que abras.'
+// Restore hold marker kept in sessionStorage: a genuine backup restore keeps
+// the pending matrix waiting until the teacher edits or scores, even if the
+// tab reloads.
+const RESTORED_HOLD = 'restored'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -50,6 +62,10 @@ const STORAGE_KEYS = {
   entered: 'informes.entered',
   // Final-report desempeño overrides, keyed by normalized student name.
   finalPerformances: 'informes.finalPerformances',
+  // Matrix loaded from the empty main menu, waiting for the first report.
+  pendingMatrix: 'informes.pendingMatrix',
+  // Restore hold (see RESTORED_HOLD): survives a reload until a score edit.
+  pendingHold: 'informes.pendingHold',
   // Legacy single-report key; read only, kept for one-shot migration.
   legacyReport: 'informes.report',
 }
@@ -83,6 +99,12 @@ const readSessionFallback = () => ({
 })
 
 const persistence = createPersistenceRequester()
+
+/** Whether a report carries at least one real grade to band. */
+const hasNumericScore = (report) =>
+  (report?.students ?? []).some((student) =>
+    Object.values(student.scores ?? {}).some((score) => Number.isFinite(score)),
+  )
 
 // Data slices the pre-IndexedDB build kept in sessionStorage. Their presence
 // marks a tab that already used the tool, not a first-time visitor.
@@ -157,6 +179,9 @@ export default function App() {
     readStorage(STORAGE_KEYS.selected),
   )
   const [finalPerformances, setFinalPerformances] = useState({})
+  const [pendingMatrix, setPendingMatrix] = useState(() =>
+    readStorage(STORAGE_KEYS.pendingMatrix),
+  )
   const [scoreEntry, setScoreEntry] = useState(false)
   const [hydrating, setHydrating] = useState(true)
   const [activated, setActivated] = useState(false)
@@ -182,6 +207,12 @@ export default function App() {
   // A duplicated blank period switches the report and enters score entry in
   // the same render: skip the navigation reset exactly once.
   const keepScoreEntryRef = useRef(false)
+  // A restored backup must not consume a pending matrix while it shows its own
+  // restore summary. The hold is persisted so a reload keeps waiting until the
+  // teacher edits or scores again.
+  const pendingHoldRef = useRef(
+    readStorage(STORAGE_KEYS.pendingHold) === RESTORED_HOLD,
+  )
   const mountedRef = useRef(true)
   const persistenceRequestedRef = useRef(false)
   const [dataQueue] = useState(() =>
@@ -564,6 +595,7 @@ export default function App() {
     if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
   }, [finalPerformances, dataQueue, readOnly])
+  useEffect(() => persist(STORAGE_KEYS.pendingMatrix, pendingMatrix), [pendingMatrix])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
@@ -589,6 +621,31 @@ export default function App() {
 
   const scaleType = config?.scaleType ?? 'decimal'
   const maxScore = scaleType === 'centesimal' ? 100 : 5
+
+  // A matrix loaded from the empty main menu waits here until there is an
+  // active period report with students AND real grades to band. It fills ONLY
+  // empty desempeño cells and clears itself in the same batch, so it can never
+  // apply twice to the same payload. A roster without scores keeps the pending
+  // matrix waiting instead of consuming it. The final tab is excluded:
+  // annotations live elsewhere.
+  useEffect(() => {
+    // Activation lands the real lock mode/readOnly flag; before it, a reader
+    // must never consume the pending payload.
+    if (!activated || !pendingMatrix || readOnly || tab === 'final') return
+    // A restored backup keeps the pending matrix until the teacher edits/scores.
+    if (pendingHoldRef.current) return
+    if (!activeReport || (activeReport.students ?? []).length === 0) return
+
+    const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
+    if (countMatrixFills(activeReport, pendingMatrix, scale, scaleType) === 0) return
+
+    const students = applyMatrixToReport(activeReport, pendingMatrix, scale, scaleType)
+    setReports((current) =>
+      current.map((entry) => (entry.id === activeReport.id ? { ...entry, students } : entry)),
+    )
+    setPendingMatrix(null)
+    setToast(`Desempeños aplicados a ${activeReport.label ?? 'el informe activo'}.`)
+  }, [activated, pendingMatrix, activeReport, readOnly, tab, config, scaleType])
 
   // The final report ("quinto informe") is always derived from every period:
   // per-subject means across periods, ranked with the institutional rules.
@@ -624,6 +681,13 @@ export default function App() {
     [rankedStudents, activeStudentId],
   )
 
+  // The in-memory ref keeps the effect synchronous; sessionStorage carries the
+  // hold across a reload. `false` removes the key entirely.
+  const setPendingHold = (held) => {
+    pendingHoldRef.current = held
+    writeStorage(STORAGE_KEYS.pendingHold, held ? RESTORED_HOLD : null)
+  }
+
   const handleConfigSave = (nextConfig) => {
     if (readOnlyRef.current) return
     setConfig(nextConfig)
@@ -633,10 +697,23 @@ export default function App() {
 
   const handleLoaded = (data) => {
     if (readOnlyRef.current) return
+    // A normal report load supersedes any backup-restore hold: the pending
+    // matrix may apply as soon as this report has grades.
+    setPendingHold(false)
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
-    const first = { ...data, id: makeId(), label: 'Informe 1' }
+    const first = {
+      ...data,
+      id: makeId(),
+      label: 'Informe 1',
+      // The single-sheet backup parser returns raw students; the normal import
+      // parser already assigned ids. Give raw ones a fresh identity.
+      students: (data.students ?? []).map((student) => ({
+        ...student,
+        id: student.id ?? makeId(),
+      })),
+    }
     setReports([first])
     setActiveReportId(first.id)
     setTab('period')
@@ -646,6 +723,9 @@ export default function App() {
 
   const handleLoadedBackup = (rawReports, skipped = [], restoredFinalPerformances = {}) => {
     if (readOnlyRef.current) return
+    // The restore summary owns the toast. Keep any pending matrix on hold so
+    // the auto-apply effect cannot consume it (and overwrite that summary).
+    setPendingHold(Boolean(pendingMatrix))
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -674,6 +754,9 @@ export default function App() {
   const handleImportPeriod = (data) => {
     if (readOnlyRef.current) return
     const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
+    // A new period with real grades is a valid target for the pending matrix;
+    // a blank import keeps the restore hold waiting.
+    if (hasNumericScore(next)) setPendingHold(false)
     setReports((current) => [...current, next])
     setActiveReportId(next.id)
     setTab('period')
@@ -711,10 +794,23 @@ export default function App() {
     setTab('period')
   }
 
+  /**
+   * A matrix loaded while the main menu is visible has no report to fill yet:
+   * keep it pending (sessionStorage survives a reload) and let the auto-apply
+   * effect finish the job as soon as the first report has students.
+   */
+  const handleLoadMatrix = (matrix) => {
+    if (readOnlyRef.current) return
+    setPendingHold(false)
+    setPendingMatrix(matrix)
+    setToast(PENDING_MATRIX_TOAST)
+  }
+
   const handleSelectFinal = () => setTab('final')
 
   const handlePerformanceChange = (studentId, subject, text) => {
     if (readOnlyRef.current) return
+    setPendingHold(false)
     // On the final tab the annotation belongs to the finalPerformances slice,
     // keyed by normalized name — the same matching rule as period reports.
     if (isFinal) {
@@ -749,6 +845,7 @@ export default function App() {
 
   const handleScoreChange = (studentId, subject, value) => {
     if (readOnlyRef.current || !activeReport) return
+    setPendingHold(false)
     setReports((current) =>
       current.map((reportEntry) =>
         reportEntry.id === activeReport.id
@@ -789,6 +886,7 @@ export default function App() {
 
   const handleReset = () => {
     if (readOnlyRef.current) return
+    setPendingHold(false)
     setReports([])
     setActiveReportId(null)
     setTab('period')
@@ -806,6 +904,10 @@ export default function App() {
   const handleApplyMatrix = (matrix) => {
     if (readOnlyRef.current) return
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
+    // An explicit apply supersedes whatever was waiting from the menu, and the
+    // restore hold no longer has a pending payload to protect.
+    setPendingHold(false)
+    setPendingMatrix(null)
 
     if (tab === 'final' && finalReport) {
       const scoresById = Object.fromEntries(
@@ -830,22 +932,10 @@ export default function App() {
     }
 
     if (!activeReport) return
-    const subjects = activeReport.subjects ?? []
-    const scoresById = Object.fromEntries(
-      activeReport.students.map((student) => [student.id, student.scores ?? {}]),
-    )
-    const filled = fillPerformances(activeReport.students, subjects, scoresById, scale, matrix, scaleType)
+    const students = applyMatrixToReport(activeReport, matrix, scale, scaleType)
     setReports((current) =>
       current.map((reportEntry) =>
-        reportEntry.id === activeReport.id
-          ? {
-              ...reportEntry,
-              students: reportEntry.students.map((student) => ({
-                ...student,
-                performances: filled[student.id],
-              })),
-            }
-          : reportEntry,
+        reportEntry.id === activeReport.id ? { ...reportEntry, students } : reportEntry,
       ),
     )
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
@@ -988,6 +1078,7 @@ export default function App() {
           <DataInputMode
             onLoaded={handleLoaded}
             onLoadedBackup={handleLoadedBackup}
+            onLoadMatrix={handleLoadMatrix}
             onOpenSettings={() => setSettingsOpen(true)}
             hasConfig={configured}
             maxScore={maxScore}

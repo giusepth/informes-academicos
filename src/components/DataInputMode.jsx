@@ -1,5 +1,15 @@
 import { useRef, useState } from 'react'
-import { assertImportSize, downloadTemplate, parseBackupWorkbook, parseWorkbook } from '../utils/parser'
+import {
+  assertImportSize,
+  downloadPerformanceSample,
+  downloadPerformanceTemplate,
+  downloadTemplate,
+  EMPTY_MATRIX_MESSAGE,
+  matrixHasText,
+  parseBackupWorkbook,
+  parsePerformanceMatrix,
+  parseWorkbook,
+} from '../utils/parser'
 import ManualEntryForm from './ManualEntryForm'
 import { Button } from './ui'
 
@@ -7,14 +17,16 @@ import { Button } from './ui'
  * Entry point selector (RF-02): import a tabular .xlsx file or build the data
  * by hand. Owns the file reading and error surfacing.
  *
- * Imported workbooks are tried as MULTI-sheet backups first
- * (`parseBackupWorkbook`), then as a single period sheet (`parseWorkbook`).
- * One sheet and one sheet only still loads a single "Informe 1"; a workbook
- * with several Informe sheets restores the whole multi-period session.
+ * Imported workbooks are tried as backups first (`parseBackupWorkbook`), then
+ * as a single period sheet (`parseWorkbook`). Only a genuine backup (several
+ * report sheets, skipped sheets or restored final desempeños) takes the
+ * restore path; a one-sheet file with no final sheet loads a normal "Informe
+ * 1", so a pending desempeño matrix can apply on that first report.
  */
 export default function DataInputMode({
   onLoaded,
   onLoadedBackup,
+  onLoadMatrix,
   onOpenSettings,
   hasConfig,
   maxScore = 5,
@@ -22,21 +34,32 @@ export default function DataInputMode({
 }) {
   const [mode, setMode] = useState('choose')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef(null)
+  const matrixFileInputRef = useRef(null)
 
   const readFile = async (file) => {
     if (!file) return
     setBusy(true)
     setError('')
+    setNotice('')
     try {
       assertImportSize(file)
       const buffer = await file.arrayBuffer()
       try {
         const { reports, skipped, finalPerformances } = await parseBackupWorkbook(buffer)
-        if (reports.length > 0 && onLoadedBackup) {
+        const restoredFinals = Object.keys(finalPerformances ?? {}).length > 0
+        const isBackup = reports.length > 1 || skipped.length > 0 || restoredFinals
+        if (isBackup && onLoadedBackup) {
           onLoadedBackup(reports, skipped, finalPerformances)
+          return
+        }
+        if (!isBackup && reports.length === 1) {
+          // A single sheet with no final performances is a normal report, not
+          // a backup: the pending matrix must be able to apply right away.
+          onLoaded(reports[0])
           return
         }
       } catch {
@@ -46,6 +69,28 @@ export default function DataInputMode({
       onLoaded(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo leer el archivo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const readMatrixFile = async (file) => {
+    if (!file) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      assertImportSize(file)
+      const matrix = await parsePerformanceMatrix(await file.arrayBuffer())
+      // A blank matrix (the template loaded unedited) has nothing to apply:
+      // say so instead of arming a pending payload that would never fill.
+      if (!matrixHasText(matrix)) {
+        setNotice(EMPTY_MATRIX_MESSAGE)
+        return
+      }
+      onLoadMatrix?.(matrix)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo leer la matriz de desempeños.')
     } finally {
       setBusy(false)
     }
@@ -113,6 +158,50 @@ export default function DataInputMode({
           </Button>
         </div>
       </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <p className="text-base font-semibold text-slate-800">Desempeños</p>
+        <p className="mt-1 mb-4 text-sm text-slate-500">
+          Carga la matriz de textos por asignatura y banda. Se aplicará al primer informe
+          que abras, cuando tenga notas, y solo completará los casilleros de desempeño vacíos.
+        </p>
+        <input
+          ref={matrixFileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          className="hidden"
+          aria-label="Archivo de desempeños"
+          onChange={(event) => {
+            const input = event.currentTarget
+            void readMatrixFile(input.files?.[0]).finally(() => {
+              input.value = ''
+            })
+          }}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => matrixFileInputRef.current?.click()}
+            disabled={busy || readOnly}
+          >
+            Cargar desempeños (excel)
+          </Button>
+          <Button variant="secondary" onClick={downloadPerformanceTemplate}>
+            Descargar plantilla de desempeños
+          </Button>
+          <Button variant="secondary" onClick={downloadPerformanceSample}>
+            Descargar ejemplo de desempeños
+          </Button>
+        </div>
+      </div>
+
+      {notice ? (
+        <p
+          role="status"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          {notice}
+        </p>
+      ) : null}
 
       {error ? (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>

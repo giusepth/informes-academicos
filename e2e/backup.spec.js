@@ -38,7 +38,7 @@ test('full backup round trip: export, wipe session, import again', async ({ page
   await completeFirstRun(page)
   await expect(page.getByText('Importar Excel (.xlsx)')).toBeVisible()
 
-  const fileInput = page.locator('input[type=file]')
+  const fileInput = page.locator('input[type=file]').first()
   await fileInput.setInputFiles(backupPath)
 
   // The whole multi-period session comes back in one shot.
