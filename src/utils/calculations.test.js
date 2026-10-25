@@ -106,6 +106,25 @@ describe('buildFinalReport (quinto informe)', () => {
     expect(final.students[0].periodScores.M).toEqual([4, 5])
   })
 
+  it('merges saved final performances by student name (DER-08 rule)', () => {
+    const final = buildFinalReport(
+      [
+        period('Informe 1', [{ name: 'Ana', scores: { M: 4 } }]),
+        period('Informe 2', [{ name: 'Ana', scores: { M: 5 } }]),
+      ],
+      undefined,
+      { ANA: { M: 'Excelente en Matemáticas' } },
+    )
+    expect(final.students[0].performances.M).toBe('Excelente en Matemáticas')
+  })
+
+  it('keeps final performances empty when nothing was annotated', () => {
+    const final = buildFinalReport([
+      period('Informe 1', [{ name: 'Ana', scores: { M: 4 } }]),
+    ])
+    expect(final.students[0].performances.M).toBe('')
+  })
+
   it('keeps rankStudents invariants on the final ranking', () => {
     const final = buildFinalReport([
       period('Informe 1', [

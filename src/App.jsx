@@ -15,6 +15,8 @@ const STORAGE_KEYS = {
   activeReport: 'informes.activeReport',
   selected: 'informes.selected',
   tab: 'informes.tab',
+  // Final-report desempeño overrides, keyed by normalized student name.
+  finalPerformances: 'informes.finalPerformances',
   // Legacy single-report key; read only, kept for one-shot migration.
   legacyReport: 'informes.report',
 }
@@ -65,6 +67,9 @@ export default function App() {
   const [selectedStudentId, setSelectedStudentId] = useState(() =>
     readStorage(STORAGE_KEYS.selected),
   )
+  const [finalPerformances, setFinalPerformances] = useState(() =>
+    readStorage(STORAGE_KEYS.finalPerformances) ?? {},
+  )
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
@@ -77,6 +82,7 @@ export default function App() {
   useEffect(() => writeStorage(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => writeStorage(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => writeStorage(STORAGE_KEYS.tab, tab), [tab])
+  useEffect(() => writeStorage(STORAGE_KEYS.finalPerformances, finalPerformances), [finalPerformances])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -91,9 +97,14 @@ export default function App() {
 
   // The final report ("quinto informe") is always derived from every period:
   // per-subject means across periods, ranked with the institutional rules.
+  // Final-sheet desempeño annotations are kept in their own storage slice so a
+  // period re-import can never overwrite them.
   const finalReport = useMemo(
-    () => (reports.length > 0 ? buildFinalReport(reports, config?.scale ?? DEFAULT_SCALE) : null),
-    [reports, config],
+    () =>
+      reports.length > 0
+        ? buildFinalReport(reports, config?.scale ?? DEFAULT_SCALE, finalPerformances)
+        : null,
+    [reports, config, finalPerformances],
   )
 
   const isFinal = tab === 'final' && finalReport !== null
@@ -176,7 +187,19 @@ export default function App() {
   const handleSelectFinal = () => setTab('final')
 
   const handlePerformanceChange = (studentId, subject, text) => {
-    if (isFinal || !activeReport) return
+    // On the final tab the annotation belongs to the finalPerformances slice,
+    // keyed by normalized name — the same matching rule as period reports.
+    if (isFinal) {
+      const student = rankedStudents.find((entry) => entry.id === studentId)
+      if (!student) return
+      const key = student.name.trim().toUpperCase()
+      setFinalPerformances((current) => ({
+        ...current,
+        [key]: { ...current?.[key], [subject]: text },
+      }))
+      return
+    }
+    if (!activeReport) return
     setReports((current) =>
       current.map((reportEntry) =>
         reportEntry.id === activeReport.id
@@ -201,6 +224,7 @@ export default function App() {
     setActiveReportId(null)
     setTab('period')
     setSelectedStudentId(null)
+    setFinalPerformances({})
     setToast('Datos de los informes reiniciados.')
   }
 

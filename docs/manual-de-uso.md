@@ -55,9 +55,12 @@ no salta puestos).
    quedan separadas por periodo, como corresponde).
 3. El botón **"Informe N (final)"** (se numera según la cantidad cargada)
    abre el boletín que promedia cada asignatura entre los periodos: una
-   columna por informe + **Promedio** + **Valoración**. Los estudiantes se
-   emparejan **por nombre**, las ausencias no penalizan y el docente por
-   asignatura toma el del informe más reciente.
+   columna por informe + **Promedio** + **Valoración** + **Desempeño**.
+   Los estudiantes se emparejan **por nombre**, las ausencias no penalizan
+   y el docente por asignatura toma el del informe más reciente.
+4. La columna **Desempeño** del boletín final es editable: escribí ahí el
+   juicio valorativo final. Se guarda al instante y **no depende de los
+   informes de periodo**: reimportar periodos no borra lo anotado.
 
 Detalles completos del módulo: `docs/final-report.md`.
 

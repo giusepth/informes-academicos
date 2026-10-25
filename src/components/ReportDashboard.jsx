@@ -91,7 +91,13 @@ export default function ReportDashboard({
         <div className="overflow-x-auto pb-4">
           {selected ? (
             variant === 'final' ? (
-              <FinalReportSheet config={config} report={report} student={selected} />
+              <FinalReportSheet
+                config={config}
+                report={report}
+                student={selected}
+                editable
+                onPerformanceChange={onPerformanceChange}
+              />
             ) : (
               <ReportSheet
                 config={config}
