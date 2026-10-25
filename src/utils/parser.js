@@ -1,4 +1,4 @@
-import { roundUpTenth } from './calculations'
+import { roundForScale } from './calculations'
 
 /**
  * Tabular spreadsheet parser (SheetJS).
@@ -240,6 +240,8 @@ export async function parsePerformanceMatrix(arrayBuffer) {
  * institutional score selects the band and the matrix provides the text.
  * `scoresById` maps student.id → { [subject]: score }. Cells that already
  * have text, or where score/band/matrix text are missing, stay untouched.
+ * `scaleType` selects the institutional rounding rule (decimal tenth-up or
+ * centesimal integer-up) before the band lookup. Defaults to decimal.
  * Returns { [studentId]: performances } for callers to merge into state.
  */
 export function fillPerformances(
@@ -248,6 +250,7 @@ export function fillPerformances(
   scoresById = {},
   scale = DEFAULT_SCALE,
   matrix = {},
+  scaleType = 'decimal',
 ) {
   const next = {}
   for (const student of students) {
@@ -259,7 +262,7 @@ export function fillPerformances(
       const score = scoresById[student.id]?.[subject]
       if (score === null || score === undefined) continue
 
-      const rounded = roundUpTenth(score)
+      const rounded = roundForScale(score, scaleType)
       const band = scale.find((b) => rounded >= b.min && rounded <= b.max)
       if (!band) continue
 

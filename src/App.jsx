@@ -272,6 +272,7 @@ export default function App() {
         scoresById,
         scale,
         matrix,
+        scaleType,
       )
       const next = { ...finalPerformances }
       finalReport.students.forEach((student) => {
@@ -288,7 +289,7 @@ export default function App() {
     const scoresById = Object.fromEntries(
       activeReport.students.map((student) => [student.id, student.scores ?? {}]),
     )
-    const filled = fillPerformances(activeReport.students, subjects, scoresById, scale, matrix)
+    const filled = fillPerformances(activeReport.students, subjects, scoresById, scale, matrix, scaleType)
     setReports((current) =>
       current.map((reportEntry) =>
         reportEntry.id === activeReport.id
