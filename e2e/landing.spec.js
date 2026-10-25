@@ -19,6 +19,13 @@ test.describe('Landing', () => {
     await expect(page.getByText('Configuración inicial')).toBeVisible()
   })
 
+  test('privacy copy reflects browser-persistent data', async ({ page }) => {
+    await page.goto('/')
+    const privacy = page.locator('#datos')
+    await expect(privacy).toContainText(/se guardan? en este navegador/i)
+    await expect(privacy).not.toContainText(/se borra|muere al cerrar/i)
+  })
+
   test('navbar anchor "Qué hace" scrolls the features section into view', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1, name: 'De la planilla de notas a los informes listos para imprimir.' })).toBeVisible()

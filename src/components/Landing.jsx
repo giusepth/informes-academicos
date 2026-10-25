@@ -331,10 +331,10 @@ export default function Landing({ onOpen }) {
             Los datos son del colegio
           </h2>
           <p className="mt-4 max-w-[70ch] text-[15px] leading-[1.65] text-[#5d6a85]">
-            Los datos viven solo en el navegador de la pestaña que tienes abierta: no hay cuentas,
-            no hay servidores y, al cerrar la pestaña, la información se borra de la computadora.
-            Para conservar el trabajo, exporta el respaldo completo en Excel (.xlsx) y vuelve a
-            importarlo cuando abras la herramienta de nuevo.
+            Los datos se guardan en este navegador (IndexedDB), no en un servidor: siguen
+            disponibles aunque cierres la pestaña. Se pierden si cambias de navegador o
+            computadora, si borras los datos del sitio o en modo privado. Exporta el respaldo
+            .xlsx para conservarlos o pasarlos a otro equipo.
           </p>
         </div>
       </section>

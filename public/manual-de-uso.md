@@ -1,8 +1,8 @@
 # Informes académicos — Manual de uso
 
 Guía del docente/rector para generar, cargar y exportar informes académicos.
-Nada se sube a un servidor: todo vive en la pestaña del navegador
-(sessionStorage) y muere al cerrarla. Documentación de módulos en `docs/`.
+Nada se sube a un servidor: todo se guarda en el navegador (IndexedDB) y
+sigue disponible aunque cierres la pestaña. Documentación de módulos en `docs/`.
 
 ## 0. La página de entrada
 
@@ -59,7 +59,8 @@ no salta puestos).
 - **Lista de estudiantes** (izquierda): cursor para elegir el estudiante;
   muestra posición y promedio.
 - **Boletín editable** (derecha): en cada asignatura edita la nota y el
-  **desempeño** (juicio valorativo). Se guarda en la pestaña al instante.
+  **desempeño** (juicio valorativo). Se guarda en este navegador al instante y
+  sigue disponible aunque cierres la pestaña.
 - **Gestión de informes**: con más de un periodo cargado aparece una pestaña
   por informe, además del botón del informe final.
 
@@ -89,11 +90,11 @@ Detalles completos del módulo: `docs/final-report.md`.
   interfaz queda fuera de la impresión).
 - **Generar ZIP (todos)**: descarga un .zip con un PDF por estudiante.
 - **Exportar backup (.xlsx)**: descarga un Excel con **una hoja por informe**
-  (notas, docentes por asignatura y desempeños incluidos). Es tu resguardo:
-  la sesión vive en `sessionStorage` y muere al cerrar la pestaña.
-  Para recuperar: abre la app en una sesión nueva, completa la configuración
-  y **empieza por importar ese mismo archivo** (si detecta hojas Informe N
-  restaura todo el año de una vez).
+  (notas, docentes por asignatura y desempeños incluidos). Es tu resguardo
+  para pasar el trabajo a otro equipo o antes de borrar los datos del sitio.
+  Para recuperar: abre la app en otro navegador o computadora, completa la
+  configuración y **empieza por importar ese mismo archivo** (si detecta hojas
+  Informe N restaura todo el año de una vez).
 - **Cargar desempeños (excel)**: importa la **matriz descriptiva** —una hoja
   `Asignatura | Bajo | Básico | Alto | Superior` con el texto que usas por
   banda— y precarga los casilleros de desempeño que están **vacíos** según la
@@ -103,8 +104,15 @@ Detalles completos del módulo: `docs/final-report.md`.
 
 ## 6. Consejos y límites actuales
 
-- Los datos **no salen del navegador** excepto por los archivos que
-  descargas: exporta tu backup antes de cerrar la pestaña.
+- Los datos se guardan en este navegador y **no salen a un servidor** excepto
+  por los archivos que descargas. Se pierden si cambias de navegador o
+  computadora, si borras los datos del sitio o si usas el modo privado.
+- Exporta el backup .xlsx si vas a trabajar en otro equipo o antes de borrar
+  los datos del sitio.
+- En un equipo compartido, cualquier persona que use ese navegador puede
+  abrir la herramienta y ver el trabajo guardado.
+- El navegador puede liberar espacio automáticamente y borrar los datos si
+  necesita almacenamiento; el backup .xlsx es la copia segura.
 - Si escribes desempeños largos, el boletín puede superar una página A4:
   la exportación a PDF corta el contenido en páginas automáticamente y la
   impresión del navegador respetará el paginado nativo.
