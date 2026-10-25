@@ -195,4 +195,67 @@ describe('createWriterLock', () => {
     const third = createWriterLock({ locks, name: 'test.writer' })
     await expect(third.acquire()).resolves.toBe('writer')
   })
+
+  it('re-requests the lock after release instead of reusing the memoized result', async () => {
+    const locks = createFakeLocks()
+    const lock = createWriterLock({ locks, name: 'test.writer' })
+
+    await expect(lock.acquire()).resolves.toBe('writer')
+    expect(locks.requests()).toBe(1)
+
+    lock.release()
+    await settle()
+
+    await expect(lock.acquire()).resolves.toBe('writer')
+    expect(locks.requests()).toBe(2)
+  })
+
+  it('does not double-invoke a promotion callback after the grant', async () => {
+    const locks = createFakeLocks()
+    const first = createWriterLock({ locks, name: 'test.writer' })
+    await first.acquire()
+
+    const second = createWriterLock({ locks, name: 'test.writer' })
+    await second.acquire()
+    const onGranted = vi.fn()
+
+    const promotion = second.promote(onGranted)
+    first.release()
+    await promotion
+    expect(onGranted).toHaveBeenCalledTimes(1)
+
+    const requestsAfterGrant = locks.requests()
+    await expect(second.promote(onGranted)).resolves.toBe(true)
+    expect(onGranted).toHaveBeenCalledTimes(1)
+    expect(locks.requests()).toBe(requestsAfterGrant)
+  })
+
+  it('promotes once even when called while already writer', async () => {
+    const locks = createFakeLocks()
+    const lock = createWriterLock({ locks, name: 'test.writer' })
+    await lock.acquire()
+    const onGranted = vi.fn()
+
+    await expect(lock.promote(onGranted)).resolves.toBe(true)
+    await expect(lock.promote(onGranted)).resolves.toBe(true)
+
+    expect(onGranted).toHaveBeenCalledTimes(1)
+    expect(locks.requests()).toBe(1)
+  })
+
+  it('release then acquire yields writer again with fake locks', async () => {
+    const locks = createFakeLocks()
+    const lock = createWriterLock({ locks, name: 'test.writer' })
+    await lock.acquire()
+    expect(lock.isWriter).toBe(true)
+
+    lock.release()
+    await settle()
+    expect(lock.isWriter).toBe(false)
+    expect(locks.isHeld('test.writer')).toBe(false)
+
+    await expect(lock.acquire()).resolves.toBe('writer')
+    expect(lock.isWriter).toBe(true)
+    expect(locks.isHeld('test.writer')).toBe(true)
+  })
 })

@@ -24,6 +24,7 @@ export function createWriterLock({ locks = globalThis.navigator?.locks, name = D
   let writer = false
   let acquirePromise = null
   let promotePromise = null
+  let promoted = false
   let releaseHeld = null
   const promoteCallbacks = new Set()
 
@@ -91,6 +92,10 @@ export function createWriterLock({ locks = globalThis.navigator?.locks, name = D
       return Promise.resolve(false)
     }
     if (writer) {
+      // Once-guard: repeated calls (or a call after a granted promotion) must
+      // never deliver the callback twice for the same writer grant.
+      if (promoted) return Promise.resolve(true)
+      promoted = true
       if (typeof onGranted === 'function') {
         try {
           onGranted()
@@ -114,6 +119,7 @@ export function createWriterLock({ locks = globalThis.navigator?.locks, name = D
       try {
         const request = locks.request(name, { mode: 'exclusive' }, () => {
           writer = true
+          promoted = true
           const callbacks = [...promoteCallbacks]
           promoteCallbacks.clear()
           callbacks.forEach((callback) => {
@@ -143,9 +149,17 @@ export function createWriterLock({ locks = globalThis.navigator?.locks, name = D
     return promotePromise
   }
 
-  /** Best-effort release: resolves the promise the browser is waiting on. */
+  /**
+   * Best-effort release: resolves the promise the browser is waiting on and
+   * resets the memoized lifecycle so a later acquire actually re-requests
+   * instead of replaying the previous (already released) result.
+   */
   const release = () => {
     writer = false
+    acquirePromise = null
+    promotePromise = null
+    promoted = false
+    promoteCallbacks.clear()
     const resolve = releaseHeld
     releaseHeld = null
     resolve?.()
