@@ -382,7 +382,7 @@ export const MAX_IMPORT_BYTES = 10 * 1024 * 1024
 export function assertImportSize(file) {
   if (!file || !(file.size > MAX_IMPORT_BYTES)) return
   const mb = (file.size / (1024 * 1024)).toFixed(1)
-  throw new Error(`El archivo supera el límite de 10 MB (${mb} MB). Dividilo por periodo o pedilo más liviano.`)
+  throw new Error(`El archivo supera el límite de 10 MB (${mb} MB). Divídelo por periodo o pídelo más liviano.`)
 }
 
 /**

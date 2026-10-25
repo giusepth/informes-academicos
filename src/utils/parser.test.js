@@ -200,6 +200,9 @@ describe('assertImportSize', () => {
     expect(() => assertImportSize({ name: 'pesado.xlsx', size: 11 * 1024 * 1024 + 1 })).toThrow(
       /supera el límite de 10 MB/,
     )
+    expect(() => assertImportSize({ name: 'pesado.xlsx', size: 11 * 1024 * 1024 + 1 })).toThrow(
+      /Divídelo por periodo o pídelo más liviano/,
+    )
     expect(() => assertImportSize(null)).not.toThrow()
   })
 })
