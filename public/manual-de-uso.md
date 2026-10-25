@@ -63,11 +63,11 @@ Antes de crear el primer informe, la pantalla inicial ofrece la sección
 
 - **Cargar desempeños (excel)**: importa la matriz descriptiva del colegio.
   Como todavía no hay informes, la matriz queda **pendiente** y se aplica
-  automáticamente al **primer informe que abras**, cuando tenga estudiantes y
-  al menos una nota. Si el informe todavía no tiene notas, la matriz sigue
-  pendiente y no se consume. El aviso confirma la carga y, después, el informe
-  donde se aplicó. La carga pendiente se conserva en esta pestaña aunque
-  recargues la página.
+  automáticamente al **primer informe que abras**, sea manual o importado como
+  archivo de un solo informe, cuando tenga estudiantes y al menos una nota.
+  Si el informe todavía no tiene notas, la matriz sigue pendiente y no se
+  consume. El aviso confirma la carga y, después, el informe donde se aplicó.
+  La carga pendiente se conserva en esta pestaña aunque recargues la página.
 - **Descargar plantilla de desempeños** (`plantilla-desempenos.xlsx`): matriz
   con los encabezados `Asignatura | Bajo | Básico | Alto | Superior`, una
   segunda hoja **Instrucciones** con la guía de uso y las celdas de banda

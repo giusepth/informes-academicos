@@ -15,10 +15,11 @@ import { Button } from './ui'
  * Entry point selector (RF-02): import a tabular .xlsx file or build the data
  * by hand. Owns the file reading and error surfacing.
  *
- * Imported workbooks are tried as MULTI-sheet backups first
- * (`parseBackupWorkbook`), then as a single period sheet (`parseWorkbook`).
- * One sheet and one sheet only still loads a single "Informe 1"; a workbook
- * with several Informe sheets restores the whole multi-period session.
+ * Imported workbooks are tried as backups first (`parseBackupWorkbook`), then
+ * as a single period sheet (`parseWorkbook`). Only a genuine backup (several
+ * report sheets, skipped sheets or restored final desempeños) takes the
+ * restore path; a one-sheet file with no final sheet loads a normal "Informe
+ * 1", so a pending desempeño matrix can apply on that first report.
  */
 export default function DataInputMode({
   onLoaded,
@@ -45,8 +46,16 @@ export default function DataInputMode({
       const buffer = await file.arrayBuffer()
       try {
         const { reports, skipped, finalPerformances } = await parseBackupWorkbook(buffer)
-        if (reports.length > 0 && onLoadedBackup) {
+        const restoredFinals = Object.keys(finalPerformances ?? {}).length > 0
+        const isBackup = reports.length > 1 || skipped.length > 0 || restoredFinals
+        if (isBackup && onLoadedBackup) {
           onLoadedBackup(reports, skipped, finalPerformances)
+          return
+        }
+        if (!isBackup && reports.length === 1) {
+          // A single sheet with no final performances is a normal report, not
+          // a backup: the pending matrix must be able to apply right away.
+          onLoaded(reports[0])
           return
         }
       } catch {

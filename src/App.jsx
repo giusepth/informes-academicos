@@ -94,6 +94,12 @@ const readSessionFallback = () => ({
 
 const persistence = createPersistenceRequester()
 
+/** Whether a report carries at least one real grade to band. */
+const hasNumericScore = (report) =>
+  (report?.students ?? []).some((student) =>
+    Object.values(student.scores ?? {}).some((score) => Number.isFinite(score)),
+  )
+
 // Data slices the pre-IndexedDB build kept in sessionStorage. Their presence
 // marks a tab that already used the tool, not a first-time visitor.
 const LEGACY_SESSION_DATA_KEYS = [
@@ -666,6 +672,11 @@ export default function App() {
     [rankedStudents, activeStudentId],
   )
 
+  // The in-memory ref keeps the auto-apply effect synchronous.
+  const setPendingHold = (held) => {
+    pendingHoldRef.current = held
+  }
+
   const handleConfigSave = (nextConfig) => {
     if (readOnlyRef.current) return
     setConfig(nextConfig)
@@ -675,10 +686,23 @@ export default function App() {
 
   const handleLoaded = (data) => {
     if (readOnlyRef.current) return
+    // A normal report load supersedes any backup-restore hold: the pending
+    // matrix may apply as soon as this report has grades.
+    setPendingHold(false)
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
-    const first = { ...data, id: makeId(), label: 'Informe 1' }
+    const first = {
+      ...data,
+      id: makeId(),
+      label: 'Informe 1',
+      // The single-sheet backup parser returns raw students; the normal import
+      // parser already assigned ids. Give raw ones a fresh identity.
+      students: (data.students ?? []).map((student) => ({
+        ...student,
+        id: student.id ?? makeId(),
+      })),
+    }
     setReports([first])
     setActiveReportId(first.id)
     setTab('period')
@@ -719,6 +743,9 @@ export default function App() {
   const handleImportPeriod = (data) => {
     if (readOnlyRef.current) return
     const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
+    // A new period with real grades is a valid target for the pending matrix;
+    // a blank import keeps the restore hold waiting.
+    if (hasNumericScore(next)) setPendingHold(false)
     setReports((current) => [...current, next])
     setActiveReportId(next.id)
     setTab('period')
