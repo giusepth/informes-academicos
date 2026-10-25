@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { formatScore, qualitativeFor, roundForScale, toneFor } from '../utils/calculations'
 import { cx } from '../utils/cx'
+import { parseScoreInput } from '../utils/scoreInput'
 import { Info, SignatureField, ToneBadge } from './ui'
 
 /**
@@ -8,6 +10,10 @@ import { Info, SignatureField, ToneBadge } from './ui'
  * `editable` renders the "desempeño" cells as textareas for on-screen editing.
  * The exported/printed copy uses `editable={false}` so the capture shows clean
  * text instead of input boxes.
+ *
+ * `editableScores` turns each score cell into a comma-safe text input for
+ * manual entry (blank periods). It is screen-only: exports and print always
+ * keep the static sheet.
  *
  * Score display and institutional rounding follow `config.scaleType`
  * (1.0–5.0 decimal or 1–100 centesimal).
@@ -18,7 +24,9 @@ export default function ReportSheet({
   report,
   student,
   editable = false,
+  editableScores = false,
   onPerformanceChange,
+  onScoreChange,
   className,
 }) {
   const subjects = report.subjects
@@ -26,6 +34,44 @@ export default function ReportSheet({
   const scaleType = config.scaleType ?? 'decimal'
   const teachers = report.teachers ?? {}
   const hasSubjectTeachers = subjects.some((subject) => teachers[subject])
+  const maxScore = scaleType === 'centesimal' ? 100 : 5
+
+  // Screen-only drafts keyed `${studentId}:${subject}` keep partial values
+  // (like "3,") editable until commit. They are discarded when edit mode
+  // closes or the report/student changes: the canonical value always comes
+  // from the committed score.
+  const [scoreDrafts, setScoreDrafts] = useState({})
+  useEffect(() => {
+    setScoreDrafts({})
+  }, [editableScores, report.id, student.id, scaleType])
+
+  const clearDraft = (key) => {
+    setScoreDrafts((current) => {
+      if (!(key in current)) return current
+      const next = { ...current }
+      delete next[key]
+      return next
+    })
+  }
+
+  const commitScore = (studentId, subject, raw, committed) => {
+    const key = `${studentId}:${subject}`
+    if (raw.trim() === '') {
+      if (committed !== null && committed !== undefined) {
+        onScoreChange?.(studentId, subject, null)
+      }
+      clearDraft(key)
+      return
+    }
+    const value = parseScoreInput(raw, maxScore)
+    if (value === null) {
+      // Invalid input on commit: revert silently to the last committed value.
+      clearDraft(key)
+      return
+    }
+    if (value !== committed) onScoreChange?.(studentId, subject, value)
+    clearDraft(key)
+  }
 
   return (
     <div
@@ -84,6 +130,10 @@ export default function ReportSheet({
           <tbody>
           {subjects.map((subject) => {
             const score = student.scores?.[subject]
+            const draftKey = `${student.id}:${subject}`
+            const draft = scoreDrafts[draftKey]
+            const inputValue =
+              draft ?? (score === null || score === undefined ? '' : String(score))
             // Institutional rounding applies to EVERY qualitative lookup,
             // including per-subject cells: a raw 2.92 sits in the gap
             // between bands, but its rounded 3.0 is Básico.
@@ -102,7 +152,35 @@ export default function ReportSheet({
                     ) : null}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center tabular-nums">
-                    {score === null || score === undefined ? '—' : formatScore(score, scaleType)}
+                    {editableScores ? (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={inputValue}
+                        aria-label={`Nota de ${subject} para ${student.name}`}
+                        onChange={(event) =>
+                          setScoreDrafts((current) => ({
+                            ...current,
+                            [draftKey]: event.target.value,
+                          }))
+                        }
+                        onBlur={(event) =>
+                          commitScore(student.id, subject, event.target.value, score)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            event.currentTarget.blur()
+                          }
+                        }}
+                        className="w-20 rounded-none border-0 border-b border-transparent bg-transparent px-1 py-0.5 text-right text-sm tabular-nums text-slate-900 outline-none focus:border-slate-400"
+                        style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                      />
+                    ) : score === null || score === undefined ? (
+                      '—'
+                    ) : (
+                      formatScore(score, scaleType)
+                    )}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center">
                     {label ? <ToneBadge tone={tone}>{label}</ToneBadge> : '—'}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { makeId } from '../utils/parser'
+import { parseScoreInput } from '../utils/scoreInput'
 import { Button, Field, TextInput } from './ui'
 
 /**
@@ -26,6 +27,9 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial, maxScore 
       ],
   )
   const [error, setError] = useState('')
+  // Raw text per cell, keyed `${studentId}:${subject}`, so partial values
+  // like "3," stay editable until blur/Enter commits the parsed number.
+  const [scoreDrafts, setScoreDrafts] = useState({})
 
   const addSubject = () => {
     const name = `Asignatura ${subjects.length + 1}`
@@ -76,8 +80,33 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial, maxScore 
       current.map((student) => (student.id === id ? { ...student, name } : student)),
     )
 
-  const setScore = (id, subject, raw) => {
-    const value = raw === '' ? null : Math.max(0, Math.min(maxScore, Number(raw)))
+  const commitScore = (id, subject, raw) => {
+    const key = `${id}:${subject}`
+    const clearDraft = () =>
+      setScoreDrafts((current) => {
+        if (!(key in current)) return current
+        const next = { ...current }
+        delete next[key]
+        return next
+      })
+
+    if (raw.trim() === '') {
+      setStudents((current) =>
+        current.map((student) =>
+          student.id === id
+            ? { ...student, scores: { ...student.scores, [subject]: null } }
+            : student,
+        ),
+      )
+      clearDraft()
+      return
+    }
+
+    const value = parseScoreInput(raw, maxScore)
+    if (value === null) {
+      clearDraft()
+      return
+    }
     setStudents((current) =>
       current.map((student) =>
         student.id === id
@@ -85,6 +114,7 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial, maxScore 
           : student,
       ),
     )
+    clearDraft()
   }
 
   const handleSubmit = () => {
@@ -204,19 +234,39 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial, maxScore 
                     placeholder="Nombre del estudiante"
                   />
                 </td>
-                {subjects.map((subject, index) => (
-                  <td key={index} className="px-3 py-2">
-                    <TextInput
-                      className="w-20"
-                      type="number"
-                      min="0"
-                      max={String(maxScore)}
-                      step="0.1"
-                      value={student.scores[subject] ?? ''}
-                      onChange={(e) => setScore(student.id, subject, e.target.value)}
-                    />
-                  </td>
-                ))}
+                {subjects.map((subject, index) => {
+                  const draftKey = `${student.id}:${subject}`
+                  const draft = scoreDrafts[draftKey]
+                  return (
+                    <td key={index} className="px-3 py-2">
+                      <TextInput
+                        className="w-20"
+                        inputMode="decimal"
+                        value={
+                          draft ??
+                          (student.scores[subject] === null ||
+                          student.scores[subject] === undefined
+                            ? ''
+                            : String(student.scores[subject]))
+                        }
+                        onChange={(e) =>
+                          setScoreDrafts((current) => ({
+                            ...current,
+                            [draftKey]: e.target.value,
+                          }))
+                        }
+                        onBlur={(e) => commitScore(student.id, subject, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            e.currentTarget.blur()
+                          }
+                        }}
+                        aria-label={`Nota de ${student.name || 'estudiante'} en ${subject || 'asignatura'}`}
+                      />
+                    </td>
+                  )
+                })}
                 <td className="px-3 py-2">
                   <Button
                     variant="ghost"
