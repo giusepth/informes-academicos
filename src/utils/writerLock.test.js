@@ -146,7 +146,8 @@ describe('createWriterLock', () => {
 
     const firstAttempt = second.promote(onGranted)
     const retry = second.promote(onGranted)
-    expect(locks.requests()).toBe(2)
+    // Two acquisitions plus exactly one queued promotion request.
+    expect(locks.requests()).toBe(3)
 
     first.release()
     await Promise.all([firstAttempt, retry])

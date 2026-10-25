@@ -20,7 +20,9 @@ import { fillPerformances, makeId } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync } from './utils/tabSync'
+import { writerLock } from './utils/writerLock'
 
+const PROMOTED_TOAST = 'Otra pestaña dejó de editar: esta pestaña ya puede editar.'
 const MIGRATED_TOAST = 'Trabajo anterior importado a este navegador.'
 const MIGRATION_FAILED_TOAST =
   'No se pudo importar el trabajo a este navegador: se muestra la copia de esta pestaña.'
@@ -64,6 +66,7 @@ const initReports = () => {
 const readSessionFallback = () => ({
   available: false,
   storageMode: 'session',
+  lockMode: 'unsupported',
   migrated: false,
   config: readStorage(STORAGE_KEYS.config),
   reports: initReports(),
@@ -79,8 +82,23 @@ const boot = () => {
     bootPromise = (async () => {
       try {
         if (!(await idb.isAvailable())) return readSessionFallback()
+        // The writer lock is acquired before the legacy migration: a
+        // read-only tab must never write, not even the one-shot migration.
+        const lockMode = await writerLock.acquire()
+        if (lockMode === 'reader') {
+          return {
+            available: true,
+            storageMode: 'idb',
+            lockMode,
+            migrated: false,
+            ...(await loadDataState(idb)),
+          }
+        }
         const migration = await migrateLegacy({ idb, session: sessionStorage })
         if (migration.failed) {
+          // The tab falls back to per-tab session storage: holding the writer
+          // lock would block the tabs that still share IndexedDB.
+          writerLock.release()
           // Never boot into an empty IndexedDB after a failed import: the
           // session copy is the only complete work left.
           return { ...readSessionFallback(), migrationFailed: true }
@@ -88,10 +106,12 @@ const boot = () => {
         return {
           available: true,
           storageMode: 'idb',
+          lockMode,
           migrated: migration.migrated,
           ...(await loadDataState(idb)),
         }
       } catch {
+        writerLock.release()
         return readSessionFallback()
       }
     })()
@@ -117,6 +137,7 @@ export default function App() {
   const [finalPerformances, setFinalPerformances] = useState({})
   const [scoreEntry, setScoreEntry] = useState(false)
   const [hydrating, setHydrating] = useState(true)
+  const [readOnly, setReadOnly] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
@@ -126,6 +147,7 @@ export default function App() {
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
+  const readOnlyRef = useRef(false)
   const tabSyncRef = useRef(null)
   // A duplicated blank period switches the report and enters score entry in
   // the same render: skip the navigation reset exactly once.
@@ -135,6 +157,9 @@ export default function App() {
   const [dataQueue] = useState(() =>
     createPersistQueue({
       write: async (key, value) => {
+        // Defense in depth: a read-only tab never commits data, even if a
+        // state effect slipped past the enqueue guard.
+        if (readOnlyRef.current) return false
         if (storageModeRef.current === 'session') {
           if (!writeStorage(key, value)) throw new Error('sessionStorage write failed')
           return true
@@ -207,6 +232,20 @@ export default function App() {
     setFinalPerformances(nextFinalPerformances)
   }, [dataQueue])
 
+  const applyReadOnly = useCallback((value) => {
+    readOnlyRef.current = value
+    setReadOnly(value)
+  }, [])
+
+  // The previous writer released the lock (usually because its tab closed):
+  // re-read the three data keys before enabling editing, so this tab starts
+  // from that tab's latest committed work instead of its stale snapshot.
+  const handlePromoted = useCallback(() => {
+    applyReadOnly(false)
+    void resyncFromIdb()
+    setToast(PROMOTED_TOAST)
+  }, [applyReadOnly, resyncFromIdb])
+
   useEffect(() => {
     const sync = createTabSync({
       onRemoteChange: () => {
@@ -239,13 +278,24 @@ export default function App() {
 
   useEffect(() => {
     let active = true
-    boot().then((state) => {
-      if (active) applyHydratedState(state)
+    boot().then(async (state) => {
+      if (!active) return
+      applyHydratedState(state)
+      // Session fallback storage is per tab: there is nothing to coordinate.
+      if (storageModeRef.current !== 'idb') return
+      // Memoized in the module-level singleton: StrictMode's double mount
+      // reuses this same request instead of acquiring twice.
+      const mode = await writerLock.acquire()
+      if (!active) return
+      if (mode === 'reader') {
+        applyReadOnly(true)
+        void writerLock.promote(handlePromoted)
+      }
     })
     return () => {
       active = false
     }
-  }, [applyHydratedState])
+  }, [applyHydratedState, applyReadOnly, handlePromoted])
 
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
@@ -260,11 +310,13 @@ export default function App() {
     }
   }
   useEffect(() => {
+    if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.config, config)
-  }, [config, dataQueue])
+  }, [config, dataQueue, readOnly])
   useEffect(() => {
+    if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.reports, reports)
-  }, [reports, dataQueue])
+  }, [reports, dataQueue, readOnly])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
@@ -278,8 +330,9 @@ export default function App() {
     setScoreEntry(false)
   }, [activeReportId, tab])
   useEffect(() => {
+    if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
-  }, [finalPerformances, dataQueue])
+  }, [finalPerformances, dataQueue, readOnly])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
