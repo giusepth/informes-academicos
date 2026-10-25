@@ -375,6 +375,27 @@ export function fillPerformances(
 }
 
 /**
+ * Applies a matrix to one period report: returns a new student list with ONLY
+ * the empty desempeño cells filled. Pure helper shared by the manual matrix
+ * import and the pending menu apply flow; the source report is never mutated.
+ */
+export function applyMatrixToReport(report, matrix, scale = DEFAULT_SCALE, scaleType = 'decimal') {
+  const students = report?.students ?? []
+  const scoresById = Object.fromEntries(
+    students.map((student) => [student.id, student.scores ?? {}]),
+  )
+  const filled = fillPerformances(
+    students,
+    report?.subjects ?? [],
+    scoresById,
+    scale,
+    matrix,
+    scaleType,
+  )
+  return students.map((student) => ({ ...student, performances: filled[student.id] }))
+}
+
+/**
  * Reads the backup's final sheet (long layout):
  *   Estudiante | Asignatura | Desempeño
  *

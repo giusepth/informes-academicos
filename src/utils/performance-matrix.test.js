@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
 import { DEFAULT_SCALE } from './calculations'
-import { fillPerformances, parsePerformanceMatrix } from './parser'
+import { applyMatrixToReport, fillPerformances, parsePerformanceMatrix } from './parser'
 
 /**
  * The descriptive matrix (RF-Nuevo "carga de desempeños"): an Excel sheet
@@ -134,5 +134,50 @@ describe('fillPerformances', () => {
     )
     expect(next.s1['Matemáticas']).toBe('max-BASICO') // 59.3 → 60
     expect(next.s2['Matemáticas']).toBe('max-SUP') // 89.3 → 90
+  })
+})
+
+describe('applyMatrixToReport', () => {
+  const report = {
+    id: 'r1',
+    subjects: ['Matemáticas', 'Ciencias'],
+    students: [
+      {
+        id: 's1',
+        name: 'Ana',
+        scores: { 'Matemáticas': 4.5, 'Ciencias': 2.0 },
+        performances: { 'Matemáticas': 'Texto propio', 'Ciencias': '' },
+      },
+      { id: 's2', name: 'Luis', scores: { 'Matemáticas': 3.2, 'Ciencias': null }, performances: {} },
+    ],
+  }
+  const fullMatrix = {
+    'Matemáticas': { Bajo: 'm-bajo', 'Básico': 'm-basico', Alto: 'm-alto', Superior: 'm-sup' },
+    'Ciencias': { Bajo: 'c-bajo', 'Básico': 'c-basico', Alto: 'c-alto', Superior: 'c-sup' },
+  }
+
+  it('fills only empty cells and returns new student objects', () => {
+    const students = applyMatrixToReport(report, fullMatrix, DEFAULT_SCALE, 'decimal')
+
+    expect(students[0].performances).toEqual({
+      'Matemáticas': 'Texto propio',
+      'Ciencias': 'c-bajo',
+    })
+    expect(students[1].performances).toEqual({
+      'Matemáticas': 'm-basico',
+    })
+    // The source report is never mutated.
+    expect(report.students[0].performances['Ciencias']).toBe('')
+    expect(report.students[1].performances).toEqual({})
+  })
+
+  it('leaves every cell untouched when the report has no scored students', () => {
+    const students = applyMatrixToReport(
+      { subjects: ['Matemáticas'], students: [{ id: 's3', name: 'Sin nota', performances: {} }] },
+      fullMatrix,
+      DEFAULT_SCALE,
+      'decimal',
+    )
+    expect(students).toEqual([{ id: 's3', name: 'Sin nota', performances: {} }])
   })
 })

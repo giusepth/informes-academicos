@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { assertImportSize, buildBackupWorkbook, parsePerformanceMatrix, parseWorkbook } from '../utils/parser'
+import {
+  assertImportSize,
+  buildBackupWorkbook,
+  downloadPerformanceSample,
+  downloadPerformanceTemplate,
+  parsePerformanceMatrix,
+  parseWorkbook,
+} from '../utils/parser'
 import { Button, TextInput } from './ui'
 
 /**
@@ -154,6 +161,22 @@ export default function PeriodBar({
         title="Excel con textos por Asignatura y banda Bajo/Básico/Alto/Superior. Precarga SOLO casilleros de desempeño vacíos: lo que escribió el docente no se pisa."
       >
         Cargar desempeños (excel)
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={downloadPerformanceTemplate}
+        title="Descarga la matriz vacía con textos de ejemplo por banda, lista para completar."
+      >
+        Plantilla de desempeños
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={downloadPerformanceSample}
+        title="Descarga una matriz lista para usar, con cuatro asignaturas y textos por banda."
+      >
+        Ejemplo de desempeños
       </Button>
       <input
         ref={matrixFileInputRef}

@@ -21,7 +21,7 @@ import {
   migrateLegacy,
   MIGRATION_FLAG,
 } from './utils/idbState'
-import { fillPerformances, finalPerformanceKey, makeId } from './utils/parser'
+import { applyMatrixToReport, fillPerformances, finalPerformanceKey, makeId } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync } from './utils/tabSync'
@@ -39,6 +39,8 @@ const STORAGE_FALLBACK_TOAST =
   'Sin almacenamiento persistente: el trabajo se guarda solo en esta pestaña.'
 const SAVE_ERROR_TOAST =
   'No se pudo guardar en este navegador; exporta el backup (.xlsx) para no perder datos.'
+const PENDING_MATRIX_TOAST =
+  'Desempeños cargados: se aplicarán al primer informe que abras.'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -50,6 +52,8 @@ const STORAGE_KEYS = {
   entered: 'informes.entered',
   // Final-report desempeño overrides, keyed by normalized student name.
   finalPerformances: 'informes.finalPerformances',
+  // Matrix loaded from the empty main menu, waiting for the first report.
+  pendingMatrix: 'informes.pendingMatrix',
   // Legacy single-report key; read only, kept for one-shot migration.
   legacyReport: 'informes.report',
 }
@@ -157,6 +161,9 @@ export default function App() {
     readStorage(STORAGE_KEYS.selected),
   )
   const [finalPerformances, setFinalPerformances] = useState({})
+  const [pendingMatrix, setPendingMatrix] = useState(() =>
+    readStorage(STORAGE_KEYS.pendingMatrix),
+  )
   const [scoreEntry, setScoreEntry] = useState(false)
   const [hydrating, setHydrating] = useState(true)
   const [activated, setActivated] = useState(false)
@@ -564,6 +571,7 @@ export default function App() {
     if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
   }, [finalPerformances, dataQueue, readOnly])
+  useEffect(() => persist(STORAGE_KEYS.pendingMatrix, pendingMatrix), [pendingMatrix])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
@@ -589,6 +597,25 @@ export default function App() {
 
   const scaleType = config?.scaleType ?? 'decimal'
   const maxScore = scaleType === 'centesimal' ? 100 : 5
+
+  // A matrix loaded from the empty main menu waits here until there is an
+  // active period report with students. It fills ONLY empty desempeño cells
+  // and clears itself in the same batch, so it can never apply twice to the
+  // same payload. The final tab is excluded: annotations live elsewhere.
+  useEffect(() => {
+    // Activation lands the real lock mode/readOnly flag; before it, a reader
+    // must never consume the pending payload.
+    if (!activated || !pendingMatrix || readOnly || tab === 'final') return
+    if (!activeReport || (activeReport.students ?? []).length === 0) return
+
+    const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
+    const students = applyMatrixToReport(activeReport, pendingMatrix, scale, scaleType)
+    setReports((current) =>
+      current.map((entry) => (entry.id === activeReport.id ? { ...entry, students } : entry)),
+    )
+    setPendingMatrix(null)
+    setToast(`Desempeños aplicados a ${activeReport.label ?? 'el informe activo'}.`)
+  }, [activated, pendingMatrix, activeReport, readOnly, tab, config, scaleType])
 
   // The final report ("quinto informe") is always derived from every period:
   // per-subject means across periods, ranked with the institutional rules.
@@ -711,6 +738,17 @@ export default function App() {
     setTab('period')
   }
 
+  /**
+   * A matrix loaded while the main menu is visible has no report to fill yet:
+   * keep it pending (sessionStorage survives a reload) and let the auto-apply
+   * effect finish the job as soon as the first report has students.
+   */
+  const handleLoadMatrix = (matrix) => {
+    if (readOnlyRef.current) return
+    setPendingMatrix(matrix)
+    setToast(PENDING_MATRIX_TOAST)
+  }
+
   const handleSelectFinal = () => setTab('final')
 
   const handlePerformanceChange = (studentId, subject, text) => {
@@ -806,6 +844,8 @@ export default function App() {
   const handleApplyMatrix = (matrix) => {
     if (readOnlyRef.current) return
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
+    // An explicit apply supersedes whatever was waiting from the menu.
+    setPendingMatrix(null)
 
     if (tab === 'final' && finalReport) {
       const scoresById = Object.fromEntries(
@@ -830,22 +870,10 @@ export default function App() {
     }
 
     if (!activeReport) return
-    const subjects = activeReport.subjects ?? []
-    const scoresById = Object.fromEntries(
-      activeReport.students.map((student) => [student.id, student.scores ?? {}]),
-    )
-    const filled = fillPerformances(activeReport.students, subjects, scoresById, scale, matrix, scaleType)
+    const students = applyMatrixToReport(activeReport, matrix, scale, scaleType)
     setReports((current) =>
       current.map((reportEntry) =>
-        reportEntry.id === activeReport.id
-          ? {
-              ...reportEntry,
-              students: reportEntry.students.map((student) => ({
-                ...student,
-                performances: filled[student.id],
-              })),
-            }
-          : reportEntry,
+        reportEntry.id === activeReport.id ? { ...reportEntry, students } : reportEntry,
       ),
     )
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
@@ -988,6 +1016,7 @@ export default function App() {
           <DataInputMode
             onLoaded={handleLoaded}
             onLoadedBackup={handleLoadedBackup}
+            onLoadMatrix={handleLoadMatrix}
             onOpenSettings={() => setSettingsOpen(true)}
             hasConfig={configured}
             maxScore={maxScore}

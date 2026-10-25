@@ -1,5 +1,13 @@
 import { useRef, useState } from 'react'
-import { assertImportSize, downloadTemplate, parseBackupWorkbook, parseWorkbook } from '../utils/parser'
+import {
+  assertImportSize,
+  downloadPerformanceSample,
+  downloadPerformanceTemplate,
+  downloadTemplate,
+  parseBackupWorkbook,
+  parsePerformanceMatrix,
+  parseWorkbook,
+} from '../utils/parser'
 import ManualEntryForm from './ManualEntryForm'
 import { Button } from './ui'
 
@@ -15,6 +23,7 @@ import { Button } from './ui'
 export default function DataInputMode({
   onLoaded,
   onLoadedBackup,
+  onLoadMatrix,
   onOpenSettings,
   hasConfig,
   maxScore = 5,
@@ -25,6 +34,7 @@ export default function DataInputMode({
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef(null)
+  const matrixFileInputRef = useRef(null)
 
   const readFile = async (file) => {
     if (!file) return
@@ -46,6 +56,21 @@ export default function DataInputMode({
       onLoaded(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo leer el archivo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const readMatrixFile = async (file) => {
+    if (!file) return
+    setBusy(true)
+    setError('')
+    try {
+      assertImportSize(file)
+      const matrix = await parsePerformanceMatrix(await file.arrayBuffer())
+      onLoadMatrix?.(matrix)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo leer la matriz de desempeños.')
     } finally {
       setBusy(false)
     }
@@ -110,6 +135,36 @@ export default function DataInputMode({
           </p>
           <Button variant="secondary" onClick={() => setMode('manual')} disabled={readOnly}>
             Crear manualmente
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <p className="text-base font-semibold text-slate-800">Desempeños</p>
+        <p className="mt-1 mb-4 text-sm text-slate-500">
+          Carga la matriz de textos por asignatura y banda. Se aplicará al primer informe
+          que abras y solo completará los casilleros de desempeño vacíos.
+        </p>
+        <input
+          ref={matrixFileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          className="hidden"
+          aria-label="Archivo de desempeños"
+          onChange={(e) => readMatrixFile(e.target.files?.[0])}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => matrixFileInputRef.current?.click()}
+            disabled={busy || readOnly}
+          >
+            Cargar desempeños (excel)
+          </Button>
+          <Button variant="secondary" onClick={downloadPerformanceTemplate}>
+            Descargar plantilla de desempeños
+          </Button>
+          <Button variant="secondary" onClick={downloadPerformanceSample}>
+            Descargar ejemplo de desempeños
           </Button>
         </div>
       </div>
