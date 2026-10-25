@@ -34,6 +34,25 @@ const STUDENT_ALIASES = ['estudiante', 'nombre', 'nombres', 'alumno', 'alumna']
 const GRADE_ALIASES = ['grado', 'curso', 'aula']
 const TEACHER_ALIASES = ['docente', 'profesor', 'profesora', 'docente titular']
 
+/** Sheet name reserved for final-report desempeño annotations in a backup. */
+export const FINAL_SHEET_NAME = 'Final (desempeños)'
+
+const FINAL_SUBJECT_ALIASES = ['asignatura', 'materia', 'area']
+const FINAL_TEXT_ALIASES = ['desempeno', 'texto', 'anotacion']
+
+/**
+ * Identity rule for final-report annotations: the app matches them by the
+ * student's display name, trimmed and uppercased (RF-05). Backup export and
+ * restore use this same key so the round trip never invents a second spelling.
+ */
+export function finalPerformanceKey(name) {
+  return String(name ?? '').trim().toUpperCase()
+}
+
+function isFinalSheetName(name) {
+  return normalizeHeader(name) === normalizeHeader(FINAL_SHEET_NAME)
+}
+
 /** Generates a stable id without external dependencies. */
 export function makeId() {
   return `s_${Math.random().toString(36).slice(2, 10)}`
@@ -275,13 +294,52 @@ export function fillPerformances(
 }
 
 /**
+ * Reads the backup's final sheet (long layout):
+ *   Estudiante | Asignatura | Desempeño
+ *
+ * Returns `{ NOMBRE NORMALIZADO: { Asignatura: texto } }`. Empty rows are
+ * ignored: an absent annotation is the same as an empty one.
+ */
+function parseFinalSheetRaw(XLSX, sheet) {
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    blankrows: false,
+    defval: '',
+  })
+  if (rows.length < 2) {
+    throw new Error('La hoja final debe tener encabezados y al menos una anotación.')
+  }
+
+  const header = rows[0]
+  const studentCol = findColumn(header, STUDENT_ALIASES)
+  const subjectCol = findColumn(header, FINAL_SUBJECT_ALIASES)
+  const textCol = findColumn(header, FINAL_TEXT_ALIASES)
+  if (studentCol === -1 || subjectCol === -1 || textCol === -1) {
+    throw new Error('La hoja final necesita las columnas Estudiante, Asignatura y Desempeño.')
+  }
+
+  const finalPerformances = {}
+  for (const row of rows.slice(1)) {
+    const key = finalPerformanceKey(row[studentCol])
+    const subject = String(row[subjectCol] ?? '').trim()
+    const text = String(row[textCol] ?? '').trim()
+    if (!key || !subject || !text) continue
+    finalPerformances[key] = { ...finalPerformances[key], [subject]: text }
+  }
+  return finalPerformances
+}
+
+/**
  * Reads a backup workbook (.xlsx) that may contain one REPORT sheet per
  * period and restores the whole multi-period session as raw report objects.
  *
  * A sheet qualifies as a report sheet when its header contains the
  * Estudiante column (checked per sheet, so unrelated sheets are ignored).
- * Sheets that fail to parse are NOT silently dropped: their names come back
- * in `skipped` so the restore flow can warn the teacher.
+ * The reserved 'Final (desempeños)' sheet (long layout: Estudiante |
+ * Asignatura | Desempeño) restores the final-report annotations instead of
+ * being parsed as a period. Sheets that fail to parse are NOT silently
+ * dropped: their names come back in `skipped` so the restore flow can warn
+ * the teacher.
  * Throws a descriptive Error when no sheet qualifies.
  */
 export async function parseBackupWorkbook(arrayBuffer) {
@@ -289,7 +347,16 @@ export async function parseBackupWorkbook(arrayBuffer) {
   const workbook = XLSX.read(arrayBuffer, { type: 'array' })
   const reports = []
   const skipped = []
+  let finalPerformances = {}
   for (const name of workbook.SheetNames) {
+    if (isFinalSheetName(name)) {
+      try {
+        finalPerformances = parseFinalSheetRaw(XLSX, workbook.Sheets[name])
+      } catch {
+        skipped.push(name)
+      }
+      continue
+    }
     try {
       const report = parseSheetRaw(XLSX, workbook.Sheets[name])
       reports.push({
@@ -305,7 +372,7 @@ export async function parseBackupWorkbook(arrayBuffer) {
   if (reports.length === 0) {
     throw new Error('El archivo no contiene hojas de informe (con columna Estudiante y asignaturas).')
   }
-  return { reports, skipped }
+  return { reports, skipped, finalPerformances }
 }
 
 /** Hard cap before any .xlsx is read: keeps a hostile/oversized file from
@@ -320,11 +387,13 @@ export function assertImportSize(file) {
 
 /**
  * Builds the sheet payloads ({ name, aoa }) for a backup workbook: one sheet
- * per report with the exact import layout. Pure so it can be unit-tested and
- * reused by both the download helper and in-memory round-trip tests.
+ * per report with the exact import layout, plus an optional final sheet with
+ * the final-report desempeño annotations (long layout, written only when at
+ * least one annotation has text). Pure so it can be unit-tested and reused by
+ * both the download helper and in-memory round-trip tests.
  */
-export function backupSheets(reports) {
-  return (reports ?? []).map((report, index) => {
+export function backupSheets(reports, finalPerformances = {}) {
+  const sheets = (reports ?? []).map((report, index) => {
     const subjects = report.subjects ?? []
     const header = [
       'Estudiante',
@@ -366,17 +435,36 @@ export function backupSheets(reports) {
 
     return { name, aoa: [header, ...rows] }
   })
+
+  const finalRows = []
+  for (const [rawName, bySubject] of Object.entries(finalPerformances ?? {})) {
+    const key = finalPerformanceKey(rawName)
+    if (!key) continue
+    for (const [subject, text] of Object.entries(bySubject ?? {})) {
+      const value = String(text ?? '').trim()
+      if (!subject || !value) continue
+      finalRows.push([key, subject, value])
+    }
+  }
+  if (finalRows.length > 0) {
+    sheets.push({
+      name: FINAL_SHEET_NAME,
+      aoa: [['Estudiante', 'Asignatura', 'Desempeño'], ...finalRows],
+    })
+  }
+
+  return sheets
 }
 
 /**
  * Builds a downloadable .xlsx backup: one sheet per period with its scores,
- * per-subject docents and desempeños. Re-importable with the same restore
- * flow used for a fresh import.
+ * per-subject docents and desempeños, plus the final-report annotations.
+ * Re-importable with the same restore flow used for a fresh import.
  */
-export async function buildBackupWorkbook(reports) {
+export async function buildBackupWorkbook(reports, finalPerformances = {}) {
   const XLSX = await loadXlsx()
   const workbook = XLSX.utils.book_new()
-  backupSheets(reports).forEach(({ name, aoa }) => {
+  backupSheets(reports, finalPerformances).forEach(({ name, aoa }) => {
     // Excel sheet-name cap is 31 chars; Informe N labels are far below it.
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), name.slice(0, 31))
   })

@@ -19,8 +19,12 @@ const reports = [1, 2].map((n) =>
   }),
 )
 
+const finalPerformances = {
+  'ANA GÓMEZ': { 'Matemáticas': 'Anotación final del año' },
+}
+
 test('full backup round trip: export, wipe session, import again', async ({ page }) => {
-  await seed(page, { reports })
+  await seed(page, { reports, finalPerformances })
 
   // Stand-in for the real "next day": the teacher downloads the backup and
   // the session dies. The file is the transfer medium.
@@ -47,4 +51,11 @@ test('full backup round trip: export, wipe session, import again', async ({ page
   await expect(
     page.locator('tr', { hasText: 'Matemáticas' }).first(),
   ).toContainText('Desempeño tipo 2')
+
+  // Final-report annotations ride along in the backup too: open the final tab
+  // and the restored texto is already in the editable cell.
+  await page.getByRole('button', { name: 'Informe 3 (final)' }).click()
+  await expect(
+    page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
+  ).toHaveValue('Anotación final del año')
 })

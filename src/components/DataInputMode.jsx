@@ -34,9 +34,9 @@ export default function DataInputMode({
       assertImportSize(file)
       const buffer = await file.arrayBuffer()
       try {
-        const { reports, skipped } = await parseBackupWorkbook(buffer)
+        const { reports, skipped, finalPerformances } = await parseBackupWorkbook(buffer)
         if (reports.length > 0 && onLoadedBackup) {
-          onLoadedBackup(reports, skipped)
+          onLoadedBackup(reports, skipped, finalPerformances)
           return
         }
       } catch {

@@ -21,7 +21,7 @@ import {
   migrateLegacy,
   MIGRATION_FLAG,
 } from './utils/idbState'
-import { fillPerformances, makeId } from './utils/parser'
+import { fillPerformances, finalPerformanceKey, makeId } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync } from './utils/tabSync'
@@ -644,7 +644,7 @@ export default function App() {
     setToast(`Informe 1 cargado con ${first.students.length} estudiantes.`)
   }
 
-  const handleLoadedBackup = (rawReports, skipped = []) => {
+  const handleLoadedBackup = (rawReports, skipped = [], restoredFinalPerformances = {}) => {
     if (readOnlyRef.current) return
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
@@ -659,6 +659,12 @@ export default function App() {
     setActiveReportId(restored[0]?.id ?? null)
     setSelectedStudentId(restored[0]?.students[0]?.id ?? null)
     setTab('period')
+    // An old backup has no final sheet: absence means "keep what this browser
+    // already has", never "clear it". A present sheet merges by normalized
+    // name so restoring the period data does not drop final annotations.
+    if (restoredFinalPerformances && Object.keys(restoredFinalPerformances).length > 0) {
+      setFinalPerformances((current) => ({ ...current, ...restoredFinalPerformances }))
+    }
     setToast(
       `Backup restaurado: ${restored.length} informe(s) importados.` +
         (skipped.length > 0 ? ` — ${skipped.length} hoja(s) omitida(s): ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}` : ''),
@@ -714,7 +720,7 @@ export default function App() {
     if (isFinal) {
       const student = rankedStudents.find((entry) => entry.id === studentId)
       if (!student) return
-      const key = student.name.trim().toUpperCase()
+      const key = finalPerformanceKey(student.name)
       setFinalPerformances((current) => ({
         ...current,
         [key]: { ...current?.[key], [subject]: text },
@@ -815,7 +821,7 @@ export default function App() {
       )
       const next = { ...finalPerformances }
       finalReport.students.forEach((student) => {
-        const key = student.name.trim().toUpperCase()
+        const key = finalPerformanceKey(student.name)
         next[key] = filled[student.id]
       })
       setFinalPerformances(next)
@@ -942,6 +948,7 @@ export default function App() {
           <div className="space-y-6">
             <PeriodBar
               reports={reports}
+              finalPerformances={finalPerformances}
               activeReportId={activeReport?.id}
               activeTab={tab}
               onSelectReport={handleSelectReport}
