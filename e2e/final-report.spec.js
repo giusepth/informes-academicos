@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { report, seed } from './helpers'
+import { report, seed, waitForPersisted } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 const TEACHERS = { 'Matemáticas': 'Prof. Torres', 'Ciencias': 'Prof. Suárez' }
@@ -85,6 +85,11 @@ test('final-sheet performances are saved by student name and survive a reload', 
   // The annotation appears on both sheet instances (mirror included).
   await expect(page.getByText('Alto desempeño sostenido en el año')).toHaveCount(2)
 
+  await waitForPersisted(
+    page,
+    'informes.finalPerformances',
+    (value) => value?.ANA?.['Matemáticas'] === 'Alto desempeño sostenido en el año',
+  )
   await page.reload()
   await expect(page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea')).toHaveValue(
     'Alto desempeño sostenido en el año',
