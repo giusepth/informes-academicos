@@ -23,7 +23,11 @@ test.describe('Landing', () => {
     await page.goto('/')
     const privacy = page.locator('#datos')
     await expect(privacy).toContainText(/se guardan? en este navegador/i)
+    await expect(privacy).toContainText(/IndexedDB/i)
+    await expect(privacy).toContainText(/escrituras ya confirmadas/i)
+    await expect(privacy).toContainText(/puede no alcanzar a guardarse/i)
     await expect(privacy).not.toContainText(/se borra|muere al cerrar/i)
+    await expect(privacy).toContainText(/liberar espacio/i)
     await expect(privacy).toContainText(/\.xlsx/)
     await expect(privacy).toContainText(/modo privado/i)
     await expect(privacy).toContainText(/computadora compartida/i)
@@ -34,6 +38,8 @@ test.describe('Landing', () => {
     const features = page.locator('#features')
     await expect(features).toContainText('Sesiones por período')
     await expect(features).toContainText(/Cada periodo se guarda en este navegador/i)
+    await expect(features).toContainText(/tus datos siguen aquí/i)
+    await expect(features).not.toContainText(/retomas donde quedaste/i)
   })
 
   test('navbar anchor "Qué hace" scrolls the features section into view', async ({ page }) => {
