@@ -64,8 +64,8 @@ describe('spec RNF-01', () => {
   })
 
   it('enumerates the three loss causes and the .xlsx bridge', () => {
-    expect(RNF_01).toMatch(/cambia(?:r|s)? de navegador o (?:de )?computadora/i)
-    expect(RNF_01).toMatch(/borra(?:r|s)? los datos del sitio/i)
+    expect(RNF_01).toMatch(/cambia(?:r|n|s)? de navegador o (?:de )?computadora/i)
+    expect(RNF_01).toMatch(/borra(?:r|n|s)? los datos del sitio/i)
     expect(RNF_01).toMatch(/modo privado/i)
     expect(RNF_01).toMatch(/\.xlsx/)
     expect(RNF_01).toMatch(/una sola pestaña/i)
