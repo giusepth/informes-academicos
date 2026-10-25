@@ -254,6 +254,87 @@ export async function parsePerformanceMatrix(arrayBuffer) {
   throw new Error('No se detectó una hoja de matriz (columna "Asignatura" + bandas Bajo/Básico/Alto/Superior).')
 }
 
+const PERFORMANCE_MATRIX_HEADER = ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior']
+
+/** Placeholder rows shipped in the downloadable template: guidance, not data. */
+const PERFORMANCE_TEMPLATE_ROWS = ['Matemáticas', 'Lengua'].map((subject) => [
+  subject,
+  ...PERFORMANCE_MATRIX_HEADER.slice(1).map(
+    (band) => `Describe aquí el desempeño de un estudiante de ${subject} en ${band}.`,
+  ),
+])
+
+/**
+ * Ready-to-use matrix shipped as the sample download. Neutral teacher-register
+ * Spanish, one sentence per band, no exclamations; `parsePerformanceMatrix`
+ * reads it exactly as a teacher-authored file.
+ */
+const PERFORMANCE_SAMPLE_MATRIX = {
+  'Matemáticas': {
+    Bajo: 'Resuelve operaciones básicas con dificultad y necesita acompañamiento constante.',
+    Básico: 'Comprende los procedimientos esenciales y resuelve ejercicios con apoyo ocasional.',
+    Alto: 'Resuelve problemas con seguridad y aplica los procedimientos de forma autónoma.',
+    Superior: 'Resuelve problemas complejos con estrategias propias y explica sus procedimientos.',
+  },
+  'Ciencias Naturales': {
+    Bajo: 'Reconoce algunos conceptos del área y requiere orientación para organizar sus observaciones.',
+    Básico: 'Identifica los conceptos principales y describe fenómenos sencillos con apoyo.',
+    Alto: 'Relaciona conceptos y explica fenómenos naturales con argumentos claros.',
+    Superior: 'Formula explicaciones propias, relaciona conceptos y aplica el método científico con autonomía.',
+  },
+  'Lengua': {
+    Bajo: 'Lee textos cortos con dificultad y requiere apoyo para expresar sus ideas por escrito.',
+    Básico: 'Comprende textos sencillos y escribe ideas claras con apoyo ocasional.',
+    Alto: 'Comprende y produce textos coherentes, con vocabulario adecuado y buena organización.',
+    Superior: 'Produce textos originales y bien estructurados, y argumenta sus ideas con precisión.',
+  },
+  'Sociales': {
+    Bajo: 'Reconoce algunos hechos históricos y necesita ayuda para ubicarlos en el tiempo.',
+    Básico: 'Identifica los procesos sociales principales y los describe con apoyo.',
+    Alto: 'Relaciona hechos históricos y sociales y explica sus causas y consecuencias.',
+    Superior: 'Analiza procesos sociales con criterio propio y establece relaciones complejas entre ellos.',
+  },
+}
+
+const PERFORMANCE_SAMPLE_ROWS = Object.entries(PERFORMANCE_SAMPLE_MATRIX).map(
+  ([subject, bands]) => [subject, ...PERFORMANCE_MATRIX_HEADER.slice(1).map((band) => bands[band])],
+)
+
+/**
+ * Builds a performance-matrix workbook in memory (no download side effect) so
+ * it can be unit-tested and reused by both download wrappers. `sample: false`
+ * ships the fill-in template; `sample: true` ships the ready-to-use example.
+ * Returns { workbook, fileName }.
+ */
+export async function buildPerformanceMatrixWorkbook({ sample = false } = {}) {
+  const XLSX = await loadXlsx()
+  const rows = sample ? PERFORMANCE_SAMPLE_ROWS : PERFORMANCE_TEMPLATE_ROWS
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([PERFORMANCE_MATRIX_HEADER, ...rows]),
+    'Desempeños',
+  )
+  return {
+    workbook,
+    fileName: sample ? 'ejemplo-desempenos.xlsx' : 'plantilla-desempenos.xlsx',
+  }
+}
+
+/** Downloads the fill-in matrix template (guidance placeholders). */
+export async function downloadPerformanceTemplate() {
+  const { workbook, fileName } = await buildPerformanceMatrixWorkbook()
+  const XLSX = await loadXlsx()
+  XLSX.writeFile(workbook, fileName)
+}
+
+/** Downloads a ready-to-use matrix with four subjects and plausible texts. */
+export async function downloadPerformanceSample() {
+  const { workbook, fileName } = await buildPerformanceMatrixWorkbook({ sample: true })
+  const XLSX = await loadXlsx()
+  XLSX.writeFile(workbook, fileName)
+}
+
 /**
  * Fills ONLY empty desempeño cells: for every student × subject, the rounded
  * institutional score selects the band and the matrix provides the text.
