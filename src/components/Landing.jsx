@@ -44,18 +44,24 @@ function LandingNavbar({ onOpen, activeSection }) {
       className="sticky top-0 z-40 border-b-[3px] border-double border-[#c9b48f] backdrop-blur-[3px]"
       style={{ backgroundColor: 'rgba(247,245,239,0.97)' }}
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-5 px-4 py-2 sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:flex-nowrap sm:gap-5 sm:px-6">
         <div className="flex shrink-0 flex-col leading-[1.05]">
           <span style={headed} className="text-[14px] uppercase tracking-[0.08em] text-[#33455c]">
             Informes
           </span>
-          <span style={typed} className="mt-0.5 text-[10px] tracking-[0.05em] text-[#6f6757]">
+          <span style={typed} className="mt-0.5 text-[12px] tracking-[0.02em] text-[#6f6757]">
             informes académicos · 2026
           </span>
         </div>
+        <Button
+          onClick={onOpen}
+          className="sheet-lift order-2 ml-auto shrink-0 whitespace-nowrap rounded-[3px] bg-[#3e6fa8] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-[2px_3px_0_#adc6e4] hover:bg-[#4f7bb4] sm:order-3 sm:px-4 sm:py-2 sm:text-[13.5px]"
+        >
+          Abrir la herramienta
+        </Button>
         <nav
           aria-label="Secciones de la página"
-          className="flex min-w-0 flex-1 gap-4 overflow-x-auto pb-0.5 pt-1 sm:justify-end sm:gap-5"
+          className="order-3 flex w-full basis-full gap-3 overflow-x-auto pb-1 pt-1 sm:order-2 sm:w-auto sm:basis-auto sm:flex-1 sm:justify-end sm:gap-5 sm:pb-0.5 sm:pt-1"
         >
           {NAV_LINKS.map(([label, id]) => (
             <a
@@ -69,12 +75,6 @@ function LandingNavbar({ onOpen, activeSection }) {
             </a>
           ))}
         </nav>
-        <Button
-          onClick={onOpen}
-          className="sheet-lift shrink-0 whitespace-nowrap rounded-[3px] bg-[#3e6fa8] px-4 py-2 text-[13.5px] font-semibold text-white shadow-[2px_3px_0_#adc6e4] hover:bg-[#4f7bb4]"
-        >
-          Abrir la herramienta
-        </Button>
       </div>
     </header>
   )
@@ -156,14 +156,14 @@ export default function Landing({ onOpen }) {
         .stamp-thumps-in {
           opacity: 0;
           transform: rotate(-12deg) scale(1.35);
-          animation: stamp-thump 260ms cubic-bezier(.34,1.56,.64,1) 900ms forwards;
+          animation: stamp-thump 260ms cubic-bezier(.16,1,.3,1) 900ms forwards;
         }
         @keyframes stamp-thump {
           from { opacity: 0; transform: rotate(-12deg) scale(1.35); }
-          to { opacity: .9; transform: rotate(-12deg) scale(1); }
+          to { opacity: 1; transform: rotate(-12deg) scale(1); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .stamp-thumps-in { opacity: .9; transform: rotate(-12deg) scale(1); animation: none; }
+          .stamp-thumps-in { opacity: 1; transform: rotate(-12deg) scale(1); animation: none; }
         }
         .landing-world p, .landing-world h1 { text-wrap: pretty; }
         .landing-world h1, .landing-world h2 { text-wrap: balance; }
@@ -233,7 +233,7 @@ export default function Landing({ onOpen }) {
               <Field label="MATEMÁTICAS" value="4.5 · Alto" />
               <Field label="CIENCIAS" value="4.2 · Alto" />
               <Field label="ESPAÑOL" value="3.8 · Básico" />
-              <div className="mt-auto flex items-center justify-between px-5 py-4 text-[12px] text-[#6f6757]">
+              <div className="mt-auto flex items-center justify-between px-5 py-4 pr-24 text-[12px] text-[#6f6757] md:pr-28">
                 <span>Informe A4 · una página por estudiante</span>
                 <span style={typed}>PROM 4.17</span>
               </div>
@@ -243,13 +243,13 @@ export default function Landing({ onOpen }) {
                 data-stamp
                 aria-hidden="true"
                 style={{ ...typed, boxShadow: 'inset 0 0 0 0.5px rgba(93,125,90,0.35)' }}
-                className="stamp-thumps-in pointer-events-none absolute bottom-1.5 right-2 flex h-[62px] w-[62px] select-none rounded-full border-2 border-[#5d7d5a] p-[2px] md:bottom-2.5 md:right-2.5 md:h-[80px] md:w-[80px]"
+                className="stamp-thumps-in pointer-events-none absolute bottom-2.5 right-2.5 hidden select-none rounded-full md:flex border-2 border-[#55704f] p-[2px] h-[104px] w-[104px]"
               >
-                <span className="flex w-full flex-col items-center justify-center rounded-full border-[1.5px] border-[#5d7d5a] text-[#5d7d5a]">
-                  <span className="text-[7px] uppercase leading-none tracking-[0.06em] md:text-[9px] md:tracking-[0.09em]">
+                <span className="flex w-full flex-col items-center justify-center rounded-full border-[1.5px] border-[#55704f] text-[#55704f]">
+                  <span className="text-[12px] uppercase leading-none tracking-[0.02em] md:tracking-[0.04em]">
                     Registrado
                   </span>
-                  <span className="mt-[3px] text-[9px] font-semibold leading-none tracking-[0.06em] md:text-[10.5px]">
+                  <span className="mt-[4px] text-[13px] font-semibold leading-none tracking-[0.04em]">
                     4.17
                   </span>
                 </span>
