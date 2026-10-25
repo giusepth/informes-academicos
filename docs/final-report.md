@@ -64,6 +64,7 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 | Puesto | `rankStudents`: orden por promedio crudo, empates comparten puesto y la numeración es **densa** (sin saltos) — RF-05. |
 | Docente por asignatura | **Gana el informe más reciente**: si el docente cambió a mitad de año, el final refleja el último cargado. |
 | Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. En cada asignatura solo pueden verlos los informes de periodo. |
+| Matriz descriptiva | `Cargar desempeños (excel)` importa una hoja `Asignatura × Bajo/Básico/Alto/Superior` con textos, y **precarga solo casilleros vacíos** usando la banda del redondeo institucional (`roundUpTenth` antes de `qualitativeFor`). Aplica en el informe activo o en el final (claves por nombre); los juicios ya escritos por el docente no se pisan. |
 
 ## 5. Modelo y persistencia (RNF-01)
 

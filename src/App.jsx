@@ -7,7 +7,7 @@ import ReportPreview from './components/ReportPreview'
 import SetupModal from './components/SetupModal'
 import { Button } from './components/ui'
 import { buildFinalReport, DEFAULT_SCALE, rankStudents } from './utils/calculations'
-import { makeId } from './utils/parser'
+import { fillPerformances, makeId } from './utils/parser'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -245,6 +245,58 @@ export default function App() {
     setToast('Datos de los informes reiniciados.')
   }
 
+  /**
+   * Pre-loads desempeño texts from the descriptive matrix (Asignatura ×
+   * Banda). Applies to whatever is active: the final report (annotations
+   * keyed by student name) or the current period report — and only fills
+   * EMPTY cells, teacher-written judgments stay untouched.
+   */
+  const handleApplyMatrix = (matrix) => {
+    const scale = config?.scale ?? DEFAULT_SCALE
+
+    if (tab === 'final' && finalReport) {
+      const scoresById = Object.fromEntries(
+        finalReport.students.map((student) => [student.id, student.scores ?? {}]),
+      )
+      const filled = fillPerformances(
+        finalReport.students,
+        finalReport.subjects,
+        scoresById,
+        scale,
+        matrix,
+      )
+      const next = { ...finalPerformances }
+      finalReport.students.forEach((student) => {
+        const key = student.name.trim().toUpperCase()
+        next[key] = filled[student.id]
+      })
+      setFinalPerformances(next)
+      setToast('Matriz aplicada al informe final (solo casilleros vacíos).')
+      return
+    }
+
+    if (!activeReport) return
+    const subjects = activeReport.subjects ?? []
+    const scoresById = Object.fromEntries(
+      activeReport.students.map((student) => [student.id, student.scores ?? {}]),
+    )
+    const filled = fillPerformances(activeReport.students, subjects, scoresById, scale, matrix)
+    setReports((current) =>
+      current.map((reportEntry) =>
+        reportEntry.id === activeReport.id
+          ? {
+              ...reportEntry,
+              students: reportEntry.students.map((student) => ({
+                ...student,
+                performances: filled[student.id],
+              })),
+            }
+          : reportEntry,
+      ),
+    )
+    setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
+  }
+
   return (
     <div className="min-h-full">
       <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
@@ -283,6 +335,7 @@ export default function App() {
               onSelectFinal={handleSelectFinal}
               onImportReport={handleImportPeriod}
               onDuplicate={handleDuplicatePeriod}
+              onApplyMatrix={handleApplyMatrix}
             />
             <ExportToolbar
               report={displayReport}

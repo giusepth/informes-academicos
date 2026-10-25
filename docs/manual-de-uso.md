@@ -77,6 +77,12 @@ Detalles completos del módulo: `docs/final-report.md`.
   Para recuperar: abrí la app fresca, completá la configuración y **empezá por
   importar ese mismo archivo** (si detecta hojas Informe N restaura todo el
   año de una vez).
+- **Cargar desempeños (excel)**: importa la **matriz descriptiva** —una hoja
+  `Asignatura | Bajo | Básico | Alto | Superior` con el texto que usás por
+  banda— y precarga los casilleros de desempeño que están **vacíos** según la
+  banda del redondeo institucional de cada nota. Lo que ya escribió el docente
+  **no se pisa**. Se aplica al informe activo (periodo) o al final si estás en
+  la pestaña del informe final; los textos quedan guardados.
 
 ## 6. Consejos y límites actuales
 
