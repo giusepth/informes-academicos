@@ -9,10 +9,22 @@ import { Info, SignatureField, ToneBadge } from './ui'
  * "Promedio" column is the raw mean (two decimals) and the "Valoración" column
  * applies the institutional rounding rule to assign the qualitative band.
  *
- * It intentionally has no "Desempeño" column: narrative judgments live in the
- * period sheets; the final document reports outcome data.
+ * The "Desempeño" column shows the final-report annotations (editable when
+ * `editable`): unlike period sheets, this text belongs to the final document
+ * itself and is keyed by student NAME so it survives period re-imports.
+ *
+ * `editable` renders the cells as textareas. The exported/printed copy uses
+ * `editable={false}`, so the capture shows clean text instead of input boxes.
  */
-export default function FinalReportSheet({ ref, config, report, student, className }) {
+export default function FinalReportSheet({
+  ref,
+  config,
+  report,
+  student,
+  editable = false,
+  onPerformanceChange,
+  className,
+}) {
   const subjects = report.subjects
   const scale = config.scale
   const teachers = report.teachers ?? {}
@@ -81,6 +93,7 @@ export default function FinalReportSheet({ ref, config, report, student, classNa
               ))}
               <th className="w-20 border border-slate-200 px-2 py-2 text-center">Promedio</th>
               <th className="w-28 border border-slate-200 px-3 py-2 text-center">Valoración</th>
+              <th className="border border-slate-200 px-3 py-2">Desempeño</th>
             </tr>
           </thead>
           <tbody>
@@ -116,6 +129,20 @@ export default function FinalReportSheet({ ref, config, report, student, classNa
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center">
                     {label ? <ToneBadge tone={tone}>{label}</ToneBadge> : '—'}
+                  </td>
+                  <td className="border border-slate-200 px-3 py-2 align-top">
+                    {editable ? (
+                      <textarea
+                        className="min-h-[56px] w-full resize-y rounded-md border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400"
+                        placeholder="Juicio valorativo final…"
+                        value={student.performances?.[subject] ?? ''}
+                        onChange={(e) => onPerformanceChange?.(student.id, subject, e.target.value)}
+                      />
+                    ) : (
+                      <span className="block whitespace-pre-wrap text-slate-700">
+                        {student.performances?.[subject] || ' '}
+                      </span>
+                    )}
                   </td>
                 </tr>
               )

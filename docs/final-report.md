@@ -63,7 +63,7 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 | Promedio general | Promedio **crudo** de los promedios por asignatura (dos decimales visibles). |
 | Puesto | `rankStudents`: orden por promedio crudo, empates comparten puesto y la numeración es **densa** (sin saltos) — RF-05. |
 | Docente por asignatura | **Gana el informe más reciente**: si el docente cambió a mitad de año, el final refleja el último cargado. |
-| Desempeños | No hay columna en el informe final: los juicios valorativos viven en cada informe de periodo. |
+| Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. En cada asignatura solo pueden verlos los informes de periodo. |
 
 ## 5. Modelo y persistencia (RNF-01)
 
@@ -76,6 +76,7 @@ pestaña), clave por clave:
 | `informes.activeReport` | `id` del informe activo. |
 | `informes.tab` | `period` o `final`. |
 | `informes.selected` | Estudiante seleccionado. |
+| `informes.finalPerformances` | Desempeños del informe final: `{ NOMBRE: { Asignatura: texto } }`. |
 | `informes.config` | Escala, institución, periodo, escudo en base64. |
 | `informes.report` | ⚠ clave legacy (primitivo). Se migra una sola vez a `informes.reports` como `Informe 1`. |
 
@@ -91,9 +92,11 @@ Notas del modelo:
 ## 6. Verificación
 
 - **Build**: `npm run build` (Vite) + `npx oxlint src` — pasan en CI por push/PR.
-- **Smoke test de dominio** (`rankStudents`, `buildFinalReport`): ties densos,
-  redondeo 2.92→3.0, unión de asignaturas, matching por nombre y promedios
-  que ignoran nulls.
+- **Unit tests**: `npx vitest run` (`src/utils/calculations.test.js`) cubre ties densos,
+  redondeo 2.92→3.0 antes de la banda, unión de asignaturas, matching por nombre,
+  promedios que ignoran nulls y el merge de desempeños finales por nombre.
+- **E2E**: `npx playwright test` — pestaña final promedia por asignatura a través de
+  periodos y los desempeños finales sobreviven recargas sin ensuciar los de periodo.
 - **Datos de prueba**: `samples/make-sample-workbooks.cjs` genera `informe-1..4.xlsx`
   con casos borde incluidos:
   - Ana falta en Matemáticas del Informe 3 → su promedio no se penaliza.
@@ -109,6 +112,6 @@ node samples/make-sample-workbooks.cjs ~/Downloads
 - Un import ejecuta **una hoja activa**: no hay aún importación de un único
   workbook con varias hojas (una por periodo).
 - Cambiar nombres de estudiantes entre periodos los desempareja (se combinan
-  por nombre; es la identidad institucional esperada).
-- El informe final no acepta observaciones; si se necesitan, va como mejora
-  sobre la tabla final.
+  por nombre; es la identidad institucional esperada). Los desempeños finales
+  siguen la misma identidad: si se renombra a un estudiante, el texto guardado
+  bajo el nombre viejo deja de mostrarse.

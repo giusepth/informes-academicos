@@ -148,11 +148,16 @@ function tempId() {
  *   regenerated per imported period. First spelling seen wins as display name.
  * - Per-subject teachers: the most recent period wins, so late docent changes
  *   propagate to the final document.
+ * - `finalPerformances` (optional) carries the desempeños annotated directly on
+ *   the final sheet, keyed by normalized student name — the same matching rule
+ *   as RF-05, since the annotations must survive period re-imports. They
+ *   OVERRIDE nothing from periods: periods keep their own per-period text,
+ *   the final annotations live only here (authoritative command: DER-08).
  *
  * Returns a Report-shaped object (final: true) plus `periodScores` on each
  * student so the sheet can render one column per period.
  */
-export function buildFinalReport(reports, scale = DEFAULT_SCALE) {
+export function buildFinalReport(reports, scale = DEFAULT_SCALE, finalPerformances = null) {
   const periodReports = (reports ?? []).filter(Boolean)
   if (periodReports.length === 0) return null
 
@@ -195,12 +200,18 @@ export function buildFinalReport(reports, scale = DEFAULT_SCALE) {
       periodScores[subject] = series
       scores[subject] = averageScore(series)
     }
+    const studentKey = group.name.trim().toUpperCase()
+    const overrides = finalPerformances?.[studentKey] ?? {}
+    const performances = {}
+    for (const subject of subjects) {
+      performances[subject] = overrides[subject] ?? ''
+    }
     return {
       id: tempId(),
       name: group.name,
       scores,
       periodScores,
-      performances: {},
+      performances,
     }
   })
 
