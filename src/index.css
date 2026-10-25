@@ -22,6 +22,11 @@ body {
  * pushed off-canvas (but kept rendered so html2canvas-pro can capture it). When
  * printing, the same element becomes the only visible content, so Ctrl+P prints
  * a clean sheet without input boxes.
+ *
+ * `z-index: -1` guarantees this fixed layer can never paint above the sticky
+ * navbar (z-30) or any overlay, even if a capture/export round-trip reflows the
+ * page while the user is scrolling. Its vertical position (top: 0) matches the
+ * navbar band, so without the guard it competes for that pixel row.
  */
 @media screen {
   .capture-layer {
@@ -29,6 +34,7 @@ body {
     top: 0;
     left: -10000px;
     pointer-events: none;
+    z-index: -1;
   }
 }
 

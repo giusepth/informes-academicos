@@ -118,8 +118,8 @@ export default function App() {
 
   return (
     <div className="min-h-full">
-      <header className="no-print border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+      <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div>
             <h1 className="text-base font-bold text-slate-900">Informes académicos</h1>
             <p className="text-xs text-slate-500">
@@ -193,7 +193,7 @@ export default function App() {
       ) : null}
 
       {toast ? (
-        <div className="no-print fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
+        <div className="no-print fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
           {toast}
         </div>
       ) : null}
