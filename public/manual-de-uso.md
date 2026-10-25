@@ -56,6 +56,28 @@ valoración cualitativa con redondeo institucional (2.92 → 3.0) y puesto
 (descendente por promedio crudo; empates comparten puesto y la numeración
 no salta puestos).
 
+### Descargar y cargar desempeños desde el menú
+
+Antes de crear el primer informe, la pantalla inicial ofrece la sección
+**Desempeños** con tres acciones:
+
+- **Cargar desempeños (excel)**: importa la matriz descriptiva del colegio.
+  Como todavía no hay informes, la matriz queda **pendiente** y se aplica
+  automáticamente al **primer informe que abras**, en cuanto tenga estudiantes.
+  El aviso confirma la carga y, después, el informe donde se aplicó. La carga
+  pendiente se conserva en esta pestaña aunque recargues la página.
+- **Descargar plantilla de desempeños** (`plantilla-desempenos.xlsx`): matriz
+  con los encabezados `Asignatura | Bajo | Básico | Alto | Superior` y textos
+  de guía en cada banda. Se completa con los textos del colegio.
+- **Descargar ejemplo de desempeños** (`ejemplo-desempenos.xlsx`): matriz
+  **lista para usar**, con cuatro asignaturas y textos redactados para cada
+  banda. Sirve para ver el formato esperado o para partir de ella.
+
+La matriz completa **solo los casilleros de desempeño vacíos**: si ya
+escribiste un juicio valorativo, se conserva. Las acciones de plantilla y
+ejemplo también están disponibles en **Gestión de informes**, junto a
+«Cargar desempeños (excel)».
+
 ## 3. Vida diaria del informe
 
 - **Lista de estudiantes** (izquierda): cursor para elegir el estudiante;
@@ -132,7 +154,11 @@ Detalles completos del módulo: `docs/final-report.md`.
   banda— y precarga los casilleros de desempeño que están **vacíos** según la
   banda del redondeo institucional de cada nota. Lo que ya escribió el docente
   **no se sobrescribe**. Se aplica al informe activo (periodo) o al final si estás en
-  la pestaña del informe final; los textos quedan guardados.
+  la pestaña del informe final; los textos quedan guardados. Junto a este botón,
+  **Plantilla de desempeños** y **Ejemplo de desempeños** descargan los mismos
+  archivos que ofrece el menú inicial (`plantilla-desempenos.xlsx` y
+  `ejemplo-desempenos.xlsx`): la plantilla trae textos de guía para completar y
+  el ejemplo, una matriz lista para usar.
 
 ## 6. Dónde viven los datos y cuándo se pierden
 
