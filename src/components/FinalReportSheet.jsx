@@ -1,4 +1,4 @@
-import { qualitativeFor, roundUpTenth, toneFor } from '../utils/calculations'
+import { formatScore, qualitativeFor, roundForScale, toneFor } from '../utils/calculations'
 import { cx } from '../utils/cx'
 import { Info, SignatureField, ToneBadge } from './ui'
 
@@ -27,6 +27,7 @@ export default function FinalReportSheet({
 }) {
   const subjects = report.subjects
   const scale = config.scale
+  const scaleType = config.scaleType ?? 'decimal'
   const teachers = report.teachers ?? {}
   const periodLabels = report.periodLabels ?? []
   const hasSubjectTeachers = subjects.some((subject) => teachers[subject])
@@ -100,7 +101,7 @@ export default function FinalReportSheet({
             {subjects.map((subject) => {
               const average = student.scores?.[subject]
               const series = student.periodScores?.[subject] ?? []
-              const rounded = average === null || average === undefined ? null : roundUpTenth(average)
+              const rounded = average === null || average === undefined ? null : roundForScale(average, scaleType)
               const label = qualitativeFor(rounded, scale)
               const tone = toneFor(rounded, scale)
               return (
@@ -120,7 +121,7 @@ export default function FinalReportSheet({
                         key={periodLabel}
                         className="border border-slate-200 px-2 py-2 text-center text-xs tabular-nums text-slate-600"
                       >
-                        {cell === null || cell === undefined ? '—' : cell.toFixed(1)}
+                        {cell === null || cell === undefined ? '—' : formatScore(cell, scaleType)}
                       </td>
                     )
                   })}

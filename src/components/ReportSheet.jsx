@@ -1,4 +1,4 @@
-import { qualitativeFor, roundUpTenth, toneFor } from '../utils/calculations'
+import { formatScore, qualitativeFor, roundForScale, toneFor } from '../utils/calculations'
 import { cx } from '../utils/cx'
 import { Info, SignatureField, ToneBadge } from './ui'
 
@@ -8,6 +8,9 @@ import { Info, SignatureField, ToneBadge } from './ui'
  * `editable` renders the "desempeño" cells as textareas for on-screen editing.
  * The exported/printed copy uses `editable={false}` so the capture shows clean
  * text instead of input boxes.
+ *
+ * Score display and institutional rounding follow `config.scaleType`
+ * (1.0–5.0 decimal or 1–100 centesimal).
  */
 export default function ReportSheet({
   ref,
@@ -20,6 +23,7 @@ export default function ReportSheet({
 }) {
   const subjects = report.subjects
   const scale = config.scale
+  const scaleType = config.scaleType ?? 'decimal'
   const teachers = report.teachers ?? {}
   const hasSubjectTeachers = subjects.some((subject) => teachers[subject])
 
@@ -78,15 +82,15 @@ export default function ReportSheet({
             </tr>
           </thead>
           <tbody>
-            {subjects.map((subject) => {
-              const score = student.scores?.[subject]
-              // Institutional rounding applies to EVERY qualitative lookup,
-              // including per-subject cells: a raw 2.92 sits in the gap
-              // between bands, but its rounded 3.0 is Básico.
-              const roundedScore =
-                score === null || score === undefined ? null : roundUpTenth(score)
-              const tone = toneFor(roundedScore, scale)
-              const label = qualitativeFor(roundedScore, scale)
+          {subjects.map((subject) => {
+            const score = student.scores?.[subject]
+            // Institutional rounding applies to EVERY qualitative lookup,
+            // including per-subject cells: a raw 2.92 sits in the gap
+            // between bands, but its rounded 3.0 is Básico.
+            const roundedScore =
+              score === null || score === undefined ? null : roundForScale(score, scaleType)
+            const tone = toneFor(roundedScore, scale)
+            const label = qualitativeFor(roundedScore, scale)
               return (
                 <tr key={subject}>
                   <td className="border border-slate-200 px-3 py-2 align-top">
@@ -98,7 +102,7 @@ export default function ReportSheet({
                     ) : null}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center tabular-nums">
-                    {score === null || score === undefined ? '—' : score.toFixed(1)}
+                    {score === null || score === undefined ? '—' : formatScore(score, scaleType)}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center">
                     {label ? <ToneBadge tone={tone}>{label}</ToneBadge> : '—'}

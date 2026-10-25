@@ -1,20 +1,23 @@
 import { useRef, useState } from 'react'
-import { DEFAULT_SCALE } from '../utils/calculations'
+import { DEFAULT_SCALES, SCALE_TYPES, normalizeScaleType } from '../utils/calculations'
 import { Button, Field, Modal, TextInput } from './ui'
 
 function toDraft(config) {
+  const scaleType = normalizeScaleType(config?.scaleType)
   return {
     institution: config?.institution ?? '',
     period: config?.period ?? '',
-    scale: (config?.scale ?? DEFAULT_SCALE).map((band) => ({ ...band })),
+    scaleType,
+    scale: (config?.scale ?? DEFAULT_SCALES[scaleType]).map((band) => ({ ...band })),
     logo: config?.logo ?? null,
   }
 }
 
 /**
- * Initial configuration modal (RF-01): qualitative scale and PNG shield.
- * When `initialRun` is true the modal cannot be dismissed without saving.
- * The parent mounts it only while it should be visible, so mount == open.
+ * Initial configuration modal (RF-01): scoring scale type (decimal 1.0–5.0 or
+ * centesimal 1–100), the qualitative band range for the chosen scale and PNG
+ * shield. When `initialRun` is true the modal cannot be dismissed without
+ * saving. The parent mounts it only while it should be visible, so mount == open.
  */
 export default function SetupModal({ initialConfig, initialRun = false, onSave, onClose }) {
   const [draft, setDraft] = useState(() => toDraft(initialConfig))
@@ -25,6 +28,17 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
     setDraft((current) => ({
       ...current,
       scale: current.scale.map((band, i) => (i === index ? { ...band, ...patch } : band)),
+    }))
+  }
+
+  const handleScaleType = (scaleType) => {
+    // Switching the scoring scale re-seeds the band ranges with the type's
+    // defaults so the ranges stay meaningful (1–59 is useless on a 1.0–5.0
+    // scale and 0.0–2.9 is useless on 1–100). Steps/step sizes follow the type.
+    setDraft((current) => ({
+      ...current,
+      scaleType,
+      scale: DEFAULT_SCALES[scaleType].map((band) => ({ ...band })),
     }))
   }
 
@@ -63,10 +77,14 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
     onSave({
       institution: draft.institution.trim(),
       period: draft.period.trim(),
-      scale: cleanedScale.length ? cleanedScale : DEFAULT_SCALE,
+      scaleType: draft.scaleType,
+      scale: cleanedScale.length ? cleanedScale : DEFAULT_SCALES[draft.scaleType],
       logo: draft.logo,
     })
   }
+
+  const step = draft.scaleType === 'centesimal' ? '1' : '0.1'
+  const maxValue = draft.scaleType === 'centesimal' ? '100' : '5'
 
   return (
     <Modal
@@ -106,6 +124,33 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
 
         <div>
           <p className="mb-2 text-sm font-medium text-slate-700">
+            Escala de calificación
+          </p>
+          <p className="mb-2 text-xs text-slate-500">
+            ¿Calificás de 1.0 a 5.0 o de 1 a 100? Esto define los rangos por defecto de
+            cada banda; después los podés ajustar a mano.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {SCALE_TYPES.map((type) => (
+              <button
+                key={type.key}
+                type="button"
+                onClick={() => handleScaleType(type.key)}
+                className={[
+                  'rounded-full border px-3 py-1 text-sm transition',
+                  draft.scaleType === type.key
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400',
+                ].join(' ')}
+              >
+                {type.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-medium text-slate-700">
             Escala cualitativa (rango de notas)
           </p>
           <div className="space-y-2">
@@ -120,9 +165,9 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
                 <TextInput
                   className="w-20"
                   type="number"
-                  step="0.1"
+                  step={step}
                   min="0"
-                  max="5"
+                  max={maxValue}
                   value={band.min}
                   onChange={(e) => updateBand(index, { min: e.target.value })}
                   aria-label={`Mínimo de ${band.label}`}
@@ -131,9 +176,9 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
                 <TextInput
                   className="w-20"
                   type="number"
-                  step="0.1"
+                  step={step}
                   min="0"
-                  max="5"
+                  max={maxValue}
                   value={band.max}
                   onChange={(e) => updateBand(index, { max: e.target.value })}
                   aria-label={`Máximo de ${band.label}`}

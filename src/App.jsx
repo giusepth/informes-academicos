@@ -6,7 +6,12 @@ import ReportDashboard from './components/ReportDashboard'
 import ReportPreview from './components/ReportPreview'
 import SetupModal from './components/SetupModal'
 import { Button } from './components/ui'
-import { buildFinalReport, DEFAULT_SCALE, rankStudents } from './utils/calculations'
+import {
+  buildFinalReport,
+  DEFAULT_SCALE,
+  DEFAULT_SCALES,
+  rankStudents,
+} from './utils/calculations'
 import { fillPerformances, makeId } from './utils/parser'
 
 const STORAGE_KEYS = {
@@ -95,6 +100,9 @@ export default function App() {
     [reports, activeReportId],
   )
 
+  const scaleType = config?.scaleType ?? 'decimal'
+  const maxScore = scaleType === 'centesimal' ? 100 : 5
+
   // The final report ("quinto informe") is always derived from every period:
   // per-subject means across periods, ranked with the institutional rules.
   // Final-sheet desempeño annotations are kept in their own storage slice so a
@@ -102,17 +110,17 @@ export default function App() {
   const finalReport = useMemo(
     () =>
       reports.length > 0
-        ? buildFinalReport(reports, config?.scale ?? DEFAULT_SCALE, finalPerformances)
+        ? buildFinalReport(reports, config?.scale ?? DEFAULT_SCALES[scaleType], finalPerformances, scaleType)
         : null,
-    [reports, config, finalPerformances],
+    [reports, config, finalPerformances, scaleType],
   )
 
   const isFinal = tab === 'final' && finalReport !== null
   const displayReport = isFinal ? finalReport : activeReport
 
   const rankedStudents = useMemo(
-    () => rankStudents(displayReport?.students ?? [], config?.scale ?? DEFAULT_SCALE),
-    [displayReport, config],
+    () => rankStudents(displayReport?.students ?? [], config?.scale ?? DEFAULT_SCALES[scaleType], scaleType),
+    [displayReport, config, scaleType],
   )
 
   // Derive the active selection during render: the stored id when it still
@@ -137,7 +145,7 @@ export default function App() {
 
   const handleLoaded = (data) => {
     if (!config) {
-      setConfig({ institution: '', period: '', scale: DEFAULT_SCALE, logo: null })
+      setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
     const first = { ...data, id: makeId(), label: 'Informe 1' }
     setReports([first])
@@ -149,7 +157,7 @@ export default function App() {
 
   const handleLoadedBackup = (rawReports) => {
     if (!config) {
-      setConfig({ institution: '', period: '', scale: DEFAULT_SCALE, logo: null })
+      setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
     const restored = rawReports.map((report, index) => ({
       ...report,
@@ -252,7 +260,7 @@ export default function App() {
    * EMPTY cells, teacher-written judgments stay untouched.
    */
   const handleApplyMatrix = (matrix) => {
-    const scale = config?.scale ?? DEFAULT_SCALE
+    const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
 
     if (tab === 'final' && finalReport) {
       const scoresById = Object.fromEntries(
@@ -363,6 +371,7 @@ export default function App() {
             onLoadedBackup={handleLoadedBackup}
             onOpenSettings={() => setSettingsOpen(true)}
             hasConfig={configured}
+            maxScore={maxScore}
           />
         )}
       </main>

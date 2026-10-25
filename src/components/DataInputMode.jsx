@@ -12,7 +12,7 @@ import { Button } from './ui'
  * One sheet and one sheet only still loads a single "Informe 1"; a workbook
  * with several Informe sheets restores the whole multi-period session.
  */
-export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings, hasConfig }) {
+export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings, hasConfig, maxScore = 5 }) {
   const [mode, setMode] = useState('choose')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -51,7 +51,7 @@ export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings
 
   if (mode === 'manual') {
     return (
-      <ManualEntryForm onCancel={() => setMode('choose')} onLoaded={onLoaded} />
+      <ManualEntryForm onCancel={() => setMode('choose')} onLoaded={onLoaded} maxScore={maxScore} />
     )
   }
 

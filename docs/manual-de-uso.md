@@ -7,12 +7,20 @@ Nada se sube a un servidor: todo vive en la pestaña del navegador
 ## 1. Primer arranque (RF-01)
 
 1. La app abre el modal **Configuración inicial**.
-2. Completá institución, periodo y la **escala cualitativa**
-   (Bajo/Básico/Alto/Superior con sus rangos, editables).
-3. Cargá el **escudo institucional** (PNG recomendado): se usa como marca de
-   agua del informe impreso y como encabezado del boletín.
-4. **Guardar configuración**. Podés reabrir esto con el botón
-   *Configuración* del encabezado.
+2. Elegí la **escala de calificación**: ¿calificás de **1.0 a 5.0 (decimal)**
+   o de **1 a 100 (centesimal)**? El switch recarga los rangos por defecto de
+   cada banda según lo escojas:
+   - Decimal: Bajo 0–2.9, Básico 3.0–3.9, Alto 4.0–4.5, Superior 4.6–5.0.
+     El redondeo institucional sube a la próxima **décima** (2.92 → 3.0).
+   - Centesimal: Bajo 1–59, Básico 60–79, Alto 80–89, Superior 90–100.
+     El redondeo institucional sube a la próxima **unidad** (59.3 → 60).
+3. Ajustá los rangos a mano si tu colegio usa otros cortes (quedan editables).
+4. Completá institución y periodo; cargá el **escudo institucional**
+   (PNG recomendado): se usa como marca de agua del informe impreso y como
+   encabezado del boletín.
+5. **Guardar configuración**. Podés reabrir esto con el botón
+   *Configuración* del encabezado — cambiás de escala cuando quieras: se
+   recalculan bandas y redondeo en todo lo nuevo que escribís.
 
 ## 2. Cargar datos de un informe (RF-02, RF-03)
 

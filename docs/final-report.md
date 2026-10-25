@@ -59,7 +59,7 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 | Asignaturas | **Unión** de todos los informes, en orden de primera aparición. Si una asignatura no existía en un periodo, ese casillero queda `—`. |
 | Emparejamiento de estudiantes | Por **nombre normalizado** (mayúsculas, sin espacios de borde). La grafía de la primera vez que aparece es el nombre mostrado. |
 | Promedio por asignatura | Promedio entre periodos **ignorando celdas vacías**: ausencias no penalizan. |
-| Valoración por asignatura | Redondeo institucional hacia arriba en décima (RF-04: 2.92 → 3.0) y Luego se busca la banda de la escala configurada. |
+| Valoración por asignatura | Redondeo institucional según la **escala configurada**: decimal 1.0–5.0 sube a la décima (2.92 → 3.0), centesimal 1–100 sube al entero (59.3 → 60) — luego se busca la banda de la escala configurada. |
 | Promedio general | Promedio **crudo** de los promedios por asignatura (dos decimales visibles). |
 | Puesto | `rankStudents`: orden por promedio crudo, empates comparten puesto y la numeración es **densa** (sin saltos) — RF-05. |
 | Docente por asignatura | **Gana el informe más reciente**: si el docente cambió a mitad de año, el final refleja el último cargado. |
