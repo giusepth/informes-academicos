@@ -15,14 +15,15 @@ produce el boletín final con:
 - **Valoración cualitativa** por asignatura (aplica redondeo institucional),
 - promedio general final, valoración general y puesto (ranking denso).
 
-El informe final es **derivado, no persistido**: no se guarda aparte ni se
-edita; siempre se recalcula desde los informes de periodos cargados.
+El informe final es **derivado**: siempre se recalcula desde los informes de
+periodos cargados. Solo sus desempeños editables se persisten en una capa
+aparte, para que reimportar periodos no los pise.
 
 ## 2. Flujo del docente
 
-1. **Informe 1**: al abrir la app por primera vez, importá `informe-1.xlsx`
-   (o creá todo a mano con "Crear manualmente"). Queda como el único informe.
-2. **Informe 2..4**: en la barra **Gestión de informes** usá
+1. **Informe 1**: al abrir la app por primera vez, importa `informe-1.xlsx`
+   (o crea todo a mano con "Crear manualmente"). Queda como el único informe.
+2. **Informe 2..4**: en la barra **Gestión de informes** usa
    **"Importar Excel (periodo)"** para cada archivo nuevo, o
    **"Nuevo periodo en blanco"** que clona el informe activo (mismos
    estudiantes/asignaturas/docentes, notas vacías) para llenarlo a mano.
@@ -68,20 +69,32 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 
 ## 5. Modelo y persistencia (RNF-01)
 
-Todo en `sessionStorage` (volátil: sobrevive a recargas, muere al cerrar la
-pestaña), clave por clave:
+Los datos del colegio viven en IndexedDB del navegador (base `informes`, store
+`kv`), por sitio: sobreviven a recargas, al cierre de la pestaña y a reinicios
+del equipo. El estado de vista vive en `sessionStorage`, por pestaña. Se pierde
+si se cambia de navegador o computadora, si se borran los datos del sitio o en
+modo privado; el navegador también puede liberar espacio bajo presión de
+cuota. El backup `.xlsx` es el puente entre equipos.
 
-| Clave | Contenido |
+| Clave (IndexedDB) | Contenido |
 |---|---|
 | `informes.reports` | Array de informes de periodo: `{ id, label, grade, teacher, subjects[], teachers{}, students[] }`. `label` es `Informe N`. |
-| `informes.activeReport` | `id` del informe activo. |
-| `informes.tab` | `period` o `final`. |
-| `informes.selected` | Estudiante seleccionado. |
 | `informes.finalPerformances` | Desempeños del informe final: `{ NOMBRE: { Asignatura: texto } }`. |
 | `informes.config` | Escala, institución, periodo, escudo en base64. |
-| `informes.report` | ⚠ clave legacy (primitivo). Se migra una sola vez a `informes.reports` como `Informe 1`. |
+| `informes.migratedFromSession` | Bandera de la migración única desde la versión anterior. |
+
+Claves de vista (`sessionStorage`, por pestaña): `informes.activeReport`
+(informe activo), `informes.tab` (`period` o `final`), `informes.selected`
+(estudiante seleccionado) e `informes.entered` (si la pestaña ya entró a la
+herramienta).
 
 Notas del modelo:
+
+- **Migración legacy**: la versión anterior guardaba datos en `sessionStorage`.
+  En la primera apertura se importan una sola vez a IndexedDB y se marca
+  `informes.migratedFromSession`; `informes.report` (clave primitiva) se
+  envuelve como `Informe 1`. Si la migración falla, la app sigue con la copia
+  de la pestaña en modo sesión, sin bloquear el arranque.
 
 - `subjects` sigue siendo `string[]` porque es la **clave** de `scores` y
   `teachers` por estudiante; el docente por asignatura vive en el mapa
