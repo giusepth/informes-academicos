@@ -24,6 +24,7 @@ export default function PeriodBar({
   scoreEntry = false,
   onToggleScoreEntry,
   onAddStudent,
+  readOnly = false,
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -116,13 +117,13 @@ export default function PeriodBar({
       <Button
         variant="secondary"
         size="sm"
-        disabled={busy || activeTab !== 'period'}
+        disabled={busy || readOnly || activeTab !== 'period'}
         onClick={onDuplicate}
         title="Copia el informe activo con las notas en blanco"
       >
         Nuevo periodo en blanco
       </Button>
-      {activeTab !== 'final' ? (
+      {activeTab !== 'final' && !readOnly ? (
         <Button variant="secondary" size="sm" onClick={onToggleScoreEntry}>
           {scoreEntry ? 'Terminar edición' : 'Editar notas'}
         </Button>
@@ -130,7 +131,7 @@ export default function PeriodBar({
       <Button
         variant="secondary"
         size="sm"
-        disabled={busy}
+        disabled={busy || readOnly}
         onClick={() => fileInputRef.current?.click()}
       >
         {busy ? 'Leyendo…' : 'Importar Excel (periodo)'}
@@ -147,7 +148,7 @@ export default function PeriodBar({
       <Button
         variant="secondary"
         size="sm"
-        disabled={busy || reports.length === 0}
+        disabled={busy || readOnly || reports.length === 0}
         onClick={() => matrixFileInputRef.current?.click()}
         title="Excel con textos por Asignatura y banda Bajo/Básico/Alto/Superior. Precarga SOLO casilleros de desempeño vacíos: lo que escribió el docente no se pisa."
       >
@@ -168,7 +169,7 @@ export default function PeriodBar({
         onChange={(e) => readFile(e.target.files?.[0])}
       />
 
-      {scoreEntry && activeTab !== 'final' ? (
+      {scoreEntry && activeTab !== 'final' && !readOnly ? (
         <form
           className="flex w-full flex-wrap items-center gap-2 border-t border-slate-100 pt-3"
           onSubmit={handleAddStudent}

@@ -24,6 +24,7 @@ export default function ReportDashboard({
   editableScores = false,
   printSheetRef,
   variant = 'period',
+  readOnly = false,
 }) {
   const scaleType = config.scaleType ?? 'decimal'
   const selected =
@@ -100,6 +101,7 @@ export default function ReportDashboard({
                 report={report}
                 student={selected}
                 editable
+                readOnly={readOnly}
                 onPerformanceChange={onPerformanceChange}
               />
             ) : (
@@ -108,7 +110,8 @@ export default function ReportDashboard({
                 report={report}
                 student={selected}
                 editable
-                editableScores={editableScores}
+                readOnly={readOnly}
+                editableScores={editableScores && !readOnly}
                 onPerformanceChange={onPerformanceChange}
                 onScoreChange={onScoreChange}
               />

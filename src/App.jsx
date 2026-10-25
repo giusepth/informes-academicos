@@ -23,6 +23,10 @@ import { createTabSync } from './utils/tabSync'
 import { writerLock } from './utils/writerLock'
 
 const PROMOTED_TOAST = 'Otra pestaña dejó de editar: esta pestaña ya puede editar.'
+const MULTI_TAB_ADVISORY_TOAST =
+  'Otra pestaña también está editando: revisa los cambios antes de seguir.'
+const READ_ONLY_BANNER =
+  'Solo lectura: otra pestaña está editando los informes. Esta pestaña se activará cuando esa pestaña se cierre.'
 const MIGRATED_TOAST = 'Trabajo anterior importado a este navegador.'
 const MIGRATION_FAILED_TOAST =
   'No se pudo importar el trabajo a este navegador: se muestra la copia de esta pestaña.'
@@ -138,6 +142,7 @@ export default function App() {
   const [scoreEntry, setScoreEntry] = useState(false)
   const [hydrating, setHydrating] = useState(true)
   const [readOnly, setReadOnly] = useState(false)
+  const [lockState, setLockState] = useState('pending')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
@@ -148,6 +153,7 @@ export default function App() {
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
   const readOnlyRef = useRef(false)
+  const lockModeRef = useRef('pending')
   const tabSyncRef = useRef(null)
   // A duplicated blank period switches the report and enters score entry in
   // the same render: skip the navigation reset exactly once.
@@ -237,19 +243,34 @@ export default function App() {
     setReadOnly(value)
   }, [])
 
+  const applyLockMode = useCallback((mode) => {
+    lockModeRef.current = mode
+    setLockState(mode)
+  }, [])
+
   // The previous writer released the lock (usually because its tab closed):
   // re-read the three data keys before enabling editing, so this tab starts
   // from that tab's latest committed work instead of its stale snapshot.
   const handlePromoted = useCallback(() => {
     applyReadOnly(false)
+    applyLockMode('writer')
     void resyncFromIdb()
     setToast(PROMOTED_TOAST)
-  }, [applyReadOnly, resyncFromIdb])
+  }, [applyLockMode, applyReadOnly, resyncFromIdb])
 
   useEffect(() => {
     const sync = createTabSync({
-      onRemoteChange: () => {
+      onRemoteChange: (origin) => {
         void resyncFromIdb()
+        // Without Web Locks both tabs can write. Never claim exclusivity:
+        // just warn when another tab actually committed something.
+        if (
+          origin === 'channel' &&
+          lockModeRef.current === 'unsupported' &&
+          storageModeRef.current === 'idb'
+        ) {
+          setToast(MULTI_TAB_ADVISORY_TOAST)
+        }
       },
     })
     tabSyncRef.current = sync
@@ -282,11 +303,15 @@ export default function App() {
       if (!active) return
       applyHydratedState(state)
       // Session fallback storage is per tab: there is nothing to coordinate.
-      if (storageModeRef.current !== 'idb') return
+      if (storageModeRef.current !== 'idb') {
+        applyLockMode('unsupported')
+        return
+      }
       // Memoized in the module-level singleton: StrictMode's double mount
       // reuses this same request instead of acquiring twice.
       const mode = await writerLock.acquire()
       if (!active) return
+      applyLockMode(mode)
       if (mode === 'reader') {
         applyReadOnly(true)
         void writerLock.promote(handlePromoted)
@@ -295,7 +320,7 @@ export default function App() {
     return () => {
       active = false
     }
-  }, [applyHydratedState, applyReadOnly, handlePromoted])
+  }, [applyHydratedState, applyLockMode, applyReadOnly, handlePromoted])
 
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
@@ -394,12 +419,14 @@ export default function App() {
   )
 
   const handleConfigSave = (nextConfig) => {
+    if (readOnlyRef.current) return
     setConfig(nextConfig)
     setSettingsOpen(false)
     setToast('Configuración guardada.')
   }
 
   const handleLoaded = (data) => {
+    if (readOnlyRef.current) return
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -412,6 +439,7 @@ export default function App() {
   }
 
   const handleLoadedBackup = (rawReports, skipped = []) => {
+    if (readOnlyRef.current) return
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -432,6 +460,7 @@ export default function App() {
   }
 
   const handleImportPeriod = (data) => {
+    if (readOnlyRef.current) return
     const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
     setReports((current) => [...current, next])
     setActiveReportId(next.id)
@@ -441,7 +470,7 @@ export default function App() {
   }
 
   const handleDuplicatePeriod = () => {
-    if (!activeReport || tab !== 'period') return
+    if (readOnlyRef.current || !activeReport || tab !== 'period') return
     const subjects = activeReport.subjects ?? []
     const copy = {
       ...activeReport,
@@ -473,6 +502,7 @@ export default function App() {
   const handleSelectFinal = () => setTab('final')
 
   const handlePerformanceChange = (studentId, subject, text) => {
+    if (readOnlyRef.current) return
     // On the final tab the annotation belongs to the finalPerformances slice,
     // keyed by normalized name — the same matching rule as period reports.
     if (isFinal) {
@@ -506,7 +536,7 @@ export default function App() {
   }
 
   const handleScoreChange = (studentId, subject, value) => {
-    if (!activeReport) return
+    if (readOnlyRef.current || !activeReport) return
     setReports((current) =>
       current.map((reportEntry) =>
         reportEntry.id === activeReport.id
@@ -524,6 +554,7 @@ export default function App() {
   }
 
   const handleAddStudent = (rawName) => {
+    if (readOnlyRef.current) return
     const name = rawName.trim()
     if (!name || !activeReport || tab !== 'period') return
     const subjects = activeReport.subjects ?? []
@@ -545,6 +576,7 @@ export default function App() {
   }
 
   const handleReset = () => {
+    if (readOnlyRef.current) return
     setReports([])
     setActiveReportId(null)
     setTab('period')
@@ -560,6 +592,7 @@ export default function App() {
    * EMPTY cells, teacher-written judgments stay untouched.
    */
   const handleApplyMatrix = (matrix) => {
+    if (readOnlyRef.current) return
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
 
     if (tab === 'final' && finalReport) {
@@ -667,13 +700,30 @@ export default function App() {
               Configuración
             </Button>
             {reports.length > 0 ? (
-              <Button variant="secondary" size="sm" onClick={handleReset}>
+              <Button variant="secondary" size="sm" onClick={handleReset} disabled={readOnly}>
                 Nuevo informe
               </Button>
             ) : null}
           </div>
         </div>
       </header>
+
+      {lockState === 'reader' ? (
+        <div role="status" className="no-print border-b border-slate-200 bg-slate-50">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2">
+            <p className="text-sm text-slate-700">{READ_ONLY_BANNER}</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                void writerLock.promote(handlePromoted)
+              }}
+            >
+              Reintentar
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <main className="mx-auto max-w-7xl px-4 py-6">
         {!configured ? (
@@ -694,6 +744,7 @@ export default function App() {
               scoreEntry={scoreEntry}
               onToggleScoreEntry={() => setScoreEntry((current) => !current)}
               onAddStudent={handleAddStudent}
+              readOnly={readOnly}
             />
             <ExportToolbar
               report={displayReport}
@@ -715,6 +766,7 @@ export default function App() {
               editableScores={tab === 'period' && scoreEntry}
               printSheetRef={printSheetRef}
               variant={isFinal ? 'final' : 'period'}
+              readOnly={readOnly}
             />
           </div>
         ) : (
@@ -724,6 +776,7 @@ export default function App() {
             onOpenSettings={() => setSettingsOpen(true)}
             hasConfig={configured}
             maxScore={maxScore}
+            readOnly={readOnly}
           />
         )}
       </main>
@@ -745,6 +798,7 @@ export default function App() {
           persistenceStatus={persistenceStatus}
           onSave={handleConfigSave}
           onClose={() => setSettingsOpen(false)}
+          readOnly={readOnly}
         />
       ) : null}
 

@@ -26,6 +26,7 @@ describe('createTabSync', () => {
 
     expect(onFirst).not.toHaveBeenCalled()
     expect(onSecond).toHaveBeenCalledTimes(1)
+    expect(onSecond).toHaveBeenCalledWith('channel')
   })
 
   it('is a silent no-op when BroadcastChannel is absent', () => {
@@ -56,6 +57,7 @@ describe('createTabSync', () => {
     document.visibilityState = 'visible'
     listener()
     expect(onRemoteChange).toHaveBeenCalledTimes(1)
+    expect(onRemoteChange).toHaveBeenCalledWith('visibility')
     sync.close()
   })
 })

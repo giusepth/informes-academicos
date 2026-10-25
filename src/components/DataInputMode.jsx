@@ -12,7 +12,14 @@ import { Button } from './ui'
  * One sheet and one sheet only still loads a single "Informe 1"; a workbook
  * with several Informe sheets restores the whole multi-period session.
  */
-export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings, hasConfig, maxScore = 5 }) {
+export default function DataInputMode({
+  onLoaded,
+  onLoadedBackup,
+  onOpenSettings,
+  hasConfig,
+  maxScore = 5,
+  readOnly = false,
+}) {
   const [mode, setMode] = useState('choose')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -47,6 +54,7 @@ export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings
   const handleDrop = (event) => {
     event.preventDefault()
     setDragging(false)
+    if (readOnly) return
     readFile(event.dataTransfer.files?.[0])
   }
 
@@ -83,7 +91,10 @@ export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings
             onChange={(e) => readFile(e.target.files?.[0])}
           />
           <div className="flex flex-wrap justify-center gap-2">
-            <Button onClick={() => fileInputRef.current?.click()} disabled={busy}>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busy || readOnly}
+            >
               {busy ? 'Leyendo…' : 'Elegir archivo'}
             </Button>
             <Button variant="secondary" onClick={downloadTemplate}>
@@ -97,7 +108,7 @@ export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings
           <p className="mt-1 mb-4 text-sm text-slate-500">
             Cargá grado, docente, asignaturas y estudiantes a mano.
           </p>
-          <Button variant="secondary" onClick={() => setMode('manual')}>
+          <Button variant="secondary" onClick={() => setMode('manual')} disabled={readOnly}>
             Crear manualmente
           </Button>
         </div>
