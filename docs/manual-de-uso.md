@@ -4,6 +4,15 @@ Guía del docente/rector para generar, cargar y exportar informes académicos.
 Nada se sube a un servidor: todo vive en la pestaña del navegador
 (sessionStorage) y muere al cerrarla. Documentación de módulos en `docs/`.
 
+## 0. La página de entrada
+
+La primera visita muestra una **página de presentación** (landing) con la
+propuesta de la herramienta: qué hace, en tres pasos, y qué pasa con los
+datos. El botón **Abrir la herramienta** entra directo al modal de
+*Configuración inicial* (sección 1); la pestaña recuerda que ya entraste, así
+que las visitas siguientes abren la herramienta de frente. Si tu colegio
+quiere una versión a medida, el pie ofrece contacto.
+
 ## 1. Primer arranque (RF-01)
 
 1. La app abre el modal **Configuración inicial**.

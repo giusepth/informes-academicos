@@ -1,0 +1,48 @@
+{
+  "world": "Boletín triplicado",
+  "mode": "persuade",
+  "seed": "69490acad69c7b91",
+  "roll": {
+    "key": "1a238ff47c9965251fd1065d283f98d4",
+    "pool": "c3b204a1eed6",
+    "challengersDeclined": [
+      "variable-font-specimen",
+      "signals-instruments-phosphor-terminal-midnight",
+      "textiles-weave-drape-fashion-sneaker-box-stacks",
+      "cinema-cinematography-editing-hand-processed-film-bloom",
+      "design-canon-merz-collage-page",
+      "brand-identity-canon-scher-street-typography"
+    ]
+  },
+  "userSteer": "pick but lighter colors: clear, kind, gentle - no dark navy, no near-black",
+  "palette": {
+    "paper": "#f7f5ef",
+    "sheet": "#fdfcf8",
+    "copySky": "#d8e5f6",
+    "kraft": "#e3d9c2",
+    "inkSlate": "#33455c",
+    "headingInk": "#3b4a63",
+    "typedOchre": "#6f6757",
+    "formBlue": "#3e6fa8",
+    "formBlueLift": "#4f7bb4",
+    "ruleKraftLine": "#c9b48f"
+  },
+  "fonts": {
+    "display": { "family": "Archivo Variable", "source": "@fontsource-variable/archivo/wdth.css", "variation": "wdth 78, wght 700" },
+    "typed": { "family": "IBM Plex Mono", "source": "@fontsource/ibm-plex-mono", "weights": [400, 600] }
+  },
+  "components": ["landing-form-rule", "landing-field", "triplicate-stack", "trust-band", "steps-as-form-boxes", "feature-ledger", "stamped-privacy-block", "soft-offer-footer"],
+  "motion": { "settle": { "target": "original sheet only", "durationMs": 640, "ease": [0.19, 0.75, 0.22, 1], "fill": "both" }, "ctaLift": "-3px on hover", "reducedMotion": "off" },
+  "craftNotes": [
+    "cx() now merges with tailwind-merge; Button className overrides are deterministic",
+    "animating back layers breaks their paint under CDP capture in this Chromium; back layers are static by design",
+    "no eyebrow kickers; features are ruled ledger rows, not icon cards; ban list in DESIGN.md"
+  ],
+  "verification": {
+    "impeccableDetect": "clean (0 anti-patterns, 0 advisories)",
+    "screenshots": [".impeccable/review/landing-desktop.png", ".impeccable/review/landing-mobile.png"],
+    "e2e": "e2e/landing.spec.js (3 tests); suite 15/15",
+    "unit": "vitest 39/39",
+    "designMd": "DESIGN.md"
+  }
+}

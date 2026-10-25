@@ -60,9 +60,15 @@ export async function seed(page, { config, reports, selected = null, tab = 'peri
   await page.goto('/')
 }
 
-/** Completes the first-run setup modal so real-usage flows can proceed. */
+/** Completes the first-run setup modal so real-usage flows can proceed.
+ * From the landing (first visit) the CTA opens the tool, which then shows
+ * the initial setup; already-entered tabs go straight to the modal. */
 export async function completeFirstRun(page, institution = 'Colegio de Prueba') {
   await page.goto('/')
+  const landingCta = page.getByRole('button', { name: 'Abrir la herramienta' })
+  if (await landingCta.count()) {
+    await landingCta.first().click()
+  }
   await expect(page.getByRole('heading', { name: 'Configuración inicial' })).toBeVisible()
   await page.getByPlaceholder('Colegio Ejemplo').fill(institution)
   await page.getByRole('button', { name: 'Guardar configuración' }).click()

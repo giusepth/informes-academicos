@@ -1,4 +1,6 @@
-/** Joins truthy class names into a single className string. */
+import { twMerge } from 'tailwind-merge'
+
+/** Joins truthy class names; later arguments win on conflicting utilities. */
 export function cx(...classes) {
-  return classes.filter(Boolean).join(' ')
+  return twMerge(classes.filter(Boolean).join(' '))
 }
