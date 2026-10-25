@@ -35,9 +35,11 @@ describe('manual de uso', () => {
     }
   })
 
-  it('mentions sessionStorage only as a legacy migration note', () => {
+  it('mentions sessionStorage only for per-tab view state or legacy migration', () => {
     const stray = paragraphs(manual).filter(
-      (paragraph) => /sessionStorage/i.test(paragraph) && !/migración/i.test(paragraph),
+      (paragraph) =>
+        /sessionStorage/i.test(paragraph) &&
+        !/estado de vista|migración/i.test(paragraph),
     )
     expect(stray).toEqual([])
   })

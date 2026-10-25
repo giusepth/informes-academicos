@@ -127,27 +127,48 @@ Detalles completos del módulo: `docs/final-report.md`.
   **no se sobrescribe**. Se aplica al informe activo (periodo) o al final si estás en
   la pestaña del informe final; los textos quedan guardados.
 
-## 6. Consejos y límites actuales
+## 6. Dónde viven los datos y cuándo se pierden
 
-- Los datos se guardan en este navegador y **no salen a un servidor** excepto
-  por los archivos que descargas. Se pierden si cambias de navegador o
-  computadora, si borras los datos del sitio o si usas el modo privado.
+Los **datos del colegio** (configuración, informes de periodo, desempeños y
+desempeños del informe final) se guardan en la base de datos local del
+navegador (**IndexedDB**) para este sitio. El **estado de vista** (pestaña
+activa, periodo y estudiante seleccionados) se guarda en `sessionStorage`, por
+pestaña; es una comodidad de navegación, no el respaldo del trabajo.
+
+El trabajo sobrevive a recargas, al cierre de la pestaña y a reinicios del
+equipo. Se pierde **solo** si:
+
+1. cambias de navegador o de computadora: otro navegador no ve estos datos;
+2. borras los datos del sitio (cookies y almacenamiento del sitio; vaciar solo
+   la caché no siempre alcanza);
+3. usas el modo privado.
+
+Además, el navegador puede liberar espacio automáticamente bajo presión de
+cuota. El **backup .xlsx** es el puente entre equipos y navegadores, y el
+resguardo recomendado antes de borrar los datos del sitio.
+
+En un **equipo compartido**, cualquier persona que abra este navegador puede
+ver los informes guardados. **Una sola pestaña edita a la vez**: las demás
+quedan en solo lectura y se activan al cerrarse la editora (sección 3). Sin
+IndexedDB (modo privado o navegador bloqueado), el trabajo vive por pestaña y
+no hay coordinación entre pestañas.
+
+Si vienes de una versión anterior, el trabajo que estaba guardado en la
+pestaña se importa una sola vez a IndexedDB (migración automática).
+
+## 7. Consejos y límites actuales
+
 - Exporta el backup .xlsx si vas a trabajar en otro equipo o antes de borrar
-  los datos del sitio.
-- En un equipo compartido, cualquier persona que use ese navegador puede
-  abrir la herramienta y ver el trabajo guardado.
-- Trabaja con una sola pestaña editora: las demás quedan en solo lectura y se
-  activan al cerrarse la primera. Exportar e imprimir sigue disponible en la
-  pestaña de solo lectura.
-- El navegador puede liberar espacio automáticamente y borrar los datos si
-  necesita almacenamiento; el backup .xlsx es la copia segura.
+  los datos del sitio: es la copia segura.
+- Exportar e imprimir sigue disponible en la pestaña de solo lectura, igual
+  que en la editora.
 - Si escribes desempeños largos, el boletín puede superar una página A4:
   la exportación a PDF corta el contenido en páginas automáticamente y la
   impresión del navegador respetará el paginado nativo.
 - Renombra el backup si guardas varios días (`informes-backup-AAAA-MM-DD`
   ya trae fecha).
 
-## 7. Documentación de módulos
+## 8. Documentación de módulos
 
 - `docs/final-report.md` — informe final (quinto informe) y flujo multi-periodo.
 - `samples/make-sample-workbooks.cjs` — genera los `informe-1..4.xlsx` de
