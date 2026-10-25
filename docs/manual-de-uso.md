@@ -1,0 +1,92 @@
+# Informes académicos — Manual de uso
+
+Guía del docente/rector para generar, cargar y exportar informes académicos.
+Nada se sube a un servidor: todo vive en la pestaña del navegador
+(sessionStorage) y muere al cerrarla. Documentación de módulos en `docs/`.
+
+## 1. Primer arranque (RF-01)
+
+1. La app abre el modal **Configuración inicial**.
+2. Completá institución, periodo y la **escala cualitativa**
+   (Bajo/Básico/Alto/Superior con sus rangos, editables).
+3. Cargá el **escudo institucional** (PNG recomendado): se usa como marca de
+   agua del informe impreso y como encabezado del boletín.
+4. **Guardar configuración**. Podés reabrir esto con el botón
+   *Configuración* del encabezado.
+
+## 2. Cargar datos de un informe (RF-02, RF-03)
+
+Dos caminos:
+
+- **Importar Excel (.xlsx)**: arrastrá el archivo o elegilo con el botón.
+  Formato: una fila de encabezados, luego una fila por estudiante.
+
+  ```text
+  Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Español | ...
+  ```
+
+  - Celda vacía = dato ausente (no cuenta como cero).
+  - `Docente (Asignatura)` es opcional y define el docente de cada materia
+    (se lee de la primera fila de datos).
+  - La cantidad de asignaturas es libre (N dinámico).
+- **Crear manualmente**: completá grado, docente, asignaturas (con docente
+  opcional por asignatura) y estudiantes.
+
+En ambos casos la app calcula: promedio por estudiante (crudo, 2 decimales),
+valoración cualitativa con redondeo institucional (2.92 → 3.0) y puesto
+(descendente por promedio crudo; empates comparten puesto y la numeración
+no salta puestos).
+
+## 3. Vida diaria del informe
+
+- **Lista de estudiantes** (izquierda): cursor para elegir el estudiante;
+  muestra posición y promedio.
+- **Boletín editable** (derecha): en cada asignatura editá la nota y el
+  **desempeño** (juicio valorativo). Se guarda en la pestaña al instante.
+- **Gestión de informes**: con más de un periodo cargado aparece una pestaña
+  por informe, además del botón del informe final.
+
+## 4. Varios periodos y el informe final
+
+1. Importá `informe-1.xlsx` → aparece la barra de gestión con **Informe 1**.
+2. Para el siguiente periodo: **"Importar Excel (periodo)"** con un archivo
+   nuevo, o **"Nuevo periodo en blanco"** para dejar la estructura lista y
+   escribir a mano (los ids de estudiantes se regeneran: las observaciones
+   quedan separadas por periodo, como corresponde).
+3. El botón **"Informe N (final)"** (se numera según la cantidad cargada)
+   abre el boletín que promedia cada asignatura entre los periodos: una
+   columna por informe + **Promedio** + **Valoración**. Los estudiantes se
+   emparejan **por nombre**, las ausencias no penalizan y el docente por
+   asignatura toma el del informe más reciente.
+
+Detalles completos del módulo: `docs/final-report.md`.
+
+## 5. Exportar
+
+- **Vista previa**: revisa el boletín limpio (sin casillas de edición) antes
+  de imprimir. También podés imprimir con `Ctrl+P` desde ahí.
+- **Imprimir**: imprime sólo la hoja del informe activo (el resto de la
+  interfaz queda fuera de la impresión).
+- **Generar ZIP (todos)**: descarga un .zip con un PDF por estudiante.
+
+## 6. Consejos y límites actuales
+
+- Los datos **no salen del navegador** y no hay backup automático
+  configurable: si cargaste todo a mano, exportá tu información antes de
+  cerrar la pestaña.
+- Si escribís desempeños largos, el boletín puede superar una página A4:
+  la exportación a PDF corta el contenido en páginas automáticamente y la
+  impresión del navegador respetará el paginado nativo.
+- Cada navegador tiene su propia sesión: no hay forma de pasar la carga a
+  otra máquina sin exportar/importar datos, aún.
+
+## 7. Documentación de módulos
+
+- `docs/final-report.md` — informe final (quinto informe) y flujo multi-periodo.
+- `samples/make-sample-workbooks.cjs` — genera los `informe-1..4.xlsx` de
+  prueba, con casos borde incluidos (estudiante ausente, empate denso,
+  redondeo 2.92 → 3.0):
+
+  ```bash
+  node samples/make-sample-workbooks.cjs ~/Downloads
+  ```
