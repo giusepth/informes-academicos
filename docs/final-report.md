@@ -64,17 +64,22 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 | Promedio general | Promedio **crudo** de los promedios por asignatura (dos decimales visibles). |
 | Puesto | `rankStudents`: orden por promedio crudo, empates comparten puesto y la numeración es **densa** (sin saltos) — RF-05. |
 | Docente por asignatura | **Gana el informe más reciente**: si el docente cambió a mitad de año, el final refleja el último cargado. |
-| Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. En cada asignatura solo pueden verlos los informes de periodo. |
+| Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. Se muestran solo en la pestaña del informe final; los informes de periodo no ven estas anotaciones. |
 | Matriz descriptiva | `Cargar desempeños (excel)` importa una hoja `Asignatura × Bajo/Básico/Alto/Superior` con textos, y **precarga solo casilleros vacíos** usando la banda del redondeo institucional (`roundUpTenth` antes de `qualitativeFor`). Aplica en el informe activo o en el final (claves por nombre); los juicios ya escritos por el docente no se pisan. |
 
 ## 5. Modelo y persistencia (RNF-01)
 
 Los datos del colegio viven en IndexedDB del navegador (base `informes`, store
-`kv`), por sitio: sobreviven a recargas, al cierre de la pestaña y a reinicios
-del equipo. El estado de vista vive en `sessionStorage`, por pestaña. Se pierde
-si se cambia de navegador o computadora, si se borran los datos del sitio o en
-modo privado; el navegador también puede liberar espacio bajo presión de
-cuota. El backup `.xlsx` es el puente entre equipos.
+`kv`), por sitio: sobreviven a recargas y a reinicios del equipo; las escrituras
+ya confirmadas se conservan al cerrar la pestaña, aunque una edición hecha justo
+antes de cerrar puede no alcanzar a guardarse. El estado de vista vive en
+`sessionStorage`, por pestaña. Se pierde si se cambia de navegador o
+computadora, si se borran los datos del sitio, en modo privado, si el navegador
+puede liberar espacio bajo presión de cuota o si se usa **Nuevo informe** (borra los
+informes y los desempeños finales guardados, sin confirmación). El backup
+`.xlsx` —periodos, notas, desempeños de período y desempeños finales— es el
+puente entre equipos: se exporta desde **Exportar backup (.xlsx)** y se
+re-importa al abrir la app en el otro navegador.
 
 | Clave (IndexedDB) | Contenido |
 |---|---|
@@ -83,7 +88,7 @@ cuota. El backup `.xlsx` es el puente entre equipos.
 | `informes.config` | Escala, institución, periodo, escudo en base64. |
 | `informes.migratedFromSession` | Bandera de la migración única desde la versión anterior. |
 
-Claves de vista (`sessionStorage`, por pestaña): `informes.activeReport`
+Claves de estado de vista (`sessionStorage`, por pestaña): `informes.activeReport`
 (informe activo), `informes.tab` (`period` o `final`), `informes.selected`
 (estudiante seleccionado) e `informes.entered` (si la pestaña ya entró a la
 herramienta).
@@ -102,6 +107,11 @@ Notas del modelo:
 - Al duplicar un periodo (`Nuevo periodo en blanco`) los estudiantes se
   regeneran con ids nuevos: las observaciones/desempeños son por periodo y
   compartir id filtraría ediciones a todos los informes a la vez.
+- El backup reserva la hoja `Final (desempeños)` (formato largo
+  `Estudiante | Asignatura | Desempeño`) para las anotaciones del informe final;
+  la exportación la escribe solo si hay al menos una anotación con texto y la
+  importación la restaura junto con los periodos. Un backup anterior, sin esa
+  hoja, no borra las anotaciones que ya tenga el navegador.
 
 ## 6. Verificación
 
@@ -125,8 +135,9 @@ node samples/make-sample-workbooks.cjs ~/Downloads
 
 - El import **de periodo individual** (`Importar Excel (periodo)`) ejecuta una
   sola hoja. El **backup** (`Exportar backup (.xlsx)` / re-import desde la
-  pantalla inicial) en cambio trabaja con una hoja por informe y restaura la
-  sesión multi-periodo completa, desempeños incluidos.
+  pantalla inicial) en cambio trabaja con una hoja por informe más la hoja
+  `Final (desempeños)`, y restaura la sesión multi-periodo completa: periodos,
+  notas, desempeños de período y desempeños finales.
 - Cambiar nombres de estudiantes entre periodos los desempareja (se combinan
   por nombre; es la identidad institucional esperada). Los desempeños finales
   siguen la misma identidad: si se renombra a un estudiante, el texto guardado

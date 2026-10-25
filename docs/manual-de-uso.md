@@ -1,8 +1,10 @@
 # Informes académicos — Manual de uso
 
 Guía del docente/rector para generar, cargar y exportar informes académicos.
-Nada se sube a un servidor: todo se guarda en el navegador (IndexedDB) y
-sigue disponible aunque cierres la pestaña. Documentación de módulos en `docs/`.
+Nada se sube a un servidor: los datos del colegio se guardan en el navegador
+(IndexedDB). Las escrituras ya confirmadas se conservan al cerrar la pestaña;
+una edición hecha justo antes de cerrar puede no alcanzar a guardarse.
+Documentación de módulos en `docs/`.
 
 ## 0. La página de entrada
 
@@ -59,8 +61,9 @@ no salta puestos).
 - **Lista de estudiantes** (izquierda): cursor para elegir el estudiante;
   muestra posición y promedio.
 - **Boletín editable** (derecha): en cada asignatura edita la nota y el
-  **desempeño** (juicio valorativo). Se guarda en este navegador al instante y
-  sigue disponible aunque cierres la pestaña.
+  **desempeño** (juicio valorativo). Se guarda en este navegador al instante:
+  las escrituras ya confirmadas se conservan al cerrar la pestaña; una edición
+  hecha justo antes de cerrar puede no alcanzar a guardarse.
 - **Carga manual de notas**: **Editar notas** abre la escritura directa de las
   notas del período activo y **Nuevo periodo en blanco** entra directo en ese
   modo. Mientras está activo también puedes agregar un estudiante a mano con su
@@ -115,11 +118,15 @@ Detalles completos del módulo: `docs/final-report.md`.
   interfaz queda fuera de la impresión).
 - **Generar ZIP (todos)**: descarga un .zip con un PDF por estudiante.
 - **Exportar backup (.xlsx)**: descarga un Excel con **una hoja por informe**
-  (notas, docentes por asignatura y desempeños incluidos). Es tu resguardo
-  para pasar el trabajo a otro equipo o antes de borrar los datos del sitio.
+  (notas, docentes por asignatura y desempeños de período incluidos) y, si hay
+  anotaciones, una hoja **Final (desempeños)** con los desempeños del informe
+  final. El backup incluye periodos, notas, desempeños de período y desempeños
+  finales; no incluye la configuración ni el escudo. Es tu resguardo para
+  pasar el trabajo a otro equipo o antes de borrar los datos del sitio.
   Para recuperar: abre la app en otro navegador o computadora, completa la
   configuración y **empieza por importar ese mismo archivo** (si detecta hojas
-  Informe N restaura todo el año de una vez).
+  Informe N restaura la sesión completa de una vez: periodos, notas y
+  desempeños, finales incluidos).
 - **Cargar desempeños (excel)**: importa la **matriz descriptiva** —una hoja
   `Asignatura | Bajo | Básico | Alto | Superior` con el texto que usas por
   banda— y precarga los casilleros de desempeño que están **vacíos** según la
@@ -135,17 +142,22 @@ navegador (**IndexedDB**) para este sitio. El **estado de vista** (pestaña
 activa, periodo y estudiante seleccionados) se guarda en `sessionStorage`, por
 pestaña; es una comodidad de navegación, no el respaldo del trabajo.
 
-El trabajo sobrevive a recargas, al cierre de la pestaña y a reinicios del
-equipo. Se pierde **solo** si:
+El trabajo sobrevive a recargas y a reinicios del equipo. Las escrituras ya
+confirmadas se conservan al cerrar la pestaña; una edición hecha justo antes de
+cerrar puede no alcanzar a guardarse. Se pierde si:
 
 1. cambias de navegador o de computadora: otro navegador no ve estos datos;
 2. borras los datos del sitio (cookies y almacenamiento del sitio; vaciar solo
    la caché no siempre alcanza);
-3. usas el modo privado.
+3. usas el modo privado;
+4. el navegador puede liberar espacio automáticamente bajo presión de cuota
+   (por ejemplo, si el equipo tiene poco espacio disponible);
+5. usas **Nuevo informe**: borra los informes y los desempeños finales
+   guardados en este navegador (hoy no hay confirmación), así que exporta el
+   backup antes.
 
-Además, el navegador puede liberar espacio automáticamente bajo presión de
-cuota. El **backup .xlsx** es el puente entre equipos y navegadores, y el
-resguardo recomendado antes de borrar los datos del sitio.
+El **backup .xlsx** es el puente entre equipos y navegadores, y el resguardo
+recomendado antes de borrar los datos del sitio o de usar **Nuevo informe**.
 
 En un **equipo compartido**, cualquier persona que abra este navegador puede
 ver los informes guardados. **Una sola pestaña edita a la vez**: las demás
@@ -158,8 +170,10 @@ pestaña se importa una sola vez a IndexedDB (migración automática).
 
 ## 7. Consejos y límites actuales
 
-- Exporta el backup .xlsx si vas a trabajar en otro equipo o antes de borrar
-  los datos del sitio: es la copia segura.
+- Exporta el backup .xlsx si vas a trabajar en otro equipo, si vas a usar
+  **Nuevo informe** o antes de borrar los datos del sitio: es la copia segura
+  del trabajo (periodos, notas, desempeños de período y desempeños finales; no
+  incluye la configuración ni el escudo).
 - Exportar e imprimir sigue disponible en la pestaña de solo lectura, igual
   que en la editora.
 - Si escribes desempeños largos, el boletín puede superar una página A4:
