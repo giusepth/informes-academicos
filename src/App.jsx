@@ -47,6 +47,10 @@ const SAVE_ERROR_TOAST =
   'No se pudo guardar en este navegador; exporta el backup (.xlsx) para no perder datos.'
 const PENDING_MATRIX_TOAST =
   'Desempeños cargados: se aplicarán al primer informe que abras.'
+// Restore hold marker kept in sessionStorage: a genuine backup restore keeps
+// the pending matrix waiting until the teacher edits or scores, even if the
+// tab reloads.
+const RESTORED_HOLD = 'restored'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -60,6 +64,8 @@ const STORAGE_KEYS = {
   finalPerformances: 'informes.finalPerformances',
   // Matrix loaded from the empty main menu, waiting for the first report.
   pendingMatrix: 'informes.pendingMatrix',
+  // Restore hold (see RESTORED_HOLD): survives a reload until a score edit.
+  pendingHold: 'informes.pendingHold',
   // Legacy single-report key; read only, kept for one-shot migration.
   legacyReport: 'informes.report',
 }
@@ -202,8 +208,11 @@ export default function App() {
   // the same render: skip the navigation reset exactly once.
   const keepScoreEntryRef = useRef(false)
   // A restored backup must not consume a pending matrix while it shows its own
-  // restore summary. The hold stays until the teacher edits or scores again.
-  const pendingHoldRef = useRef(false)
+  // restore summary. The hold is persisted so a reload keeps waiting until the
+  // teacher edits or scores again.
+  const pendingHoldRef = useRef(
+    readStorage(STORAGE_KEYS.pendingHold) === RESTORED_HOLD,
+  )
   const mountedRef = useRef(true)
   const persistenceRequestedRef = useRef(false)
   const [dataQueue] = useState(() =>
@@ -672,9 +681,11 @@ export default function App() {
     [rankedStudents, activeStudentId],
   )
 
-  // The in-memory ref keeps the auto-apply effect synchronous.
+  // The in-memory ref keeps the effect synchronous; sessionStorage carries the
+  // hold across a reload. `false` removes the key entirely.
   const setPendingHold = (held) => {
     pendingHoldRef.current = held
+    writeStorage(STORAGE_KEYS.pendingHold, held ? RESTORED_HOLD : null)
   }
 
   const handleConfigSave = (nextConfig) => {
@@ -714,7 +725,7 @@ export default function App() {
     if (readOnlyRef.current) return
     // The restore summary owns the toast. Keep any pending matrix on hold so
     // the auto-apply effect cannot consume it (and overwrite that summary).
-    pendingHoldRef.current = Boolean(pendingMatrix)
+    setPendingHold(Boolean(pendingMatrix))
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -790,7 +801,7 @@ export default function App() {
    */
   const handleLoadMatrix = (matrix) => {
     if (readOnlyRef.current) return
-    pendingHoldRef.current = false
+    setPendingHold(false)
     setPendingMatrix(matrix)
     setToast(PENDING_MATRIX_TOAST)
   }
@@ -799,7 +810,7 @@ export default function App() {
 
   const handlePerformanceChange = (studentId, subject, text) => {
     if (readOnlyRef.current) return
-    pendingHoldRef.current = false
+    setPendingHold(false)
     // On the final tab the annotation belongs to the finalPerformances slice,
     // keyed by normalized name — the same matching rule as period reports.
     if (isFinal) {
@@ -834,7 +845,7 @@ export default function App() {
 
   const handleScoreChange = (studentId, subject, value) => {
     if (readOnlyRef.current || !activeReport) return
-    pendingHoldRef.current = false
+    setPendingHold(false)
     setReports((current) =>
       current.map((reportEntry) =>
         reportEntry.id === activeReport.id
@@ -875,7 +886,7 @@ export default function App() {
 
   const handleReset = () => {
     if (readOnlyRef.current) return
-    pendingHoldRef.current = false
+    setPendingHold(false)
     setReports([])
     setActiveReportId(null)
     setTab('period')
@@ -893,7 +904,9 @@ export default function App() {
   const handleApplyMatrix = (matrix) => {
     if (readOnlyRef.current) return
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
-    // An explicit apply supersedes whatever was waiting from the menu.
+    // An explicit apply supersedes whatever was waiting from the menu, and the
+    // restore hold no longer has a pending payload to protect.
+    setPendingHold(false)
     setPendingMatrix(null)
 
     if (tab === 'final' && finalReport) {

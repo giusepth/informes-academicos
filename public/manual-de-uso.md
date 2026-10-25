@@ -84,7 +84,8 @@ ejemplo también están disponibles en **Gestión de informes**, junto a
 
 Si restauras un backup mientras hay una matriz pendiente, la restauración
 **no consume** la matriz: se mantiene el resumen del backup y la matriz queda
-pendiente para cuando califiques o edites el informe.
+pendiente hasta que califiques o edites el informe, aunque recargues la
+página.
 
 ## 3. Vida diaria del informe
 
