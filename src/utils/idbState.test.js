@@ -211,12 +211,34 @@ describe('migrateLegacy', () => {
       },
     }
 
-    await expect(migrateLegacy({ idb, session })).resolves.toEqual({ migrated: false })
+    await expect(migrateLegacy({ idb, session })).resolves.toEqual({
+      migrated: false,
+      failed: true,
+    })
 
     expect(session.has('informes.config')).toBe(true)
     expect(session.has('informes.reports')).toBe(true)
     await expect(storage.get(DATA_STORAGE_KEYS.config)).resolves.toBeUndefined()
     await expect(storage.get(MIGRATION_FLAG)).resolves.toBeUndefined()
+  })
+
+  it('flags a skipped legacy report so it cannot resurrect after IDB reports are cleared', async () => {
+    const storage = makeStorage()
+    const existingReports = [{ id: 'r_idb', label: 'Informe IDB', students: [] }]
+    await storage.set(DATA_STORAGE_KEYS.reports, existingReports)
+    const session = sessionFrom({
+      'informes.report': JSON.stringify({ id: 'legacy', label: 'Viejo', students: [] }),
+    })
+    const idb = { get: storage.get, setMany: storage.setMany }
+
+    await expect(migrateLegacy({ idb, session })).resolves.toEqual({ migrated: false })
+
+    await expect(storage.get(MIGRATION_FLAG)).resolves.toBe(true)
+    await expect(storage.get(DATA_STORAGE_KEYS.reports)).resolves.toEqual(existingReports)
+
+    await storage.remove(DATA_STORAGE_KEYS.reports)
+    await expect(migrateLegacy({ idb, session })).resolves.toEqual({ migrated: false })
+    await expect(storage.get(DATA_STORAGE_KEYS.reports)).resolves.toBeUndefined()
   })
 
   it('does not write anything when there is nothing to migrate', async () => {

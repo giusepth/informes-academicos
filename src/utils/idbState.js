@@ -56,29 +56,28 @@ export async function migrateLegacy({ idb, session } = {}) {
   }
 
   const hasStoredReports = Array.isArray(existingReports) && existingReports.length > 0
+  const legacyReport = readSessionValue(session, LEGACY_REPORT_KEY)
+  const hasLegacyReport =
+    legacyReport.present &&
+    legacyReport.value &&
+    typeof legacyReport.value === 'object' &&
+    !Array.isArray(legacyReport.value)
+
   if (!hasStoredReports) {
     const legacyReports = readSessionValue(session, DATA_STORAGE_KEYS.reports)
     if (Array.isArray(legacyReports.value) && legacyReports.value.length > 0) {
       entries.push([DATA_STORAGE_KEYS.reports, legacyReports.value])
-    } else {
-      const legacyReport = readSessionValue(session, LEGACY_REPORT_KEY)
-      if (
-        legacyReport.present &&
-        legacyReport.value &&
-        typeof legacyReport.value === 'object' &&
-        !Array.isArray(legacyReport.value)
-      ) {
-        entries.push([
-          DATA_STORAGE_KEYS.reports,
-          [
-            {
-              ...legacyReport.value,
-              id: makeId(),
-              label: 'Informe 1',
-            },
-          ],
-        ])
-      }
+    } else if (hasLegacyReport) {
+      entries.push([
+        DATA_STORAGE_KEYS.reports,
+        [
+          {
+            ...legacyReport.value,
+            id: makeId(),
+            label: 'Informe 1',
+          },
+        ],
+      ])
     }
   }
 
@@ -91,7 +90,18 @@ export async function migrateLegacy({ idb, session } = {}) {
     entries.push([DATA_STORAGE_KEYS.finalPerformances, legacyFinalPerformances.value])
   }
 
-  if (entries.length === 0) return { migrated: false }
+  if (entries.length === 0) {
+    if (!hasStoredReports || !hasLegacyReport) return { migrated: false }
+    // The legacy single report was skipped because IndexedDB already has
+    // reports. Persist the one-shot flag anyway: if those reports are later
+    // cleared, the old session copy must never resurrect as "Informe 1".
+    try {
+      await idb.setMany([[MIGRATION_FLAG, true]])
+      return { migrated: false }
+    } catch {
+      return { migrated: false, failed: true }
+    }
+  }
 
   entries.push([MIGRATION_FLAG, true])
 
@@ -99,7 +109,9 @@ export async function migrateLegacy({ idb, session } = {}) {
     await idb.setMany(entries)
     return { migrated: true }
   } catch {
-    return { migrated: false }
+    // Legacy keys stay in sessionStorage: the app must boot from that copy
+    // instead of pretending IndexedDB is empty.
+    return { migrated: false, failed: true }
   }
 }
 

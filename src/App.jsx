@@ -18,8 +18,11 @@ import { idb } from './utils/idbStorage'
 import { createPersistQueue, loadDataState, migrateLegacy } from './utils/idbState'
 import { fillPerformances, makeId } from './utils/parser'
 import { readStorage, writeStorage } from './utils/storage'
+import { createTabSync } from './utils/tabSync'
 
 const MIGRATED_TOAST = 'Trabajo anterior importado a este navegador.'
+const MIGRATION_FAILED_TOAST =
+  'No se pudo importar el trabajo a este navegador: se muestra la copia de esta pestaña.'
 const PRIVATE_MODE_TOAST = 'Modo privado: el trabajo se guarda solo en esta pestaña.'
 const SAVE_ERROR_TOAST =
   'No se pudo guardar en este navegador; exporta el backup (.xlsx) para no perder datos.'
@@ -51,8 +54,14 @@ const initReports = () => {
   return []
 }
 
+/**
+ * One fallback path for both the unavailable-IndexedDB case (private mode,
+ * policy block, open timeout) and a failed import: shows the session copy and
+ * persists every later edit to sessionStorage instead of IndexedDB.
+ */
 const readSessionFallback = () => ({
   available: false,
+  storageMode: 'session',
   migrated: false,
   config: readStorage(STORAGE_KEYS.config),
   reports: initReports(),
@@ -66,8 +75,18 @@ const boot = () => {
     bootPromise = (async () => {
       try {
         if (!(await idb.isAvailable())) return readSessionFallback()
-        const { migrated } = await migrateLegacy({ idb, session: sessionStorage })
-        return { available: true, migrated, ...(await loadDataState(idb)) }
+        const migration = await migrateLegacy({ idb, session: sessionStorage })
+        if (migration.failed) {
+          // Never boot into an empty IndexedDB after a failed import: the
+          // session copy is the only complete work left.
+          return { ...readSessionFallback(), migrationFailed: true }
+        }
+        return {
+          available: true,
+          storageMode: 'idb',
+          migrated: migration.migrated,
+          ...(await loadDataState(idb)),
+        }
       } catch {
         return readSessionFallback()
       }
@@ -100,6 +119,8 @@ export default function App() {
   const [hash, setHash] = useState(() => window.location.hash)
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
+  const hydratedRef = useRef(false)
+  const tabSyncRef = useRef(null)
   const [dataQueue] = useState(() =>
     createPersistQueue({
       write: async (key, value) => {
@@ -107,7 +128,10 @@ export default function App() {
           if (!writeStorage(key, value)) throw new Error('sessionStorage write failed')
           return true
         }
-        return idb.set(key, value)
+        const saved = await idb.set(key, value)
+        // Announce the committed batch so other tabs converge on it.
+        tabSyncRef.current?.notify()
+        return saved
       },
       onError: () => setToast(SAVE_ERROR_TOAST),
     }),
@@ -118,7 +142,8 @@ export default function App() {
     const nextReports = Array.isArray(state.reports) ? state.reports : []
     const nextFinalPerformances = state.finalPerformances ?? {}
 
-    storageModeRef.current = state.available ? 'idb' : 'session'
+    storageModeRef.current = state.storageMode ?? (state.available ? 'idb' : 'session')
+    hydratedRef.current = true
     dataQueue.prime(STORAGE_KEYS.config, nextConfig)
     dataQueue.prime(STORAGE_KEYS.reports, nextReports)
     dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
@@ -129,8 +154,61 @@ export default function App() {
     setFinalPerformances(nextFinalPerformances)
     setHydrating(false)
     document.documentElement.dataset.hydrated = 'true'
-    if (state.migrated) setToast(MIGRATED_TOAST)
+    if (state.migrationFailed) setToast(MIGRATION_FAILED_TOAST)
+    else if (state.migrated) setToast(MIGRATED_TOAST)
     else if (!state.available) setToast(PRIVATE_MODE_TOAST)
+  }, [dataQueue])
+
+  // Pull the latest committed data from IndexedDB. Only called for a remote
+  // change or a visible tab, and only when no local write is in flight: a
+  // stale tab must refresh, never overwrite newer work from another tab.
+  const resyncFromIdb = useCallback(async () => {
+    if (!hydratedRef.current || storageModeRef.current !== 'idb') return
+    if (!dataQueue.isIdle()) return
+
+    let state
+    try {
+      state = await loadDataState(idb)
+    } catch {
+      return
+    }
+    if (!dataQueue.isIdle()) return
+
+    const nextConfig = state.config ?? null
+    const nextReports = Array.isArray(state.reports) ? state.reports : []
+    const nextFinalPerformances = state.finalPerformances ?? {}
+
+    // Prime before setting state: the state effects then dedupe against this
+    // snapshot instead of echoing an identical write back to the other tab.
+    dataQueue.prime(STORAGE_KEYS.config, nextConfig)
+    dataQueue.prime(STORAGE_KEYS.reports, nextReports)
+    dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+    setConfig(nextConfig)
+    setReports(nextReports)
+    setFinalPerformances(nextFinalPerformances)
+  }, [dataQueue])
+
+  useEffect(() => {
+    const sync = createTabSync({
+      onRemoteChange: () => {
+        void resyncFromIdb()
+      },
+    })
+    tabSyncRef.current = sync
+    return () => {
+      sync.close()
+      if (tabSyncRef.current === sync) tabSyncRef.current = null
+    }
+  }, [resyncFromIdb])
+
+  // Give the last scheduled writes a chance to commit before the tab is
+  // hidden (a hard close can still race the asynchronous IndexedDB commit).
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') void dataQueue.flush()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [dataQueue])
 
   useEffect(() => {
