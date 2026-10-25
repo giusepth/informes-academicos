@@ -16,4 +16,12 @@ export default defineConfig({
       ignored: ['**/e2e-results/**', '**/e2e/**', '**/samples/**'],
     },
   },
+  /*
+   * vitest drives only the pure-domain unit suites inside src/. Without this
+   * scope it also picks up e2e/*.spec.js (Playwright runner), which fails
+   * with "Playwright Test did not expect test() to be called here".
+   */
+  test: {
+    include: ['src/**/*.test.{js,jsx,ts,tsx}'],
+  },
 })
