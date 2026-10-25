@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import ContactPage from './components/ContactPage'
 import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
 import Landing from './components/Landing'
@@ -65,6 +66,7 @@ export default function App() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
+  const [hash, setHash] = useState(() => window.location.hash)
   const printSheetRef = useRef(null)
 
   const configured = config !== null
@@ -92,6 +94,14 @@ export default function App() {
     const timer = setTimeout(() => setToast(''), 3500)
     return () => clearTimeout(timer)
   }, [toast])
+
+  // The contact page is hash-routed so it is reachable directly and from the
+  // landing footer, before the visitor enters the tool or configures anything.
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash)
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
 
   const activeReport = useMemo(
     () => reports.find((report) => report.id === activeReportId) ?? reports[0] ?? null,
@@ -306,6 +316,9 @@ export default function App() {
     )
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
   }
+
+  // The contact route bypasses the landing gate once every hook has run.
+  if (hash === '#/contacto') return <ContactPage />
 
   // Early return after every hook: first-time visitors see only the landing.
   if (showLanding) return <Landing onOpen={() => setEntered(true)} />

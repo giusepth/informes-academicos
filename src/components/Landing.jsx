@@ -384,6 +384,16 @@ export default function Landing({ onOpen }) {
           </a>
           .
         </p>
+        <p className="mt-2 text-[13.5px] text-[#5d6a85]">
+          ¿Prefieres un formulario? Abre el{' '}
+          <a
+            href="#/contacto"
+            className="inline-flex min-h-11 items-center text-[#3e6fa8] underline decoration-[#cfe0f2] underline-offset-2 hover:decoration-[#3e6fa8]"
+          >
+            formulario de contacto
+          </a>
+          .
+        </p>
         <p className="mt-2 text-[11.5px] text-[#6f6757]">
           Servicio de desarrollo a medida para colegios de pequeña y mediana envergadura.
         </p>
