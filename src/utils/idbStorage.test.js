@@ -166,6 +166,39 @@ describe('set', () => {
   })
 })
 
+describe('setMany', () => {
+  it('writes every pair in a single transaction and deletes null values', async () => {
+    const storage = makeStorage()
+    await storage.set('obsolete', 'value')
+
+    await expect(
+      storage.setMany([
+        ['first', 1],
+        ['second', { nested: true }],
+        ['obsolete', null],
+      ]),
+    ).resolves.toBe(true)
+
+    await expect(storage.get('first')).resolves.toBe(1)
+    await expect(storage.get('second')).resolves.toEqual({ nested: true })
+    await expect(storage.get('obsolete')).resolves.toBeUndefined()
+  })
+
+  it('rolls back the whole batch when one write fails', async () => {
+    const storage = makeStorage()
+
+    await expect(
+      storage.setMany([
+        ['first', 1],
+        ['second', () => {}],
+      ]),
+    ).rejects.toMatchObject({ name: 'DataCloneError' })
+
+    await expect(storage.get('first')).resolves.toBeUndefined()
+    await expect(storage.get('second')).resolves.toBeUndefined()
+  })
+})
+
 describe('remove', () => {
   it('deletes an existing key', async () => {
     const storage = makeStorage()
