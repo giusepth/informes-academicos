@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { readDataKey, report, seed, waitForHydrated, waitForPersisted } from './helpers'
+import {
+  heldWriterLocks,
+  readDataKey,
+  report,
+  seed,
+  waitForHydrated,
+  waitForPersisted,
+} from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -78,10 +85,16 @@ test('keyboard and scripted edits are rejected in the read-only tab', async ({ p
   await expect(banner(second)).toBeVisible()
 
   const textarea = mathPerformance(second)
+  await expect(textarea).toHaveAttribute('readonly', '')
   const before = await textarea.inputValue()
+  const idbBefore = await readDataKey(second, 'informes.reports')
   await textarea.click()
   await second.keyboard.type('INTENTO')
   expect(await textarea.inputValue()).toBe(before)
+  // Let any accidental queued write settle before comparing the committed
+  // snapshot: a read-only tab must produce no new write at all.
+  await second.waitForTimeout(250)
+  expect(await readDataKey(second, 'informes.reports')).toEqual(idbBefore)
 
   await second.evaluate(() => {
     const target = document.querySelector('.report-sheet textarea')
@@ -143,12 +156,6 @@ test('closing the writer promotes the read-only tab with fresh data', async ({ p
 
   await second.close()
 })
-
-const heldWriterLocks = (page) =>
-  page.evaluate(async () => {
-    const { held } = await navigator.locks.query()
-    return held.filter((lock) => lock.name === 'informes.writer').length
-  })
 
 test('exactly one writer: a third tab stays read-only until the promoted tab closes', async ({
   page,
