@@ -152,6 +152,19 @@ export default function Landing({ onOpen }) {
           .sheet-settle { animation: none; }
           .cta-sheet:hover .sheet-lift { transform: none; }
         }
+        /* Register stamp: one thump after the settle, then ink-dry static. */
+        .stamp-thumps-in {
+          opacity: 0;
+          transform: rotate(-12deg) scale(1.35);
+          animation: stamp-thump 260ms cubic-bezier(.34,1.56,.64,1) 900ms forwards;
+        }
+        @keyframes stamp-thump {
+          from { opacity: 0; transform: rotate(-12deg) scale(1.35); }
+          to { opacity: .9; transform: rotate(-12deg) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .stamp-thumps-in { opacity: .9; transform: rotate(-12deg) scale(1); animation: none; }
+        }
         .landing-world p, .landing-world h1 { text-wrap: pretty; }
         .landing-world h1, .landing-world h2 { text-wrap: balance; }
         @media (prefers-reduced-motion: no-preference) {
@@ -224,6 +237,23 @@ export default function Landing({ onOpen }) {
                 <span>Informe A4 · una página por estudiante</span>
                 <span style={typed}>PROM 4.17</span>
               </div>
+              {/* Register stamp: the authored moment. Double olive ring on the
+                  original sheet corner — echoes the PROM 4.17 it registers. */}
+              <span
+                data-stamp
+                aria-hidden="true"
+                style={{ ...typed, boxShadow: 'inset 0 0 0 0.5px rgba(93,125,90,0.35)' }}
+                className="stamp-thumps-in pointer-events-none absolute bottom-1.5 right-2 flex h-[62px] w-[62px] select-none rounded-full border-2 border-[#5d7d5a] p-[2px] md:bottom-2.5 md:right-2.5 md:h-[80px] md:w-[80px]"
+              >
+                <span className="flex w-full flex-col items-center justify-center rounded-full border-[1.5px] border-[#5d7d5a] text-[#5d7d5a]">
+                  <span className="text-[7px] uppercase leading-none tracking-[0.06em] md:text-[9px] md:tracking-[0.09em]">
+                    Registrado
+                  </span>
+                  <span className="mt-[3px] text-[9px] font-semibold leading-none tracking-[0.06em] md:text-[10.5px]">
+                    4.17
+                  </span>
+                </span>
+              </span>
             </div>
           </div>
         </div>
@@ -236,6 +266,9 @@ export default function Landing({ onOpen }) {
           Sin cuentas · Sin servidores · Sin suscripciones · Nada se instala
         </p>
         <Rule />
+        <p style={typed} className="pt-3 text-center text-[12.5px] text-[#6f6757]">
+          hecho para cierres de período sin sobresaltos.
+        </p>
       </section>
 
       {/* Steps: numbered form boxes, sequence carries real information. */}

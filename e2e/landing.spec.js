@@ -27,6 +27,14 @@ test.describe('Landing', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Qué hace, en concreto' })).toBeInViewport()
   })
 
+  test('register stamp renders on the original sheet and the manual download link is offered', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('[data-stamp]')).toBeAttached()
+    await expect(page.locator('[data-stamp]')).toBeVisible()
+    await expect(page.getByText('hecho para cierres de período sin sobresaltos.')).toBeVisible()
+    await expect(page.locator('a[download][href="/manual-de-uso.md"]')).toBeVisible()
+  })
+
   test('entering the tool persists for the tab: a reload skips the landing', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Abrir la herramienta' }).first().click()
