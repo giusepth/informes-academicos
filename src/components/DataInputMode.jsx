@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { downloadTemplate, parseBackupWorkbook, parseWorkbook } from '../utils/parser'
+import { assertImportSize, downloadTemplate, parseBackupWorkbook, parseWorkbook } from '../utils/parser'
 import ManualEntryForm from './ManualEntryForm'
 import { Button } from './ui'
 
@@ -24,11 +24,12 @@ export default function DataInputMode({ onLoaded, onLoadedBackup, onOpenSettings
     setBusy(true)
     setError('')
     try {
+      assertImportSize(file)
       const buffer = await file.arrayBuffer()
       try {
-        const reports = await parseBackupWorkbook(buffer)
+        const { reports, skipped } = await parseBackupWorkbook(buffer)
         if (reports.length > 0 && onLoadedBackup) {
-          onLoadedBackup(reports)
+          onLoadedBackup(reports, skipped)
           return
         }
       } catch {

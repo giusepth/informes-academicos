@@ -13,6 +13,7 @@ import {
   rankStudents,
 } from './utils/calculations'
 import { fillPerformances, makeId } from './utils/parser'
+import { readStorage, writeStorage } from './utils/storage'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -26,30 +27,12 @@ const STORAGE_KEYS = {
   legacyReport: 'informes.report',
 }
 
-function readStorage(key, fallback = null) {
-  try {
-    const raw = sessionStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    if (value === null || value === undefined) sessionStorage.removeItem(key)
-    else sessionStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    /* sessionStorage may be unavailable (private mode); volatile state still works. */
-  }
-}
-
 /**
  * Reads the multi-period reports from storage. Sessions stored as a single
  * legacy report are wrapped as the first period so old sessions migrate
  * transparently.
  */
-function initReports() {
+const initReports = () => {
   const stored = readStorage(STORAGE_KEYS.reports)
   if (Array.isArray(stored) && stored.length > 0) return stored
   const legacy = readStorage(STORAGE_KEYS.legacyReport)
@@ -82,12 +65,19 @@ export default function App() {
 
   const configured = config !== null
 
-  useEffect(() => writeStorage(STORAGE_KEYS.config, config), [config])
-  useEffect(() => writeStorage(STORAGE_KEYS.reports, reports), [reports])
-  useEffect(() => writeStorage(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
-  useEffect(() => writeStorage(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
-  useEffect(() => writeStorage(STORAGE_KEYS.tab, tab), [tab])
-  useEffect(() => writeStorage(STORAGE_KEYS.finalPerformances, finalPerformances), [finalPerformances])
+  // Session persistence with an audible failure: a full quota must warn
+  // instead of silently dropping edits (re-export the .xlsx backup then).
+  const persist = (key, value) => {
+    if (!writeStorage(key, value)) {
+      setToast('La pestaña no pudo guardar la sesión (cuota llena): exportá el backup (.xlsx) para no perder datos.')
+    }
+  }
+  useEffect(() => persist(STORAGE_KEYS.config, config), [config])
+  useEffect(() => persist(STORAGE_KEYS.reports, reports), [reports])
+  useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
+  useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
+  useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
+  useEffect(() => persist(STORAGE_KEYS.finalPerformances, finalPerformances), [finalPerformances])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -155,7 +145,7 @@ export default function App() {
     setToast(`Informe 1 cargado con ${first.students.length} estudiantes.`)
   }
 
-  const handleLoadedBackup = (rawReports) => {
+  const handleLoadedBackup = (rawReports, skipped = []) => {
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
@@ -169,7 +159,10 @@ export default function App() {
     setActiveReportId(restored[0]?.id ?? null)
     setSelectedStudentId(restored[0]?.students[0]?.id ?? null)
     setTab('period')
-    setToast(`Backup restaurado: ${restored.length} informe(s) importados.`)
+    setToast(
+      `Backup restaurado: ${restored.length} informe(s) importados.` +
+        (skipped.length > 0 ? ` — ${skipped.length} hoja(s) omitida(s): ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}` : ''),
+    )
   }
 
   const handleImportPeriod = (data) => {
