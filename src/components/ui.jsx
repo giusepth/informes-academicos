@@ -72,6 +72,26 @@ export function ToneBadge({ tone = 'slate', children }) {
   )
 }
 
+/** Label + underline signature slot used at the footer of report sheets. */
+export function SignatureField({ label }) {
+  return (
+    <div>
+      <div className="h-12 border-b border-slate-400" />
+      <p className="mt-2 text-xs font-medium text-slate-600">{label}</p>
+    </div>
+  )
+}
+
+/** Compact label:value row used in the report data grid. */
+export function Info({ label, value }) {
+  return (
+    <div className="flex gap-2">
+      <span className="font-semibold text-slate-500">{label}:</span>
+      <span className="text-slate-800">{value}</span>
+    </div>
+  )
+}
+
 export function Modal({ open, title, children, footer, onClose }) {
   useEffect(() => {
     if (!open) return undefined

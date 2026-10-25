@@ -12,6 +12,9 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
   const [grade, setGrade] = useState(initial?.grade ?? '')
   const [teacher, setTeacher] = useState(initial?.teacher ?? '')
   const [subjects, setSubjects] = useState(initial?.subjects ?? ['Matemáticas'])
+  // Per-subject docent, keyed by subject name so it survives renames the same
+  // way scores do. Empty/absent entries fall back to the course-wide teacher.
+  const [teachers, setTeachers] = useState(initial?.teachers ?? {})
   const [students, setStudents] = useState(
     () =>
       initial?.students ?? [
@@ -35,6 +38,10 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
         return { ...student, scores: { ...rest, [value]: score ?? null } }
       }),
     )
+    setTeachers((current) => {
+      const { [previous]: moved, ...rest } = current
+      return { ...rest, [value]: moved ?? '' }
+    })
   }
 
   const removeSubject = (index) => {
@@ -46,7 +53,14 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
         return { ...student, scores: rest }
       }),
     )
+    setTeachers((current) => {
+      const { [removed]: _drop, ...rest } = current
+      return rest
+    })
   }
+
+  const setSubjectTeacher = (index, value) =>
+    setTeachers((current) => ({ ...current, [subjects[index]]: value }))
 
   const addStudent = () =>
     setStudents((current) => [...current, { id: makeId(), name: '', scores: {} }])
@@ -94,6 +108,11 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
       grade: grade.trim(),
       teacher: teacher.trim(),
       subjects: validSubjects,
+      teachers: Object.fromEntries(
+        validSubjects
+          .map((subject) => [subject, (teachers[subject] ?? '').trim()])
+          .filter(([, value]) => value !== ''),
+      ),
       students: validStudents,
     })
   }
@@ -109,7 +128,7 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
             placeholder="5° A"
           />
         </Field>
-        <Field label="Docente">
+        <Field label="Docente" hint="Docente titular del curso. Cada asignatura puede llevar el suyo en su tarjeta.">
           <TextInput
             className="w-full"
             value={teacher}
@@ -128,12 +147,23 @@ export default function ManualEntryForm({ onCancel, onLoaded, initial }) {
         </div>
         <div className="flex flex-wrap gap-2">
           {subjects.map((subject, index) => (
-            <div key={index} className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
-              <TextInput
-                className="w-40 border-transparent bg-transparent shadow-none"
-                value={subject}
-                onChange={(e) => renameSubject(index, e.target.value)}
-              />
+            <div key={index} className="flex items-center gap-1 rounded-lg bg-slate-100 p-1.5">
+              <div className="flex flex-col gap-1">
+                <TextInput
+                  className="w-44 border-transparent bg-transparent shadow-none"
+                  value={subject}
+                  onChange={(e) => renameSubject(index, e.target.value)}
+                  placeholder="Asignatura"
+                  aria-label={`Nombre de asignatura ${index + 1}`}
+                />
+                <TextInput
+                  className="w-44 border-transparent bg-transparent shadow-none"
+                  value={teachers[subject] ?? ''}
+                  onChange={(e) => setSubjectTeacher(index, e.target.value)}
+                  placeholder="Docente (opcional)"
+                  aria-label={`Docente de ${subject || 'asignatura'}`}
+                />
+              </div>
               <Button
                 variant="ghost"
                 size="sm"

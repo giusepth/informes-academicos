@@ -7,6 +7,10 @@
  * Grado and Docente are optional; every other non-empty header is treated as a
  * subject, so the number of subjects N is discovered dynamically.
  *
+ * Per-subject docents use the optional convention `Docente (Asignatura)`,
+ * e.g. `Docente (Matemáticas)`. Their value is read from the first data row and
+ * reported as `teachers[subject]`, parallel to the course-wide `Docente`.
+ *
  * SheetJS is heavy, so it is loaded on demand (dynamic import) only when the
  * user actually imports or exports a spreadsheet.
  */
@@ -20,6 +24,7 @@ function loadXlsx() {
 const STUDENT_ALIASES = ['estudiante', 'nombre', 'nombres', 'alumno', 'alumna']
 const GRADE_ALIASES = ['grado', 'curso', 'aula']
 const TEACHER_ALIASES = ['docente', 'profesor', 'profesora', 'docente titular']
+const SUBJECT_TEACHER_RE = /^docente\s*\((.+)\)$/
 
 /** Generates a stable id without external dependencies. */
 export function makeId() {
@@ -72,7 +77,22 @@ export async function parseWorkbook(arrayBuffer) {
     throw new Error('No se encontró la columna "Estudiante".')
   }
 
-  const reserved = new Set([studentCol, gradeCol, teacherCol].filter((i) => i !== -1))
+  // Per-subject docent columns (`Docente (Asignatura)`) are metadata, not
+  // subjects. They must be reserved BEFORE discovering the subject columns or
+  // they would leak in as empty-score subjects.
+  const subjectTeacherCols = header
+    .map((label, index) => ({ label: String(label ?? '').trim(), index }))
+    .filter(({ label }) => SUBJECT_TEACHER_RE.test(label))
+    .map(({ label, index }) => ({
+      index,
+      subject: label.replace(SUBJECT_TEACHER_RE, '$1').trim(),
+    }))
+
+  const reserved = new Set(
+    [studentCol, gradeCol, teacherCol, ...subjectTeacherCols.map((c) => c.index)].filter(
+      (i) => i !== -1,
+    ),
+  )
   const subjectCols = header
     .map((label, index) => ({ label: String(label ?? '').trim(), index }))
     .filter(({ index, label }) => label && !reserved.has(index))
@@ -84,6 +104,13 @@ export async function parseWorkbook(arrayBuffer) {
   const subjects = subjectCols.map((c) => c.label)
 
   const dataRows = rows.slice(1)
+
+  const teachers = {}
+  subjectTeacherCols.forEach(({ index, subject }) => {
+    const value = String(dataRows[0]?.[index] ?? '').trim()
+    if (value) teachers[subject] = value
+  })
+
   const students = dataRows
     .filter((row) => String(row[studentCol] ?? '').trim() !== '')
     .map((row) => {
@@ -107,6 +134,7 @@ export async function parseWorkbook(arrayBuffer) {
     grade: gradeCol !== -1 ? String(dataRows[0]?.[gradeCol] ?? '').trim() : '',
     teacher: teacherCol !== -1 ? String(dataRows[0]?.[teacherCol] ?? '').trim() : '',
     subjects,
+    teachers,
     students,
   }
 }
@@ -118,10 +146,15 @@ export async function parseWorkbook(arrayBuffer) {
 export async function downloadTemplate() {
   const XLSX = await loadXlsx()
   const subjects = ['Matemáticas', 'Ciencias Naturales', 'Lengua', 'Sociales']
-  const header = ['Estudiante', 'Grado', 'Docente', ...subjects]
+  const header = [
+    'Estudiante',
+    'Grado',
+    'Docente',
+    ...subjects.flatMap((subject) => [subject, `Docente (${subject})`]),
+  ]
   const sample = [
-    ['Ana Gómez', '5° A', 'Prof. Rivera', 4.5, 3.8, 4.2, 3.0],
-    ['Luis Pérez', '5° A', 'Prof. Rivera', 3.2, 2.9, 3.5, 4.0],
+    ['Ana Gómez', '5° A', 'Prof. Rivera', 4.5, 'Prof. Torres', 3.8, 'Prof. Torres', 4.2, 'Prof. Suárez', 3.0, 'Prof. Suárez'],
+    ['Luis Pérez', '5° A', 'Prof. Rivera', 3.2, 'Prof. Torres', 2.9, 'Prof. Torres', 3.5, 'Prof. Suárez', 4.0, 'Prof. Suárez'],
   ]
   const sheet = XLSX.utils.aoa_to_sheet([header, ...sample])
   const workbook = XLSX.utils.book_new()

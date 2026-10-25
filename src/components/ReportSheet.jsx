@@ -1,6 +1,6 @@
 import { qualitativeFor, toneFor } from '../utils/calculations'
 import { cx } from '../utils/cx'
-import { ToneBadge } from './ui'
+import { Info, SignatureField, ToneBadge } from './ui'
 
 /**
  * The printable report sheet for a single student (RF-05, RF-06, RF-07).
@@ -20,6 +20,8 @@ export default function ReportSheet({
 }) {
   const subjects = report.subjects
   const scale = config.scale
+  const teachers = report.teachers ?? {}
+  const hasSubjectTeachers = subjects.some((subject) => teachers[subject])
 
   return (
     <div
@@ -56,7 +58,13 @@ export default function ReportSheet({
         <section className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <Info label="Estudiante" value={student.name} />
           <Info label="Grado / Curso" value={report.grade || '—'} />
-          <Info label="Docente" value={report.teacher || '—'} />
+          <Info
+            label="Docente"
+            value={
+              report.teacher ||
+              (hasSubjectTeachers ? 'Por asignatura (ver detalle de cada materia)' : '—')
+            }
+          />
           <Info label="Puesto" value={student.position ? `${student.position}°` : '—'} />
         </section>
 
@@ -76,8 +84,13 @@ export default function ReportSheet({
               const label = qualitativeFor(score, scale)
               return (
                 <tr key={subject}>
-                  <td className="border border-slate-200 px-3 py-2 font-medium text-slate-800">
-                    {subject}
+                  <td className="border border-slate-200 px-3 py-2 align-top">
+                    <span className="font-medium text-slate-800">{subject}</span>
+                    {teachers[subject] ? (
+                      <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                        Docente: {teachers[subject]}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center tabular-nums">
                     {score === null || score === undefined ? '—' : score.toFixed(1)}
@@ -129,24 +142,6 @@ export default function ReportSheet({
           <SignatureField label="Firma del Rector" />
         </section>
       </div>
-    </div>
-  )
-}
-
-function SignatureField({ label }) {
-  return (
-    <div>
-      <div className="h-12 border-b border-slate-400" />
-      <p className="mt-2 text-xs font-medium text-slate-600">{label}</p>
-    </div>
-  )
-}
-
-function Info({ label, value }) {
-  return (
-    <div className="flex gap-2">
-      <span className="font-semibold text-slate-500">{label}:</span>
-      <span className="text-slate-800">{value}</span>
     </div>
   )
 }
