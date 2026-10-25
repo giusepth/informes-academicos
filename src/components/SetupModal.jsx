@@ -19,7 +19,13 @@ function toDraft(config) {
  * shield. When `initialRun` is true the modal cannot be dismissed without
  * saving. The parent mounts it only while it should be visible, so mount == open.
  */
-export default function SetupModal({ initialConfig, initialRun = false, onSave, onClose }) {
+export default function SetupModal({
+  initialConfig,
+  initialRun = false,
+  persistenceStatus,
+  onSave,
+  onClose,
+}) {
   const [draft, setDraft] = useState(() => toDraft(initialConfig))
   const [error, setError] = useState('')
   const fileInputRef = useRef(null)
@@ -228,6 +234,17 @@ export default function SetupModal({ initialConfig, initialRun = false, onSave, 
             Se usa como marca de agua en el informe. La imagen queda solo en memoria.
           </p>
         </div>
+
+        {persistenceStatus === 'granted' || persistenceStatus === 'denied' ? (
+          <p
+            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+            className="text-[12.5px] leading-relaxed text-[#6f6757]"
+          >
+            {persistenceStatus === 'granted'
+              ? 'Almacenamiento protegido en este navegador.'
+              : 'El navegador puede liberar espacio; exporta el backup (.xlsx) para conservar el trabajo.'}
+          </p>
+        ) : null}
 
         {error ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
