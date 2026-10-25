@@ -47,7 +47,7 @@ const initReports = () => {
   const stored = readStorage(STORAGE_KEYS.reports)
   if (Array.isArray(stored) && stored.length > 0) return stored
   const legacy = readStorage(STORAGE_KEYS.legacyReport)
-  if (legacy) return [{ ...legacy, id: makeId(), label: legacy.label ?? 'Informe 1' }]
+  if (legacy) return [{ ...legacy, id: makeId(), label: 'Informe 1' }]
   return []
 }
 
