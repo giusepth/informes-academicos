@@ -13,6 +13,13 @@ export const SCALE = [
   { key: 'superior', label: 'Superior', min: 4.6, max: 5.0, tone: 'emerald' },
 ]
 
+const DEFAULT_CONFIG = {
+  institution: 'Colegio Ejemplo',
+  period: '',
+  scale: SCALE,
+  logo: null,
+}
+
 export function report({ label, grade = '5° A', teacher = 'Prof. Rivera', subjects, teachers = {}, students }) {
   return {
     id: `r_${Math.random().toString(36).slice(2, 10)}`,
@@ -29,24 +36,135 @@ export function report({ label, grade = '5° A', teacher = 'Prof. Rivera', subje
   }
 }
 
+export async function waitForHydrated(page) {
+  await page.waitForFunction(() => document.documentElement.dataset.hydrated === 'true')
+}
+
+export async function readDataKey(page, key) {
+  return page.evaluate(async (dataKey) => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('informes', 1)
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('kv')) {
+          request.result.createObjectStore('kv')
+        }
+      }
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+      request.onblocked = () => reject(new Error('IndexedDB open blocked'))
+    })
+
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readonly')
+        const request = tx.objectStore('kv').get(dataKey)
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+        tx.onerror = () => reject(tx.error)
+        tx.onabort = () => reject(tx.error)
+      })
+    } finally {
+      db.close()
+    }
+  }, key)
+}
+
+export async function waitForPersisted(
+  page,
+  key,
+  predicate = (value) => value !== undefined,
+  timeout = 10_000,
+) {
+  await expect
+    .poll(async () => predicate(await readDataKey(page, key)), {
+      timeout,
+      message: `waiting for IndexedDB key ${key}`,
+    })
+    .toBe(true)
+}
+
 /**
- * Seeds sessionStorage through an init script so the app boots straight into
- * the given state: config + period reports (+ optional final annotations).
+ * Seeds report data in IndexedDB and view state in sessionStorage, then
+ * reloads so the app hydrates from the persisted state. Promises are never
+ * awaited inside an init script: the IDB write runs in the page context only
+ * after `data-hydrated` is set.
  */
 export async function seed(page, { config, reports, selected = null, tab = 'period', finalPerformances }) {
   const state = {
-    config: config ?? {
-      institution: 'Colegio Ejemplo',
-      period: '',
-      scale: SCALE,
-      logo: null,
-    },
+    config: config ?? DEFAULT_CONFIG,
+    reports,
+    finalPerformances: finalPerformances ?? {},
+  }
+  const view = {
+    activeReport: reports[0]?.id ?? null,
+    selected,
+    tab,
+  }
+
+  await page.addInitScript((s) => {
+    if (s.activeReport) sessionStorage.setItem('informes.activeReport', JSON.stringify(s.activeReport))
+    if (s.selected) sessionStorage.setItem('informes.selected', JSON.stringify(s.selected))
+    sessionStorage.setItem('informes.tab', JSON.stringify(s.tab))
+  }, view)
+
+  await page.goto('/')
+  await waitForHydrated(page)
+
+  await page.evaluate(async (seeded) => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('informes', 1)
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('kv')) {
+          request.result.createObjectStore('kv')
+        }
+      }
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+      request.onblocked = () => reject(new Error('IndexedDB open blocked'))
+    })
+
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readwrite')
+        const store = tx.objectStore('kv')
+        store.put(seeded.config, 'informes.config')
+        store.put(seeded.reports, 'informes.reports')
+        store.put(seeded.finalPerformances, 'informes.finalPerformances')
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+        tx.onabort = () => reject(tx.error)
+      })
+    } finally {
+      db.close()
+    }
+  }, state)
+
+  await page.reload()
+  await waitForHydrated(page)
+}
+
+/**
+ * Seeds the pre-IndexedDB sessionStorage contract (all keys) so the migration
+ * spec can boot an old-build session.
+ */
+export async function seedLegacy(page, {
+  config,
+  reports = [],
+  selected = null,
+  tab = 'period',
+  finalPerformances,
+  legacyReport,
+} = {}) {
+  const state = {
+    config: config ?? DEFAULT_CONFIG,
     reports,
     activeReport: reports[0]?.id ?? null,
     selected,
     tab,
     finalPerformances,
+    legacyReport,
   }
+
   await page.addInitScript((s) => {
     sessionStorage.setItem('informes.config', JSON.stringify(s.config))
     sessionStorage.setItem('informes.reports', JSON.stringify(s.reports))
@@ -56,8 +174,24 @@ export async function seed(page, { config, reports, selected = null, tab = 'peri
     if (s.finalPerformances) {
       sessionStorage.setItem('informes.finalPerformances', JSON.stringify(s.finalPerformances))
     }
+    if (s.legacyReport) sessionStorage.setItem('informes.report', JSON.stringify(s.legacyReport))
   }, state)
+
   await page.goto('/')
+  await waitForHydrated(page)
+}
+
+export async function clearAllStorage(page) {
+  await page.goto('/favicon.svg')
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    sessionStorage.clear()
+    const request = indexedDB.deleteDatabase('informes')
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+    request.onblocked = () => reject(new Error('IndexedDB deleteDatabase blocked'))
+  }))
+  await page.goto('/')
+  await waitForHydrated(page)
 }
 
 /** Completes the first-run setup modal so real-usage flows can proceed.
@@ -65,6 +199,7 @@ export async function seed(page, { config, reports, selected = null, tab = 'peri
  * the initial setup; already-entered tabs go straight to the modal. */
 export async function completeFirstRun(page, institution = 'Colegio de Prueba') {
   await page.goto('/')
+  await waitForHydrated(page)
   const landingCta = page.getByRole('button', { name: 'Abrir la herramienta' })
   if (await landingCta.count()) {
     await landingCta.first().click()

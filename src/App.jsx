@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ContactPage from './components/ContactPage'
 import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
@@ -14,8 +14,19 @@ import {
   DEFAULT_SCALES,
   rankStudents,
 } from './utils/calculations'
+import { idb } from './utils/idbStorage'
+import { createPersistQueue, loadDataState, migrateLegacy } from './utils/idbState'
 import { fillPerformances, makeId } from './utils/parser'
 import { readStorage, writeStorage } from './utils/storage'
+import { createTabSync } from './utils/tabSync'
+
+const MIGRATED_TOAST = 'Trabajo anterior importado a este navegador.'
+const MIGRATION_FAILED_TOAST =
+  'No se pudo importar el trabajo a este navegador: se muestra la copia de esta pestaña.'
+const STORAGE_FALLBACK_TOAST =
+  'Sin almacenamiento persistente: el trabajo se guarda solo en esta pestaña.'
+const SAVE_ERROR_TOAST =
+  'No se pudo guardar en este navegador; exporta el backup (.xlsx) para no perder datos.'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -40,18 +51,59 @@ const initReports = () => {
   const stored = readStorage(STORAGE_KEYS.reports)
   if (Array.isArray(stored) && stored.length > 0) return stored
   const legacy = readStorage(STORAGE_KEYS.legacyReport)
-  if (legacy) return [{ ...legacy, id: makeId(), label: legacy.label ?? 'Informe 1' }]
+  if (legacy) return [{ ...legacy, id: makeId(), label: 'Informe 1' }]
   return []
 }
 
 /**
- * App orchestrator: owns session state (persisted in sessionStorage so a reload
- * survives but closing the tab wipes everything), the active period report,
- * the computed final report and the configuration modal.
+ * One fallback path for both the unavailable-IndexedDB case (private mode,
+ * policy block, open timeout) and a failed import: shows the session copy and
+ * persists every later edit to sessionStorage instead of IndexedDB.
+ */
+const readSessionFallback = () => ({
+  available: false,
+  storageMode: 'session',
+  migrated: false,
+  config: readStorage(STORAGE_KEYS.config),
+  reports: initReports(),
+  finalPerformances: readStorage(STORAGE_KEYS.finalPerformances) ?? {},
+})
+
+let bootPromise = null
+
+const boot = () => {
+  if (!bootPromise) {
+    bootPromise = (async () => {
+      try {
+        if (!(await idb.isAvailable())) return readSessionFallback()
+        const migration = await migrateLegacy({ idb, session: sessionStorage })
+        if (migration.failed) {
+          // Never boot into an empty IndexedDB after a failed import: the
+          // session copy is the only complete work left.
+          return { ...readSessionFallback(), migrationFailed: true }
+        }
+        return {
+          available: true,
+          storageMode: 'idb',
+          migrated: migration.migrated,
+          ...(await loadDataState(idb)),
+        }
+      } catch {
+        return readSessionFallback()
+      }
+    })()
+  }
+  return bootPromise
+}
+
+/**
+ * App orchestrator: owns report data (persisted in IndexedDB), view state
+ * (kept in sessionStorage per tab), the active period report, the computed
+ * final report and the configuration modal.
  */
 export default function App() {
-  const [config, setConfig] = useState(() => readStorage(STORAGE_KEYS.config))
-  const [reports, setReports] = useState(initReports)
+  const [config, setConfig] = useState(null)
+  const [reports, setReports] = useState([])
   const [activeReportId, setActiveReportId] = useState(() =>
     readStorage(STORAGE_KEYS.activeReport),
   )
@@ -59,15 +111,116 @@ export default function App() {
   const [selectedStudentId, setSelectedStudentId] = useState(() =>
     readStorage(STORAGE_KEYS.selected),
   )
-  const [finalPerformances, setFinalPerformances] = useState(() =>
-    readStorage(STORAGE_KEYS.finalPerformances) ?? {},
-  )
+  const [finalPerformances, setFinalPerformances] = useState({})
+  const [hydrating, setHydrating] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
   const [hash, setHash] = useState(() => window.location.hash)
   const printSheetRef = useRef(null)
+  const storageModeRef = useRef('idb')
+  const hydratedRef = useRef(false)
+  const tabSyncRef = useRef(null)
+  const [dataQueue] = useState(() =>
+    createPersistQueue({
+      write: async (key, value) => {
+        if (storageModeRef.current === 'session') {
+          if (!writeStorage(key, value)) throw new Error('sessionStorage write failed')
+          return true
+        }
+        const saved = await idb.set(key, value)
+        // Announce the committed batch so other tabs converge on it.
+        tabSyncRef.current?.notify()
+        return saved
+      },
+      onError: () => setToast(SAVE_ERROR_TOAST),
+    }),
+  )
+
+  const applyHydratedState = useCallback((state) => {
+    const nextConfig = state.config ?? null
+    const nextReports = Array.isArray(state.reports) ? state.reports : []
+    const nextFinalPerformances = state.finalPerformances ?? {}
+
+    storageModeRef.current = state.storageMode ?? (state.available ? 'idb' : 'session')
+    hydratedRef.current = true
+    dataQueue.prime(STORAGE_KEYS.config, nextConfig)
+    dataQueue.prime(STORAGE_KEYS.reports, nextReports)
+    dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+    dataQueue.enable()
+
+    setConfig(nextConfig)
+    setReports(nextReports)
+    setFinalPerformances(nextFinalPerformances)
+    setHydrating(false)
+    document.documentElement.dataset.hydrated = 'true'
+    if (state.migrationFailed) setToast(MIGRATION_FAILED_TOAST)
+    else if (state.migrated) setToast(MIGRATED_TOAST)
+    else if (!state.available) setToast(STORAGE_FALLBACK_TOAST)
+  }, [dataQueue])
+
+  // Pull the latest committed data from IndexedDB. Only called for a remote
+  // change or a visible tab, and only when no local write is in flight: a
+  // stale tab must refresh, never overwrite newer work from another tab.
+  const resyncFromIdb = useCallback(async () => {
+    if (!hydratedRef.current || storageModeRef.current !== 'idb') return
+    if (!dataQueue.isIdle()) return
+
+    let state
+    try {
+      state = await loadDataState(idb)
+    } catch {
+      return
+    }
+    if (!dataQueue.isIdle()) return
+
+    const nextConfig = state.config ?? null
+    const nextReports = Array.isArray(state.reports) ? state.reports : []
+    const nextFinalPerformances = state.finalPerformances ?? {}
+
+    // Prime before setting state: the state effects then dedupe against this
+    // snapshot instead of echoing an identical write back to the other tab.
+    dataQueue.prime(STORAGE_KEYS.config, nextConfig)
+    dataQueue.prime(STORAGE_KEYS.reports, nextReports)
+    dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+    setConfig(nextConfig)
+    setReports(nextReports)
+    setFinalPerformances(nextFinalPerformances)
+  }, [dataQueue])
+
+  useEffect(() => {
+    const sync = createTabSync({
+      onRemoteChange: () => {
+        void resyncFromIdb()
+      },
+    })
+    tabSyncRef.current = sync
+    return () => {
+      sync.close()
+      if (tabSyncRef.current === sync) tabSyncRef.current = null
+    }
+  }, [resyncFromIdb])
+
+  // Give the last scheduled writes a chance to commit before the tab is
+  // hidden (a hard close can still race the asynchronous IndexedDB commit).
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') void dataQueue.flush()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [dataQueue])
+
+  useEffect(() => {
+    let active = true
+    boot().then((state) => {
+      if (active) applyHydratedState(state)
+    })
+    return () => {
+      active = false
+    }
+  }, [applyHydratedState])
 
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
@@ -81,17 +234,25 @@ export default function App() {
       setToast('La pestaña no pudo guardar la sesión (cuota llena): exportá el backup (.xlsx) para no perder datos.')
     }
   }
-  useEffect(() => persist(STORAGE_KEYS.config, config), [config])
-  useEffect(() => persist(STORAGE_KEYS.reports, reports), [reports])
+  useEffect(() => {
+    dataQueue.enqueue(STORAGE_KEYS.config, config)
+  }, [config, dataQueue])
+  useEffect(() => {
+    dataQueue.enqueue(STORAGE_KEYS.reports, reports)
+  }, [reports, dataQueue])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
-  useEffect(() => persist(STORAGE_KEYS.finalPerformances, finalPerformances), [finalPerformances])
+  useEffect(() => {
+    dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
+  }, [finalPerformances, dataQueue])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
     if (!toast) return undefined
-    const timer = setTimeout(() => setToast(''), 3500)
+    // Save errors carry a recovery instruction and need longer on screen.
+    const duration = toast.length > 60 ? 6000 : 3500
+    const timer = setTimeout(() => setToast(''), duration)
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -317,14 +478,54 @@ export default function App() {
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
   }
 
-  // The contact route bypasses the landing gate once every hook has run.
+  // The contact route is static: it must not wait on the IndexedDB hydration
+  // gate (or on a slow/hung database open).
   if (hash === '#/contacto') return <ContactPage />
 
+  if (hydrating) {
+    return (
+      <div
+        aria-busy="true"
+        className="flex min-h-screen items-center justify-center bg-[#f7f5ef] px-6"
+      >
+        <p
+          role="status"
+          style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+          className="text-center text-[13px] tracking-[0.03em] text-[#6f6757]"
+        >
+          Preparando tu trabajo…
+        </p>
+      </div>
+    )
+  }
+
+  // One notice node reachable from every post-hydration branch (landing
+  // included), so storage and migration notices are never hidden behind the
+  // landing gate.
+  const notice = toast ? (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      className="no-print fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg"
+    >
+      {toast}
+    </div>
+  ) : null
+
   // Early return after every hook: first-time visitors see only the landing.
-  if (showLanding) return <Landing onOpen={() => setEntered(true)} />
+  if (showLanding) {
+    return (
+      <>
+        <Landing onOpen={() => setEntered(true)} />
+        {notice}
+      </>
+    )
+  }
 
   return (
-    <div className="min-h-full">
+    <>
+      <div className="min-h-full">
       <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div>
@@ -413,11 +614,8 @@ export default function App() {
         />
       ) : null}
 
-      {toast ? (
-        <div className="no-print fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
-          {toast}
-        </div>
-      ) : null}
-    </div>
+      </div>
+      {notice}
+    </>
   )
 }

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { completeFirstRun, report, seed } from './helpers'
+import { clearAllStorage, completeFirstRun, report, seed } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -28,11 +28,9 @@ test('full backup round trip: export, wipe session, import again', async ({ page
   await page.getByRole('button', { name: 'Exportar backup (.xlsx)' }).click()
   const backupPath = await (await download).path()
 
-  // "Next day" simulation: wipe the session ahead of every navigation.
-  // Init scripts run in registration order, so this clear runs AFTER the
-  // seeding script on the next goto, guaranteeing a day-1 state.
-  await page.addInitScript(() => sessionStorage.clear())
-  await page.goto('/')
+  // "Next day" simulation: sessionStorage (view state) and the IndexedDB data
+  // are both gone.
+  await clearAllStorage(page)
   await completeFirstRun(page)
   await expect(page.getByText('Importar Excel (.xlsx)')).toBeVisible()
 
