@@ -112,6 +112,7 @@ export default function App() {
     readStorage(STORAGE_KEYS.selected),
   )
   const [finalPerformances, setFinalPerformances] = useState({})
+  const [scoreEntry, setScoreEntry] = useState(false)
   const [hydrating, setHydrating] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -122,6 +123,9 @@ export default function App() {
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
   const tabSyncRef = useRef(null)
+  // A duplicated blank period switches the report and enters score entry in
+  // the same render: skip the navigation reset exactly once.
+  const keepScoreEntryRef = useRef(false)
   const [dataQueue] = useState(() =>
     createPersistQueue({
       write: async (key, value) => {
@@ -243,6 +247,15 @@ export default function App() {
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
+  // Score entry belongs to one period: navigation always leaves edit mode,
+  // except the blank-period flow that enters it on purpose.
+  useEffect(() => {
+    if (keepScoreEntryRef.current) {
+      keepScoreEntryRef.current = false
+      return
+    }
+    setScoreEntry(false)
+  }, [activeReportId, tab])
   useEffect(() => {
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
   }, [finalPerformances, dataQueue])
@@ -369,10 +382,12 @@ export default function App() {
         performances: Object.fromEntries(subjects.map((subject) => [subject, ''])),
       })),
     }
+    keepScoreEntryRef.current = true
     setReports((current) => [...current, copy])
     setActiveReportId(copy.id)
     setTab('period')
     setSelectedStudentId(copy.students[0]?.id ?? null)
+    setScoreEntry(true)
     setToast(`${copy.label} creado: asignaturas y estudiantes copiados, notas en blanco.`)
   }
 
@@ -414,6 +429,45 @@ export default function App() {
           : reportEntry,
       ),
     )
+  }
+
+  const handleScoreChange = (studentId, subject, value) => {
+    if (!activeReport) return
+    setReports((current) =>
+      current.map((reportEntry) =>
+        reportEntry.id === activeReport.id
+          ? {
+              ...reportEntry,
+              students: reportEntry.students.map((student) =>
+                student.id === studentId
+                  ? { ...student, scores: { ...student.scores, [subject]: value } }
+                  : student,
+              ),
+            }
+          : reportEntry,
+      ),
+    )
+  }
+
+  const handleAddStudent = (rawName) => {
+    const name = rawName.trim()
+    if (!name || !activeReport || tab !== 'period') return
+    const subjects = activeReport.subjects ?? []
+    const student = {
+      id: makeId(),
+      name,
+      scores: Object.fromEntries(subjects.map((subject) => [subject, null])),
+      performances: Object.fromEntries(subjects.map((subject) => [subject, ''])),
+    }
+    setReports((current) =>
+      current.map((reportEntry) =>
+        reportEntry.id === activeReport.id
+          ? { ...reportEntry, students: [...reportEntry.students, student] }
+          : reportEntry,
+      ),
+    )
+    setSelectedStudentId(student.id)
+    setToast(`${name} agregado a ${activeReport.label}.`)
   }
 
   const handleReset = () => {
@@ -563,6 +617,9 @@ export default function App() {
               onImportReport={handleImportPeriod}
               onDuplicate={handleDuplicatePeriod}
               onApplyMatrix={handleApplyMatrix}
+              scoreEntry={scoreEntry}
+              onToggleScoreEntry={() => setScoreEntry((current) => !current)}
+              onAddStudent={handleAddStudent}
             />
             <ExportToolbar
               report={displayReport}
@@ -580,6 +637,8 @@ export default function App() {
               selectedStudentId={activeStudentId}
               onSelectStudent={setSelectedStudentId}
               onPerformanceChange={handlePerformanceChange}
+              onScoreChange={handleScoreChange}
+              editableScores={tab === 'period' && scoreEntry}
               printSheetRef={printSheetRef}
               variant={isFinal ? 'final' : 'period'}
             />

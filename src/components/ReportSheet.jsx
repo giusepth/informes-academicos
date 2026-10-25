@@ -9,6 +9,10 @@ import { Info, SignatureField, ToneBadge } from './ui'
  * The exported/printed copy uses `editable={false}` so the capture shows clean
  * text instead of input boxes.
  *
+ * `editableScores` turns each score cell into a number input for manual entry
+ * (blank periods). It is screen-only: exports and print always keep the static
+ * sheet.
+ *
  * Score display and institutional rounding follow `config.scaleType`
  * (1.0–5.0 decimal or 1–100 centesimal).
  */
@@ -18,7 +22,9 @@ export default function ReportSheet({
   report,
   student,
   editable = false,
+  editableScores = false,
   onPerformanceChange,
+  onScoreChange,
   className,
 }) {
   const subjects = report.subjects
@@ -26,6 +32,8 @@ export default function ReportSheet({
   const scaleType = config.scaleType ?? 'decimal'
   const teachers = report.teachers ?? {}
   const hasSubjectTeachers = subjects.some((subject) => teachers[subject])
+  const minScore = scaleType === 'centesimal' ? 1 : 0
+  const maxScore = scaleType === 'centesimal' ? 100 : 5
 
   return (
     <div
@@ -102,7 +110,33 @@ export default function ReportSheet({
                     ) : null}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center tabular-nums">
-                    {score === null || score === undefined ? '—' : formatScore(score, scaleType)}
+                    {editableScores ? (
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step={scaleType === 'centesimal' ? 1 : 0.1}
+                        min={minScore}
+                        max={maxScore}
+                        value={score === null || score === undefined ? '' : score}
+                        aria-label={`Nota de ${subject} para ${student.name}`}
+                        onChange={(event) => {
+                          const raw = event.target.value
+                          if (raw === '') {
+                            onScoreChange?.(student.id, subject, null)
+                            return
+                          }
+                          const value = Number(raw)
+                          if (Number.isNaN(value)) return
+                          onScoreChange?.(student.id, subject, value)
+                        }}
+                        className="w-20 rounded-none border-0 border-b border-transparent bg-transparent px-1 py-0.5 text-right text-sm tabular-nums text-slate-900 outline-none focus:border-slate-400"
+                        style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                      />
+                    ) : score === null || score === undefined ? (
+                      '—'
+                    ) : (
+                      formatScore(score, scaleType)
+                    )}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 text-center">
                     {label ? <ToneBadge tone={tone}>{label}</ToneBadge> : '—'}

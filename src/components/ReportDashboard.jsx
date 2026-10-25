@@ -20,6 +20,8 @@ export default function ReportDashboard({
   selectedStudentId,
   onSelectStudent,
   onPerformanceChange,
+  onScoreChange,
+  editableScores = false,
   printSheetRef,
   variant = 'period',
 }) {
@@ -106,7 +108,9 @@ export default function ReportDashboard({
                 report={report}
                 student={selected}
                 editable
+                editableScores={editableScores}
                 onPerformanceChange={onPerformanceChange}
+                onScoreChange={onScoreChange}
               />
             )
           ) : (
@@ -122,7 +126,13 @@ export default function ReportDashboard({
           variant === 'final' ? (
             <FinalReportSheet ref={printSheetRef} config={config} report={report} student={selected} />
           ) : (
-            <ReportSheet ref={printSheetRef} config={config} report={report} student={selected} />
+            <ReportSheet
+              ref={printSheetRef}
+              config={config}
+              report={report}
+              student={selected}
+              editableScores={false}
+            />
           )
         ) : null}
       </div>
