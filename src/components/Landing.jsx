@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from './ui'
 import '@fontsource-variable/archivo/wdth.css'
 import '@fontsource/ibm-plex-mono/400.css'
@@ -15,6 +15,74 @@ const typed = { fontFamily: "'IBM Plex Mono', monospace" }
 const headed = {
   fontFamily: "'Archivo Variable', sans-serif",
   fontVariationSettings: "'wdth' 78, 'wght' 700",
+}
+
+// In-page anchors: ids live on the landing sections below.
+const NAV_LINKS = [
+  ['Cómo funciona', 'pasos'],
+  ['Qué hace', 'features'],
+  ['Datos', 'datos'],
+  ['Para quién', 'quien'],
+]
+
+/**
+ * Sticky bar over the landing only: thin form surface (paper at 97% + blur) on
+ * a double kraft rule. Brand row left; typed anchor links scroll-ended right
+ * beside the compact CTA — on <sm they become a horizontal scroll row while
+ * the CTA stays pinned. The active section underlines from the observer in
+ * Landing (typed 2px form-blue).
+ */
+function LandingNavbar({ onOpen, activeSection }) {
+  const linkClass = (id) =>
+    `block shrink-0 whitespace-nowrap border-b-2 px-0.5 py-1 text-[12.5px] tracking-[0.05em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3e6fa8] ${
+      activeSection === id
+        ? 'border-[#3e6fa8] text-[#3e6fa8]'
+        : 'border-transparent text-[#6f6757] hover:text-[#3e6fa8]'
+    }`
+  return (
+    <header
+      className="sticky top-0 z-40 border-b-[3px] border-double border-[#c9b48f] backdrop-blur-[3px]"
+      style={{ backgroundColor: 'rgba(247,245,239,0.97)' }}
+    >
+      {/* One visual row only when the anchors genuinely fit (lg). Below that:
+          brand + CTA on the first row, anchors on their own scrollable row —
+          DOM stays brand → nav → CTA so tab order and semantics never depend
+          on CSS `order`. The subline hides on the tiniest screens (360–384px)
+          so the CTA never wraps to a third row. */}
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 lg:flex-nowrap lg:gap-5 lg:px-6">
+        <div className="flex shrink-0 flex-col leading-[1.05]">
+          <span style={headed} className="text-[14px] uppercase tracking-[0.08em] text-[#33455c]">
+            Informes
+          </span>
+          <span style={typed} className="mt-0.5 hidden text-[12px] tracking-[0.02em] text-[#6f6757] min-[420px]:block">
+            informes académicos · 2026
+          </span>
+        </div>
+        <nav
+          aria-label="Secciones de la página"
+          className="order-3 -mx-1 flex w-full basis-full gap-3 overflow-x-auto px-1 pb-1 pt-1 lg:order-none lg:mx-0 lg:w-auto lg:basis-auto lg:flex-1 lg:justify-end lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0.5 lg:pt-1"
+        >
+          {NAV_LINKS.map(([label, id]) => (
+            <a
+              key={id}
+              href={`#${id}`}
+              style={typed}
+              aria-current={activeSection === id ? 'location' : undefined}
+              className={linkClass(id)}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+        <Button
+          onClick={onOpen}
+          className="sheet-lift ml-auto shrink-0 whitespace-nowrap rounded-[3px] bg-[#3e6fa8] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-[2px_3px_0_#adc6e4] hover:bg-[#345f92] sm:px-4 sm:py-2 sm:text-[13.5px]"
+        >
+          Abrir la herramienta
+        </Button>
+      </div>
+    </header>
+  )
 }
 
 function Rule() {
@@ -35,6 +103,10 @@ function Field({ label, value }) {
 }
 
 export default function Landing({ onOpen }) {
+  // Which anchored section currently sits in the reading band: drives the
+  // typed underline in the navbar (one observer, four sections).
+  const [activeSection, setActiveSection] = useState('')
+
   const features = useMemo(
     () => [
       ['Promedios automáticos', 'El promedio de cada estudiante sale de la planilla, sin escribir una fórmula a mano.'],
@@ -46,6 +118,30 @@ export default function Landing({ onOpen }) {
     ],
     [],
   )
+
+  // Navbar underline: track the four anchors once; the topmost section inside
+  // the reading band (-15% / -60% margins) wins.
+  useEffect(() => {
+    const ids = NAV_LINKS.map(([, id]) => id)
+    const visible = new Set()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id)
+          else visible.delete(entry.target.id)
+        }
+        const current = ids.filter((id) => visible.has(id)).at(-1)
+        if (current) setActiveSection(current)
+      },
+      { rootMargin: '-15% 0px -60% 0px' },
+    )
+    for (const id of ids) {
+      const section = document.getElementById(id)
+      if (section) observer.observe(section)
+    }
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div className="landing-world min-h-screen bg-[#f7f5ef] text-[#33455c]">
       <style>{`
@@ -59,11 +155,29 @@ export default function Landing({ onOpen }) {
         }
         @media (prefers-reduced-motion: reduce) {
           .sheet-settle { animation: none; }
-          .cta-sheet:hover .sheet-lift { transform: none; }
+          .cta-sheet:hover .sheet-lift, .sheet-lift:hover { transform: none; }
+        }
+        /* Register stamp: one thump after the settle, then ink-dry static. */
+        .stamp-thumps-in {
+          opacity: 0;
+          transform: rotate(-12deg) scale(1.35);
+          animation: stamp-thump 260ms cubic-bezier(.16,1,.3,1) 900ms forwards;
+        }
+        @keyframes stamp-thump {
+          from { opacity: 0; transform: rotate(-12deg) scale(1.35); }
+          to { opacity: 1; transform: rotate(-12deg) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .stamp-thumps-in { opacity: 1; transform: rotate(-12deg) scale(1); animation: none; }
         }
         .landing-world p, .landing-world h1 { text-wrap: pretty; }
         .landing-world h1, .landing-world h2 { text-wrap: balance; }
+        @media (prefers-reduced-motion: no-preference) {
+          html { scroll-behavior: smooth; }
+        }
       `}</style>
+
+      <LandingNavbar onOpen={onOpen} activeSection={activeSection} />
 
       {/* Hero: title-left, working triplicate-right. */}
       <section className="mx-auto max-w-6xl px-6 pb-14 pt-16 md:pt-24">
@@ -86,6 +200,14 @@ export default function Landing({ onOpen }) {
               <p style={typed} className="mt-3 text-[12.5px] tracking-[0.03em] text-[#6f6757]">
                 Sin cuentas ni servidores: todo sucede en tu navegador y nada sale del colegio.
               </p>
+              <a
+                href="/manual-de-uso.md"
+                download
+                style={typed}
+                className="mt-4 inline-block text-[13px] text-[#6f6757] underline decoration-[#8a7d63] underline-offset-4 transition-colors hover:decoration-[#3e6fa8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3e6fa8]"
+              >
+                Descargar el manual de uso (.md)
+              </a>
             </div>
           </div>
 
@@ -116,10 +238,27 @@ export default function Landing({ onOpen }) {
               <Field label="MATEMÁTICAS" value="4.5 · Alto" />
               <Field label="CIENCIAS" value="4.2 · Alto" />
               <Field label="ESPAÑOL" value="3.8 · Básico" />
-              <div className="mt-auto flex items-center justify-between px-5 py-4 text-[12px] text-[#6f6757]">
+              <div className="mt-auto flex items-center justify-between px-5 py-4 text-[12px] text-[#6f6757] md:pr-28">
                 <span>Informe A4 · una página por estudiante</span>
                 <span style={typed}>PROM 4.17</span>
               </div>
+              {/* Register stamp: the authored moment. Double olive ring on the
+                  original sheet corner — echoes the PROM 4.17 it registers. */}
+              <span
+                data-stamp
+                aria-hidden="true"
+                style={{ ...typed, boxShadow: 'inset 0 0 0 0.5px rgba(93,125,90,0.35)' }}
+                className="stamp-thumps-in pointer-events-none absolute bottom-2.5 right-2.5 hidden select-none rounded-full md:flex border-2 border-[#55704f] p-[2px] h-[104px] w-[104px]"
+              >
+                <span className="flex w-full flex-col items-center justify-center rounded-full border-[1.5px] border-[#55704f] text-[#55704f]">
+                  <span className="text-[12px] uppercase leading-none tracking-[0.02em] md:tracking-[0.04em]">
+                    Registrado
+                  </span>
+                  <span className="mt-[4px] text-[13px] font-semibold leading-none tracking-[0.04em]">
+                    4.17
+                  </span>
+                </span>
+              </span>
             </div>
           </div>
         </div>
@@ -132,10 +271,13 @@ export default function Landing({ onOpen }) {
           Sin cuentas · Sin servidores · Sin suscripciones · Nada se instala
         </p>
         <Rule />
+        <p style={typed} className="pt-3 text-center text-[12.5px] text-[#6f6757]">
+          hecho para cierres de período sin sobresaltos.
+        </p>
       </section>
 
       {/* Steps: numbered form boxes, sequence carries real information. */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
+      <section id="pasos" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 py-16">
         <h2 style={headed} className="text-[26px] leading-snug text-[#3b4a63] md:text-[30px]">
           De la planilla al informe impreso, en tres pasos
         </h2>
@@ -162,7 +304,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Features: ruled form ledger rows, not icon cards. */}
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="features" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 pb-16">
         <Rule />
         <h2 style={headed} className="pb-6 pt-8 text-[26px] text-[#3b4a63] md:text-[30px]">
           Qué hace, en concreto
@@ -183,7 +325,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Privacy: a stamped side-note block. */}
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="datos" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 pb-16">
         <div className="border-l-[3px] border-[#ece5d3] bg-[#fdfcf8] p-6">
           <h2 style={headed} className="text-[24px] text-[#3b4a63] md:text-[28px]">
             Los datos son del colegio
@@ -198,7 +340,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Audience: honest targeting. */}
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="quien" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 pb-16">
         <h2 style={headed} className="text-[24px] text-[#3b4a63] md:text-[28px]">
           ¿Para quién es?
         </h2>
