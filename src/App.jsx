@@ -15,7 +15,12 @@ import {
   rankStudents,
 } from './utils/calculations'
 import { idb } from './utils/idbStorage'
-import { createPersistQueue, loadDataState, migrateLegacy } from './utils/idbState'
+import {
+  createPersistQueue,
+  loadDataState,
+  migrateLegacy,
+  MIGRATION_FLAG,
+} from './utils/idbState'
 import { fillPerformances, makeId } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
@@ -79,6 +84,24 @@ const readSessionFallback = () => ({
 
 const persistence = createPersistenceRequester()
 
+// Data slices the pre-IndexedDB build kept in sessionStorage. Their presence
+// marks a tab that already used the tool, not a first-time visitor.
+const LEGACY_SESSION_DATA_KEYS = [
+  STORAGE_KEYS.config,
+  STORAGE_KEYS.reports,
+  STORAGE_KEYS.legacyReport,
+  STORAGE_KEYS.finalPerformances,
+]
+
+const hasLegacySessionData = () => {
+  if (readStorage(STORAGE_KEYS.entered) === true) return false
+  try {
+    return LEGACY_SESSION_DATA_KEYS.some((key) => sessionStorage.getItem(key) !== null)
+  } catch {
+    return false
+  }
+}
+
 let hydratePromise = null
 
 /**
@@ -92,11 +115,23 @@ const hydrate = () => {
     hydratePromise = (async () => {
       try {
         if (!(await idb.isAvailable())) return readSessionFallback()
+        const [data, migrationFlag] = await Promise.all([
+          loadDataState(idb),
+          idb.get(MIGRATION_FLAG),
+        ])
+        // Legacy tabs already used the tool: keep them out of the landing so
+        // their pre-deploy session is migrated (under the writer lock) before
+        // it can die with the tab. This detection stays read-only on
+        // IndexedDB; only the session flag is written, never the data.
+        const resumeLegacySession =
+          migrationFlag === undefined && hasLegacySessionData()
+        if (resumeLegacySession) writeStorage(STORAGE_KEYS.entered, true)
         return {
           available: true,
           storageMode: 'idb',
           migrated: false,
-          ...(await loadDataState(idb)),
+          resumeLegacySession,
+          ...data,
         }
       } catch {
         return readSessionFallback()
@@ -193,6 +228,7 @@ export default function App() {
     }
     storageModeRef.current = state.storageMode ?? (state.available ? 'idb' : 'session')
     hydratedRef.current = true
+    if (state.resumeLegacySession) setEntered(true)
     setConfig(nextConfig)
     setReports(nextReports)
     setFinalPerformances(nextFinalPerformances)
