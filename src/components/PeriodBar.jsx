@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { assertImportSize, buildBackupWorkbook, parsePerformanceMatrix, parseWorkbook } from '../utils/parser'
-import { Button } from './ui'
+import { Button, TextInput } from './ui'
 
 /**
  * Period management bar (RF-03 + "quinto informe"): switches between period
@@ -21,9 +21,13 @@ export default function PeriodBar({
   onImportReport,
   onDuplicate,
   onApplyMatrix,
+  scoreEntry = false,
+  onToggleScoreEntry,
+  onAddStudent,
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [studentName, setStudentName] = useState('')
   const fileInputRef = useRef(null)
   const matrixFileInputRef = useRef(null)
 
@@ -69,6 +73,14 @@ export default function PeriodBar({
     }
   }
 
+  const handleAddStudent = (event) => {
+    event.preventDefault()
+    const name = studentName.trim()
+    if (!name) return
+    onAddStudent?.(name)
+    setStudentName('')
+  }
+
   const finalLabel = `Informe ${reports.length + 1} (final)`
 
   return (
@@ -105,6 +117,11 @@ export default function PeriodBar({
       >
         Nuevo periodo en blanco
       </Button>
+      {activeTab !== 'final' ? (
+        <Button variant="secondary" size="sm" onClick={onToggleScoreEntry}>
+          {scoreEntry ? 'Terminar edición' : 'Editar notas'}
+        </Button>
+      ) : null}
       <Button
         variant="secondary"
         size="sm"
@@ -145,6 +162,27 @@ export default function PeriodBar({
         className="hidden"
         onChange={(e) => readFile(e.target.files?.[0])}
       />
+
+      {scoreEntry && activeTab !== 'final' ? (
+        <form
+          className="flex w-full flex-wrap items-center gap-2 border-t border-slate-100 pt-3"
+          onSubmit={handleAddStudent}
+        >
+          <label htmlFor="manual-student-name" className="sr-only">
+            Nombre del estudiante
+          </label>
+          <TextInput
+            id="manual-student-name"
+            className="min-w-0 flex-1"
+            placeholder="Nombre del estudiante"
+            value={studentName}
+            onChange={(event) => setStudentName(event.target.value)}
+          />
+          <Button type="submit" size="sm">
+            Agregar
+          </Button>
+        </form>
+      ) : null}
 
       {error ? (
         <p className="w-full rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
