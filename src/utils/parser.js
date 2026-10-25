@@ -280,12 +280,15 @@ export function fillPerformances(
  *
  * A sheet qualifies as a report sheet when its header contains the
  * Estudiante column (checked per sheet, so unrelated sheets are ignored).
+ * Sheets that fail to parse are NOT silently dropped: their names come back
+ * in `skipped` so the restore flow can warn the teacher.
  * Throws a descriptive Error when no sheet qualifies.
  */
 export async function parseBackupWorkbook(arrayBuffer) {
   const XLSX = await loadXlsx()
   const workbook = XLSX.read(arrayBuffer, { type: 'array' })
   const reports = []
+  const skipped = []
   for (const name of workbook.SheetNames) {
     try {
       const report = parseSheetRaw(XLSX, workbook.Sheets[name])
@@ -295,13 +298,24 @@ export async function parseBackupWorkbook(arrayBuffer) {
       })
     } catch {
       // Not a report sheet: skipped. A stray sheet inside the workbook does
-      // not invalidate the backup.
+      // not invalidate the backup — but its name must reach the teacher.
+      skipped.push(name)
     }
   }
   if (reports.length === 0) {
     throw new Error('El archivo no contiene hojas de informe (con columna Estudiante y asignaturas).')
   }
-  return reports
+  return { reports, skipped }
+}
+
+/** Hard cap before any .xlsx is read: keeps a hostile/oversized file from
+    decompressing the tab into an out-of-memory crash (10 MB ≈ 500k cells). */
+export const MAX_IMPORT_BYTES = 10 * 1024 * 1024
+
+export function assertImportSize(file) {
+  if (!file || !(file.size > MAX_IMPORT_BYTES)) return
+  const mb = (file.size / (1024 * 1024)).toFixed(1)
+  throw new Error(`El archivo supera el límite de 10 MB (${mb} MB). Dividilo por periodo o pedilo más liviano.`)
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { buildBackupWorkbook, parsePerformanceMatrix, parseWorkbook } from '../utils/parser'
+import { assertImportSize, buildBackupWorkbook, parsePerformanceMatrix, parseWorkbook } from '../utils/parser'
 import { Button } from './ui'
 
 /**
@@ -32,6 +32,7 @@ export default function PeriodBar({
     setBusy(true)
     setError('')
     try {
+      assertImportSize(file)
       const data = await parseWorkbook(await file.arrayBuffer())
       onImportReport(data)
     } catch (err) {
@@ -58,6 +59,7 @@ export default function PeriodBar({
     setBusy(true)
     setError('')
     try {
+      assertImportSize(file)
       const matrix = await parsePerformanceMatrix(await file.arrayBuffer())
       onApplyMatrix?.(matrix)
     } catch (err) {

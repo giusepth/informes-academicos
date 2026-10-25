@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
-import { backupSheets, parseBackupWorkbook } from './parser'
+import { assertImportSize, backupSheets, parseBackupWorkbook } from './parser'
 
 /**
  * Round-trip coverage for the Excel backup feature (RNF-01 companion):
@@ -85,7 +85,7 @@ describe('backupSheets', () => {
 describe('parseBackupWorkbook', () => {
   it('restores every report sheet with scores, teachers and desempeños', async () => {
     const bytes = workbookBytes(backupSheets([buildReport(1), buildReport(2)]))
-    const reports = await parseBackupWorkbook(bytes)
+    const { reports } = await parseBackupWorkbook(bytes)
 
     expect(reports).toHaveLength(2)
     expect(reports[0].label).toBe('Informe 1')
@@ -115,14 +115,39 @@ describe('parseBackupWorkbook', () => {
         ],
       },
     ])
-    const reports = await parseBackupWorkbook(bytes)
+    const { reports } = await parseBackupWorkbook(bytes)
     expect(reports).toHaveLength(1)
     expect(reports[0].students[0].scores['Matemáticas']).toBe(4.5)
     expect(reports[0].students[0].performances['Matemáticas']).toBe('OK')
+    const { skipped } = await parseBackupWorkbook(bytes)
+    expect(skipped).toEqual([]) // clean backup reports no omissions
+  })
+
+  it('reports the sheet names it had to skip', async () => {
+    const bytes = workbookBytes([
+      { name: 'Informe 1', aoa: [['Estudiante', 'Mate'], ['Ana', 4]] },
+      { name: 'Draft borrador', aoa: [['X'], [1]] },
+    ])
+    const { reports, skipped } = await parseBackupWorkbook(bytes)
+    expect(reports).toHaveLength(1)
+    expect(skipped).toEqual(['Draft borrador'])
   })
 
   it('throws a descriptive error when no sheet is a report sheet', async () => {
     const bytes = workbookBytes([{ name: 'Notas sueltas', aoa: [['X'], [1]] }])
     await expect(parseBackupWorkbook(bytes)).rejects.toThrow(/no contiene hojas de informe/i)
+  })
+})
+
+describe('assertImportSize', () => {
+  it('accepts files up to the 10 MB cap', () => {
+    expect(() => assertImportSize({ name: 'x.xlsx', size: 10 * 1024 * 1024 })).not.toThrow()
+  })
+
+  it('rejects oversized files with a descriptive message', () => {
+    expect(() => assertImportSize({ name: 'pesado.xlsx', size: 11 * 1024 * 1024 + 1 })).toThrow(
+      /supera el límite de 10 MB/,
+    )
+    expect(() => assertImportSize(null)).not.toThrow()
   })
 })
