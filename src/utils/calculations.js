@@ -125,3 +125,93 @@ export function subjectAverages(students, subjects) {
     }
   })
 }
+
+function tempId() {
+  return `f_${Math.random().toString(36).slice(2, 10)}`
+}
+
+/**
+ * Builds the institutional final report ("quinto informe"): for each subject,
+ * the mean of that subject's scores across every period report.
+ *
+ * Semantics:
+ * - Subjects are the UNION of every period's subjects, in first-appearance
+ *   order, so dynamic N from RF-03 keeps working even if a period added
+ *   or dropped a subject. Missing period scores just count as absent data.
+ * - Per-subject average ignores null scores (averageScore), so a student who
+ *   was absent in one period is not penalized by a zero.
+ * - Qualitative band per subject uses the institutional rounding rule (RF-04).
+ * - The overall average is the mean of per-subject averages (raw), and the
+ *   institutional position comes from rankStudents: raw mean, ties share the
+ *   position, positions are dense (RF-05).
+ * - Students are matched across periods by normalized name, since ids are
+ *   regenerated per imported period. First spelling seen wins as display name.
+ * - Per-subject teachers: the most recent period wins, so late docent changes
+ *   propagate to the final document.
+ *
+ * Returns a Report-shaped object (final: true) plus `periodScores` on each
+ * student so the sheet can render one column per period.
+ */
+export function buildFinalReport(reports, scale = DEFAULT_SCALE) {
+  const periodReports = (reports ?? []).filter(Boolean)
+  if (periodReports.length === 0) return null
+
+  const subjects = []
+  const seenSubjects = new Set()
+  for (const report of periodReports) {
+    for (const subject of report.subjects ?? []) {
+      if (subject && !seenSubjects.has(subject)) {
+        seenSubjects.add(subject)
+        subjects.push(subject)
+      }
+    }
+  }
+
+  const teachers = {}
+  for (const report of periodReports) {
+    Object.assign(teachers, report.teachers ?? {})
+  }
+
+  const groups = []
+  const groupByName = new Map()
+  for (const report of periodReports) {
+    for (const student of report.students ?? []) {
+      const key = String(student.name ?? '').trim().toUpperCase()
+      let group = groupByName.get(key)
+      if (!group) {
+        group = { name: String(student.name ?? '').trim(), entries: [] }
+        groupByName.set(key, group)
+        groups.push(group)
+      }
+      group.entries.push(student)
+    }
+  }
+
+  const baseStudents = groups.map((group) => {
+    const scores = {}
+    const periodScores = {}
+    for (const subject of subjects) {
+      const series = group.entries.map((student) => student.scores?.[subject] ?? null)
+      periodScores[subject] = series
+      scores[subject] = averageScore(series)
+    }
+    return {
+      id: tempId(),
+      name: group.name,
+      scores,
+      periodScores,
+      performances: {},
+    }
+  })
+
+  const last = periodReports[periodReports.length - 1]
+  return {
+    grade: last.grade ?? '',
+    teacher: last.teacher ?? '',
+    subjects,
+    teachers,
+    students: rankStudents(baseStudents, scale),
+    final: true,
+    periodLabels: periodReports.map((report, index) => report.label ?? `Informe ${index + 1}`),
+  }
+}

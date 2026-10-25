@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
+import PeriodBar from './components/PeriodBar'
 import ReportDashboard from './components/ReportDashboard'
 import ReportPreview from './components/ReportPreview'
 import SetupModal from './components/SetupModal'
 import { Button } from './components/ui'
-import { DEFAULT_SCALE, rankStudents } from './utils/calculations'
+import { buildFinalReport, DEFAULT_SCALE, rankStudents } from './utils/calculations'
+import { makeId } from './utils/parser'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
-  report: 'informes.report',
+  reports: 'informes.reports',
+  activeReport: 'informes.activeReport',
   selected: 'informes.selected',
+  tab: 'informes.tab',
+  // Legacy single-report key; read only, kept for one-shot migration.
+  legacyReport: 'informes.report',
 }
 
 function readStorage(key, fallback = null) {
@@ -32,13 +38,30 @@ function writeStorage(key, value) {
 }
 
 /**
+ * Reads the multi-period reports from storage. Sessions stored as a single
+ * legacy report are wrapped as the first period so old sessions migrate
+ * transparently.
+ */
+function initReports() {
+  const stored = readStorage(STORAGE_KEYS.reports)
+  if (Array.isArray(stored) && stored.length > 0) return stored
+  const legacy = readStorage(STORAGE_KEYS.legacyReport)
+  if (legacy) return [{ ...legacy, id: makeId(), label: legacy.label ?? 'Informe 1' }]
+  return []
+}
+
+/**
  * App orchestrator: owns session state (persisted in sessionStorage so a reload
- * survives but closing the tab wipes everything), the active step and the
- * configuration modal.
+ * survives but closing the tab wipes everything), the active period report,
+ * the computed final report and the configuration modal.
  */
 export default function App() {
   const [config, setConfig] = useState(() => readStorage(STORAGE_KEYS.config))
-  const [report, setReport] = useState(() => readStorage(STORAGE_KEYS.report))
+  const [reports, setReports] = useState(initReports)
+  const [activeReportId, setActiveReportId] = useState(() =>
+    readStorage(STORAGE_KEYS.activeReport),
+  )
+  const [tab, setTab] = useState(() => (readStorage(STORAGE_KEYS.tab) === 'final' ? 'final' : 'period'))
   const [selectedStudentId, setSelectedStudentId] = useState(() =>
     readStorage(STORAGE_KEYS.selected),
   )
@@ -50,8 +73,10 @@ export default function App() {
   const configured = config !== null
 
   useEffect(() => writeStorage(STORAGE_KEYS.config, config), [config])
-  useEffect(() => writeStorage(STORAGE_KEYS.report, report), [report])
+  useEffect(() => writeStorage(STORAGE_KEYS.reports, reports), [reports])
+  useEffect(() => writeStorage(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => writeStorage(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
+  useEffect(() => writeStorage(STORAGE_KEYS.tab, tab), [tab])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -59,9 +84,24 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [toast])
 
+  const activeReport = useMemo(
+    () => reports.find((report) => report.id === activeReportId) ?? reports[0] ?? null,
+    [reports, activeReportId],
+  )
+
+  // The final report ("quinto informe") is always derived from every period:
+  // per-subject means across periods, ranked with the institutional rules.
+  const finalReport = useMemo(
+    () => (reports.length > 0 ? buildFinalReport(reports, config?.scale ?? DEFAULT_SCALE) : null),
+    [reports, config],
+  )
+
+  const isFinal = tab === 'final' && finalReport !== null
+  const displayReport = isFinal ? finalReport : activeReport
+
   const rankedStudents = useMemo(
-    () => rankStudents(report?.students ?? [], config?.scale ?? DEFAULT_SCALE),
-    [report, config],
+    () => rankStudents(displayReport?.students ?? [], config?.scale ?? DEFAULT_SCALE),
+    [displayReport, config],
   )
 
   // Derive the active selection during render: the stored id when it still
@@ -88,32 +128,80 @@ export default function App() {
     if (!config) {
       setConfig({ institution: '', period: '', scale: DEFAULT_SCALE, logo: null })
     }
-    setReport(data)
-    setSelectedStudentId(data.students[0]?.id ?? null)
-    setToast(`Se cargaron ${data.students.length} estudiantes.`)
+    const first = { ...data, id: makeId(), label: 'Informe 1' }
+    setReports([first])
+    setActiveReportId(first.id)
+    setTab('period')
+    setSelectedStudentId(first.students[0]?.id ?? null)
+    setToast(`Informe 1 cargado con ${first.students.length} estudiantes.`)
   }
 
+  const handleImportPeriod = (data) => {
+    const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
+    setReports((current) => [...current, next])
+    setActiveReportId(next.id)
+    setTab('period')
+    setSelectedStudentId(next.students[0]?.id ?? null)
+    setToast(`${next.label} importado con ${next.students.length} estudiantes.`)
+  }
+
+  const handleDuplicatePeriod = () => {
+    if (!activeReport || tab !== 'period') return
+    const subjects = activeReport.subjects ?? []
+    const copy = {
+      ...activeReport,
+      id: makeId(),
+      label: `Informe ${reports.length + 1}`,
+      // Fresh ids: performances are per period, so a shared id would leak
+      // edits across every period at once.
+      students: activeReport.students.map((student) => ({
+        id: makeId(),
+        name: student.name,
+        scores: Object.fromEntries(Object.keys(student.scores ?? {}).map((subject) => [subject, null])),
+        performances: Object.fromEntries(subjects.map((subject) => [subject, ''])),
+      })),
+    }
+    setReports((current) => [...current, copy])
+    setActiveReportId(copy.id)
+    setTab('period')
+    setSelectedStudentId(copy.students[0]?.id ?? null)
+    setToast(`${copy.label} creado: asignaturas y estudiantes copiados, notas en blanco.`)
+  }
+
+  const handleSelectReport = (id) => {
+    setActiveReportId(id)
+    setTab('period')
+  }
+
+  const handleSelectFinal = () => setTab('final')
+
   const handlePerformanceChange = (studentId, subject, text) => {
-    setReport((current) => {
-      if (!current) return current
-      return {
-        ...current,
-        students: current.students.map((student) =>
-          student.id === studentId
-            ? {
-                ...student,
-                performances: { ...student.performances, [subject]: text },
-              }
-            : student,
-        ),
-      }
-    })
+    if (isFinal || !activeReport) return
+    setReports((current) =>
+      current.map((reportEntry) =>
+        reportEntry.id === activeReport.id
+          ? {
+              ...reportEntry,
+              students: reportEntry.students.map((student) =>
+                student.id === studentId
+                  ? {
+                      ...student,
+                      performances: { ...student.performances, [subject]: text },
+                    }
+                  : student,
+              ),
+            }
+          : reportEntry,
+      ),
+    )
   }
 
   const handleReset = () => {
-    setReport(null)
+    setReports([])
+    setActiveReportId(null)
+    setTab('period')
     setSelectedStudentId(null)
-    setToast('Datos del informe reiniciados.')
+    setToast('Datos de los informes reiniciados.')
   }
 
   return (
@@ -130,7 +218,7 @@ export default function App() {
             <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
               Configuración
             </Button>
-            {report ? (
+            {reports.length > 0 ? (
               <Button variant="secondary" size="sm" onClick={handleReset}>
                 Nuevo informe
               </Button>
@@ -144,10 +232,19 @@ export default function App() {
           <p className="text-sm text-slate-500">
             Configurá la escala y el escudo para comenzar.
           </p>
-        ) : report ? (
+        ) : reports.length > 0 ? (
           <div className="space-y-6">
+            <PeriodBar
+              reports={reports}
+              activeReportId={activeReport?.id}
+              activeTab={tab}
+              onSelectReport={handleSelectReport}
+              onSelectFinal={handleSelectFinal}
+              onImportReport={handleImportPeriod}
+              onDuplicate={handleDuplicatePeriod}
+            />
             <ExportToolbar
-              report={report}
+              report={displayReport}
               students={rankedStudents}
               selectedStudentId={activeStudentId}
               onSelectStudent={setSelectedStudentId}
@@ -157,12 +254,13 @@ export default function App() {
             />
             <ReportDashboard
               config={config}
-              report={report}
+              report={displayReport}
               rankedStudents={rankedStudents}
               selectedStudentId={activeStudentId}
               onSelectStudent={setSelectedStudentId}
               onPerformanceChange={handlePerformanceChange}
               printSheetRef={printSheetRef}
+              variant={isFinal ? 'final' : 'period'}
             />
           </div>
         ) : (
@@ -177,8 +275,9 @@ export default function App() {
       {previewOpen && activeStudent ? (
         <ReportPreview
           config={config}
-          report={report}
+          report={displayReport}
           student={activeStudent}
+          variant={isFinal ? 'final' : 'period'}
           onClose={() => setPreviewOpen(false)}
         />
       ) : null}

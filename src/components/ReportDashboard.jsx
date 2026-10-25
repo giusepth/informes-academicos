@@ -1,3 +1,4 @@
+import FinalReportSheet from './FinalReportSheet'
 import ReportSheet from './ReportSheet'
 import { cx } from '../utils/cx'
 import { ToneBadge } from './ui'
@@ -6,7 +7,8 @@ import { ToneBadge } from './ui'
  * Management + preview view (RF-06, RF-07).
  *
  * Left: the class list ordered by institutional position.
- * Right: the editable report sheet for the selected student.
+ * Right: the editable report sheet for the selected student (or the computed
+ * final report when `variant` is "final").
  * Off-screen: a non-editable copy of the same sheet, used as the capture
  * source for PDF/ZIP so the exported file never shows input boxes.
  */
@@ -18,6 +20,7 @@ export default function ReportDashboard({
   onSelectStudent,
   onPerformanceChange,
   printSheetRef,
+  variant = 'period',
 }) {
   const selected =
     rankedStudents.find((student) => student.id === selectedStudentId) ?? rankedStudents[0]
@@ -87,13 +90,17 @@ export default function ReportDashboard({
       <div className="no-print min-w-0">
         <div className="overflow-x-auto pb-4">
           {selected ? (
-            <ReportSheet
-              config={config}
-              report={report}
-              student={selected}
-              editable
-              onPerformanceChange={onPerformanceChange}
-            />
+            variant === 'final' ? (
+              <FinalReportSheet config={config} report={report} student={selected} />
+            ) : (
+              <ReportSheet
+                config={config}
+                report={report}
+                student={selected}
+                editable
+                onPerformanceChange={onPerformanceChange}
+              />
+            )
           ) : (
             <p className="text-sm text-slate-500">No hay estudiantes para mostrar.</p>
           )}
@@ -104,7 +111,11 @@ export default function ReportDashboard({
           this layer becomes the only visible content. */}
       <div aria-hidden="true" className="capture-layer">
         {selected ? (
-          <ReportSheet ref={printSheetRef} config={config} report={report} student={selected} />
+          variant === 'final' ? (
+            <FinalReportSheet ref={printSheetRef} config={config} report={report} student={selected} />
+          ) : (
+            <ReportSheet ref={printSheetRef} config={config} report={report} student={selected} />
+          )
         ) : null}
       </div>
     </div>
