@@ -45,3 +45,55 @@ test.describe('Contacto', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Escríbenos' })).toBeVisible()
   })
 })
+
+test.describe('Contacto — audit regressions', () => {
+  test('footer opens contact at the top on a short viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/')
+    await page.getByRole('link', { name: 'formulario de contacto' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Escríbenos' })).toBeInViewport()
+    await expect(page).toHaveURL(/#\/contacto$/)
+  })
+
+  test('valid submit encodes the whole body, single-line headers only', async ({ page }) => {
+    await page.goto('/#/contacto')
+    await page.getByLabel('Nombre').fill('Ana & <b>')
+    await page.getByLabel('Institución').fill('Colegio & Cía')
+    await page.getByLabel('Rol').selectOption('Rector')
+    await page.getByLabel('Correo').fill('ana@colegio.edu')
+    await page.getByLabel('Mensaje').fill('Hola & adiós\nSegunda línea ?x=1 #frag')
+    await page.getByRole('button', { name: 'Enviar mensaje' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Mensaje listo' })).toBeVisible()
+    const href = await page.locator('#mailto-target').getAttribute('href')
+    expect(href).toBeTruthy()
+    expect(href).not.toMatch(/[\r\n]/)
+    const query = href.split('?')[1]
+    const params = Object.fromEntries(
+      query.split('&').map((part) => {
+        const [key, value] = part.split('=')
+        return [key, decodeURIComponent(value)]
+      }),
+    )
+    expect(params.subject).toBe('Contacto web — Ana & <b>')
+    expect(params.body).toBe(
+      ['Institución: Colegio & Cía', 'Rol: Rector', 'Correo: ana@colegio.edu', '', 'Hola & adiós', 'Segunda línea ?x=1 #frag'].join('\n'),
+    )
+    expect(href).toContain('%0A')
+    expect(href).toContain('%26')
+  })
+
+  test('clipboard failure leaves the composed message selectable', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => undefined })
+    })
+    await page.goto('/#/contacto')
+    await page.getByLabel('Nombre').fill('Ana García')
+    await page.getByLabel('Correo').fill('ana@colegio.edu')
+    await page.getByLabel('Mensaje').fill('Queremos el informe con firma digital.')
+    await page.getByRole('button', { name: 'Enviar mensaje' }).click()
+    await page.getByRole('heading', { level: 1, name: 'Mensaje listo' }).waitFor()
+    await page.getByRole('button', { name: 'Copiar mensaje' }).click()
+    await expect(page.locator('[data-copy-fallback]')).toBeVisible()
+    await expect(page.locator('[data-copy-fallback]')).toContainText('Queremos el informe con firma digital.')
+  })
+})

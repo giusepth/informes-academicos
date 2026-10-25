@@ -64,8 +64,8 @@ const composePlainMessage = (values) =>
 const controlClass = (invalid) =>
   cx(
     'w-full rounded-[2px] border bg-[#fdfcf8] px-3 py-2.5 text-[14px] text-[#33455c]',
-    'outline-none transition focus:border-[#3e6fa8] focus:ring-2 focus:ring-[#3e6fa8]/25',
-    invalid ? 'border-[#b4453d] focus:border-[#b4453d]' : 'border-[#d8cfb8]',
+    'outline-none transition focus:border-[#3e6fa8] focus:ring-2 focus:ring-[#3e6fa8]/50 focus:ring-2 focus:ring-[#3e6fa8]/25',
+    invalid ? 'border-[#b4453d] focus:border-[#b4453d]' : 'border-[#8a7d63]',
   )
 
 function ContactField({ id, label, meta = 'obligatorio', error, children }) {
@@ -110,12 +110,26 @@ function ErrorSummary({ errors }) {
 }
 
 export default function ContactPage() {
+  const titleRef = useRef(null)
   const [values, setValues] = useState(INITIAL_VALUES)
   const [errors, setErrors] = useState({})
   const [sent, setSent] = useState(false)
   const [mailtoHref, setMailtoHref] = useState('')
   const [toast, setToast] = useState('')
+  const [copyFallback, setCopyFallback] = useState(false)
   const successRef = useRef(null)
+
+  // Route entry: the landing footer link can hand over mid-page scroll, so
+  // reset to the top, land focus on the page heading and title the document.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    titleRef.current?.focus({ preventScroll: true })
+    const previousTitle = document.title
+    document.title = 'Contacto — Informes académicos'
+    return () => {
+      document.title = previousTitle
+    }
+  }, [])
 
   // Move focus into the confirmation once it replaces the form so keyboard and
   // screen-reader users hear the result instead of landing back at the top.
@@ -168,7 +182,8 @@ export default function ContactPage() {
       await navigator.clipboard.writeText(composePlainMessage(values))
       setToast('Copiado')
     } catch {
-      setToast('No se pudo copiar: copia el mensaje manualmente desde tu correo.')
+      setCopyFallback(true)
+      setToast('No se pudo copiar automáticamente; el mensaje quedó visible abajo.')
     }
   }
 
@@ -194,7 +209,7 @@ export default function ContactPage() {
             style={typed}
             className="inline-flex min-h-11 items-center text-[12.5px] tracking-[0.03em] text-[#3e6fa8] underline decoration-[#cfe0f2] underline-offset-2 hover:decoration-[#3e6fa8]"
           >
-            ← Volver al inicio
+            <span aria-hidden="true">← </span>Volver al inicio
           </a>
         </p>
 
@@ -227,9 +242,9 @@ export default function ContactPage() {
                   LISTO
                 </span>
               </div>
-              <h2 style={headed} className="mt-5 text-[20px] text-[#3b4a63]">
+              <h1 style={headed} className="mt-5 text-[20px] text-[#3b4a63]">
                 Mensaje listo
-              </h2>
+              </h1>
               <p style={typed} className="mx-auto mt-2 max-w-[46ch] text-[13px] leading-[1.65] text-[#6f6757]">
                 Se abrió tu correo con el mensaje listo. Si no se abrió, copia este texto y envíalo a{' '}
                 <a
@@ -240,6 +255,15 @@ export default function ContactPage() {
                 </a>
                 .
               </p>
+              {copyFallback ? (
+                <pre
+                  data-copy-fallback
+                  style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+                  className="mx-auto mt-5 max-h-40 max-w-[46ch] overflow-auto whitespace-pre-wrap rounded-[2px] border border-[#8a7d63] bg-[#f7f5ef] p-3 text-left text-[12.5px] leading-relaxed text-[#33455c]"
+                >
+                  {composePlainMessage(values)}
+                </pre>
+              ) : null}
               <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                 <Button
                   type="button"
@@ -261,7 +285,12 @@ export default function ContactPage() {
           ) : (
             <>
               <div className="px-5 pb-2 pt-7">
-                <h1 style={headed} className="text-[26px] leading-tight text-[#3b4a63]">
+                <h1
+                  ref={titleRef}
+                  tabIndex={-1}
+                  style={headed}
+                  className="text-[26px] leading-tight text-[#3b4a63] focus:outline-none"
+                >
                   Escríbenos
                 </h1>
                 <p style={typed} className="mt-2 text-[13px] leading-[1.6] text-[#6f6757]">
