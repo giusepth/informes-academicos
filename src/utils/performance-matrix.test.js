@@ -109,4 +109,30 @@ describe('fillPerformances', () => {
     expect(next.s2['Matemáticas']).toBe('max-SUP')
     expect(next.s1['Física']).toBe('') // no matrix entry for Física
   })
+
+  it('bands centesimal scores with the integer rounding rule (59.3 → 60)', () => {
+    // Centesimal bands leave a gap between 1–59 and 60–79: a tenth-based
+    // rounding (59.3 → 59.4) would fall OUTSIDE every band and leave the
+    // cell empty. The scale's integer rule (59.3 → 60) must apply instead.
+    const centesimal = [
+      { label: 'Bajo', min: 1, max: 59 },
+      { label: 'Básico', min: 60, max: 79 },
+      { label: 'Alto', min: 80, max: 89 },
+      { label: 'Superior', min: 90, max: 100 },
+    ]
+    const students = [
+      { id: 's1', name: 'Ana', performances: { 'Matemáticas': '' } },
+      { id: 's2', name: 'Luis', performances: { 'Matemáticas': '' } },
+    ]
+    const next = fillPerformances(
+      students,
+      ['Matemáticas'],
+      { s1: { 'Matemáticas': 59.3 }, s2: { 'Matemáticas': 89.3 } },
+      centesimal,
+      matrix,
+      'centesimal',
+    )
+    expect(next.s1['Matemáticas']).toBe('max-BASICO') // 59.3 → 60
+    expect(next.s2['Matemáticas']).toBe('max-SUP') // 89.3 → 90
+  })
 })
