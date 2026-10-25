@@ -79,48 +79,31 @@ const readSessionFallback = () => ({
 
 const persistence = createPersistenceRequester()
 
-let bootPromise = null
+let hydratePromise = null
 
-const boot = () => {
-  if (!bootPromise) {
-    bootPromise = (async () => {
+/**
+ * Read-only hydration: loads the three persisted data keys (or the session
+ * copy) without touching the writer lock, the migration or the persist queue.
+ * Safe to run while the landing is visible, and the only boot step a tab needs
+ * before it can decide whether the tool should be shown.
+ */
+const hydrate = () => {
+  if (!hydratePromise) {
+    hydratePromise = (async () => {
       try {
         if (!(await idb.isAvailable())) return readSessionFallback()
-        // The writer lock is acquired before the legacy migration: a
-        // read-only tab must never write, not even the one-shot migration.
-        const lockMode = await writerLock.acquire()
-        if (lockMode === 'reader') {
-          return {
-            available: true,
-            storageMode: 'idb',
-            lockMode,
-            migrated: false,
-            ...(await loadDataState(idb)),
-          }
-        }
-        const migration = await migrateLegacy({ idb, session: sessionStorage })
-        if (migration.failed) {
-          // The tab falls back to per-tab session storage: holding the writer
-          // lock would block the tabs that still share IndexedDB.
-          writerLock.release()
-          // Never boot into an empty IndexedDB after a failed import: the
-          // session copy is the only complete work left.
-          return { ...readSessionFallback(), migrationFailed: true }
-        }
         return {
           available: true,
           storageMode: 'idb',
-          lockMode,
-          migrated: migration.migrated,
+          migrated: false,
           ...(await loadDataState(idb)),
         }
       } catch {
-        writerLock.release()
         return readSessionFallback()
       }
     })()
   }
-  return bootPromise
+  return hydratePromise
 }
 
 /**
@@ -141,6 +124,7 @@ export default function App() {
   const [finalPerformances, setFinalPerformances] = useState({})
   const [scoreEntry, setScoreEntry] = useState(false)
   const [hydrating, setHydrating] = useState(true)
+  const [activated, setActivated] = useState(false)
   const [readOnly, setReadOnly] = useState(false)
   const [lockState, setLockState] = useState('pending')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -152,6 +136,11 @@ export default function App() {
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
+  const hydratedStateRef = useRef(null)
+  const hydrationPromiseRef = useRef(null)
+  const activatedRef = useRef(false)
+  const activationPromiseRef = useRef(null)
+  const pendingResyncRef = useRef(false)
   const readOnlyRef = useRef(false)
   const lockModeRef = useRef('pending')
   const tabSyncRef = useRef(null)
@@ -187,42 +176,103 @@ export default function App() {
     }),
   )
 
+  // Read-only hydration used by the landing: it may read IndexedDB to find out
+  // whether the visitor already configured the tool, but it never acquires the
+  // writer lock, writes, migrates or enables the persist queue.
   const applyHydratedState = useCallback((state) => {
+    if (hydratedRef.current) return
     const nextConfig = state.config ?? null
     const nextReports = Array.isArray(state.reports) ? state.reports : []
     const nextFinalPerformances = state.finalPerformances ?? {}
 
+    hydratedStateRef.current = {
+      ...state,
+      config: nextConfig,
+      reports: nextReports,
+      finalPerformances: nextFinalPerformances,
+    }
     storageModeRef.current = state.storageMode ?? (state.available ? 'idb' : 'session')
     hydratedRef.current = true
-    dataQueue.prime(STORAGE_KEYS.config, nextConfig)
-    dataQueue.prime(STORAGE_KEYS.reports, nextReports)
-    dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
-    dataQueue.enable()
-
     setConfig(nextConfig)
     setReports(nextReports)
     setFinalPerformances(nextFinalPerformances)
     setHydrating(false)
     document.documentElement.dataset.hydrated = 'true'
-    if (state.migrationFailed) setToast(MIGRATION_FAILED_TOAST)
-    else if (state.migrated) setToast(MIGRATED_TOAST)
-    else if (!state.available) setToast(STORAGE_FALLBACK_TOAST)
-  }, [dataQueue])
+  }, [])
 
-  // Pull the latest committed data from IndexedDB. Only called for a remote
-  // change or a visible tab, and only when no local write is in flight: a
-  // stale tab must refresh, never overwrite newer work from another tab.
+  // Activation happens only when the tool UI (or its initial setup modal) is
+  // actually shown. Lock mode and read-only flag land in the same React batch
+  // as the data and the queue enablement, and the tool is not rendered before
+  // `activated`, so there is no editable flash for a reader.
+  const applyActivatedState = useCallback(
+    (
+      state,
+      {
+        lockMode,
+        readOnly: nextReadOnly,
+        enableQueue,
+        migrated = false,
+        migrationFailed = false,
+        fallback = false,
+      },
+    ) => {
+      const nextConfig = state.config ?? null
+      const nextReports = Array.isArray(state.reports) ? state.reports : []
+      const nextFinalPerformances = state.finalPerformances ?? {}
+      const snapshot = {
+        ...state,
+        config: nextConfig,
+        reports: nextReports,
+        finalPerformances: nextFinalPerformances,
+      }
+
+      hydratedStateRef.current = snapshot
+      storageModeRef.current = state.storageMode ?? (state.available ? 'idb' : 'session')
+      hydratedRef.current = true
+      readOnlyRef.current = nextReadOnly
+      lockModeRef.current = lockMode
+
+      setConfig(nextConfig)
+      setReports(nextReports)
+      setFinalPerformances(nextFinalPerformances)
+      setReadOnly(nextReadOnly)
+      setLockState(lockMode)
+      setHydrating(false)
+      setActivated(true)
+      activatedRef.current = true
+      document.documentElement.dataset.hydrated = 'true'
+
+      if (enableQueue) {
+        dataQueue.prime(STORAGE_KEYS.config, nextConfig)
+        dataQueue.prime(STORAGE_KEYS.reports, nextReports)
+        dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+        dataQueue.enable()
+      }
+
+      if (migrationFailed) setToast(MIGRATION_FAILED_TOAST)
+      else if (migrated) setToast(MIGRATED_TOAST)
+      else if (fallback) setToast(STORAGE_FALLBACK_TOAST)
+    },
+    [dataQueue],
+  )
+
+  // Pull the latest committed data from IndexedDB. Returns whether the
+  // snapshot was actually refreshed so promotion can refuse to enable editing
+  // on a failed read. Only called for a remote change or a visible tab, and
+  // only when no local write is in flight: a stale tab must refresh, never
+  // overwrite newer work from another tab.
   const resyncFromIdb = useCallback(async () => {
-    if (!hydratedRef.current || storageModeRef.current !== 'idb') return
-    if (!dataQueue.isIdle()) return
+    if (!hydratedRef.current || !activatedRef.current) return false
+    if (storageModeRef.current !== 'idb') return false
+    if (!dataQueue.isIdle()) return false
 
     let state
     try {
       state = await loadDataState(idb)
     } catch {
-      return
+      return false
     }
-    if (!dataQueue.isIdle()) return
+    if (!dataQueue.isIdle()) return false
 
     const nextConfig = state.config ?? null
     const nextReports = Array.isArray(state.reports) ? state.reports : []
@@ -233,35 +283,164 @@ export default function App() {
     dataQueue.prime(STORAGE_KEYS.config, nextConfig)
     dataQueue.prime(STORAGE_KEYS.reports, nextReports)
     dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+    hydratedStateRef.current = {
+      ...state,
+      config: nextConfig,
+      reports: nextReports,
+      finalPerformances: nextFinalPerformances,
+    }
     setConfig(nextConfig)
     setReports(nextReports)
     setFinalPerformances(nextFinalPerformances)
+    return true
   }, [dataQueue])
 
-  const applyReadOnly = useCallback((value) => {
-    readOnlyRef.current = value
-    setReadOnly(value)
-  }, [])
+  // Remote changes that arrive before activation (landing, contact, or a tab
+  // still waiting on the lock) are replayed once the tool finishes activating.
+  const requestResync = useCallback(() => {
+    if (!hydratedRef.current || !activatedRef.current) {
+      pendingResyncRef.current = true
+      return
+    }
+    void resyncFromIdb()
+  }, [resyncFromIdb])
 
-  const applyLockMode = useCallback((mode) => {
-    lockModeRef.current = mode
-    setLockState(mode)
-  }, [])
+  const replayPendingResync = useCallback(() => {
+    if (!pendingResyncRef.current) return
+    pendingResyncRef.current = false
+    void resyncFromIdb()
+  }, [resyncFromIdb])
 
   // The previous writer released the lock (usually because its tab closed):
-  // re-read the three data keys before enabling editing, so this tab starts
-  // from that tab's latest committed work instead of its stale snapshot.
-  const handlePromoted = useCallback(() => {
-    applyReadOnly(false)
-    applyLockMode('writer')
-    void resyncFromIdb()
+  // keep read-only, re-read the three data keys and only enable editing when
+  // that read succeeded. A failed read (or flush) releases the lock again so
+  // the banner's «Reintentar» can ask for it with a clean lifecycle.
+  const handlePromoted = useCallback(async () => {
+    if (!mountedRef.current) {
+      writerLock.release()
+      return
+    }
+    await dataQueue.flush()
+    const refreshed = await resyncFromIdb()
+    if (!mountedRef.current) {
+      writerLock.release()
+      return
+    }
+    if (!refreshed) {
+      writerLock.release()
+      return
+    }
+    pendingResyncRef.current = false
+    dataQueue.enable()
+    readOnlyRef.current = false
+    lockModeRef.current = 'writer'
+    setReadOnly(false)
+    setLockState('writer')
     setToast(PROMOTED_TOAST)
-  }, [applyLockMode, applyReadOnly, resyncFromIdb])
+  }, [dataQueue, resyncFromIdb])
+
+  const activateTool = useCallback(async () => {
+    let state = hydratedStateRef.current
+    if (!state) {
+      state = await hydrate()
+      applyHydratedState(state)
+    }
+
+    // Session fallback is per tab: nothing to coordinate, both tabs may edit.
+    if (state.storageMode !== 'idb') {
+      applyActivatedState(state, {
+        lockMode: 'unsupported',
+        readOnly: false,
+        enableQueue: true,
+        fallback: !state.available,
+      })
+      replayPendingResync()
+      return
+    }
+
+    // The lock is acquired before the legacy migration and before anything is
+    // written: a reader never migrates, never primes or enables the queue.
+    let mode
+    try {
+      mode = await writerLock.acquire()
+    } catch {
+      mode = 'unsupported'
+    }
+    if (!mountedRef.current) {
+      if (mode === 'writer') writerLock.release()
+      return
+    }
+
+    if (mode === 'reader') {
+      let fresh = state
+      try {
+        fresh = { ...state, ...(await loadDataState(idb)) }
+      } catch {
+        /* Keep the hydrated snapshot if the refresh fails. */
+      }
+      applyActivatedState(fresh, { lockMode: 'reader', readOnly: true, enableQueue: false })
+      replayPendingResync()
+      void writerLock.promote(handlePromoted)
+      return
+    }
+
+    if (mode === 'unsupported') {
+      let fresh = state
+      try {
+        fresh = { ...state, ...(await loadDataState(idb)) }
+      } catch {
+        /* Keep the hydrated snapshot if the refresh fails. */
+      }
+      applyActivatedState(fresh, { lockMode: 'unsupported', readOnly: false, enableQueue: true })
+      replayPendingResync()
+      return
+    }
+
+    let migration
+    try {
+      migration = await migrateLegacy({ idb, session: sessionStorage })
+    } catch {
+      migration = { migrated: false, failed: true }
+    }
+    if (migration.failed) {
+      // Never hold the writer lock while falling back to per-tab storage: it
+      // would block the tabs that still share IndexedDB.
+      writerLock.release()
+      applyActivatedState(readSessionFallback(), {
+        lockMode: 'unsupported',
+        readOnly: false,
+        enableQueue: true,
+        migrationFailed: true,
+      })
+      replayPendingResync()
+      return
+    }
+    if (migration.migrated) tabSyncRef.current?.notify()
+
+    let fresh = state
+    try {
+      fresh = { ...state, ...(await loadDataState(idb)) }
+    } catch {
+      /* Keep the hydrated snapshot if the refresh fails. */
+    }
+    applyActivatedState(fresh, {
+      lockMode: 'writer',
+      readOnly: false,
+      enableQueue: true,
+      migrated: migration.migrated,
+    })
+    replayPendingResync()
+  }, [applyActivatedState, applyHydratedState, handlePromoted, replayPendingResync])
+
+  const configured = config !== null
+  // The landing only faces first-time visitors: existing sessions (seeded e2e
+  // included) go straight to the tool.
+  const showLanding = !entered && !configured
 
   useEffect(() => {
     const sync = createTabSync({
       onRemoteChange: (origin) => {
-        void resyncFromIdb()
+        requestResync()
         // Without Web Locks both tabs can write. Never claim exclusivity:
         // just warn when another tab actually committed something.
         if (
@@ -278,7 +457,7 @@ export default function App() {
       sync.close()
       if (tabSyncRef.current === sync) tabSyncRef.current = null
     }
-  }, [resyncFromIdb])
+  }, [requestResync])
 
   // Give the last scheduled writes a chance to commit before the tab is
   // hidden (a hard close can still race the asynchronous IndexedDB commit).
@@ -297,35 +476,26 @@ export default function App() {
     }
   }, [])
 
+  // Hydration is the only step the landing waits for: no lock, no writes. The
+  // contact route skips it entirely.
   useEffect(() => {
-    let active = true
-    boot().then(async (state) => {
-      if (!active) return
+    if (hash === '#/contacto') return
+    if (hydratedRef.current) return
+    if (!hydrationPromiseRef.current) hydrationPromiseRef.current = hydrate()
+    void hydrationPromiseRef.current.then((state) => {
+      if (hydratedRef.current) return
       applyHydratedState(state)
-      // Session fallback storage is per tab: there is nothing to coordinate.
-      if (storageModeRef.current !== 'idb') {
-        applyLockMode('unsupported')
-        return
-      }
-      // Memoized in the module-level singleton: StrictMode's double mount
-      // reuses this same request instead of acquiring twice.
-      const mode = await writerLock.acquire()
-      if (!active) return
-      applyLockMode(mode)
-      if (mode === 'reader') {
-        applyReadOnly(true)
-        void writerLock.promote(handlePromoted)
-      }
     })
-    return () => {
-      active = false
-    }
-  }, [applyHydratedState, applyLockMode, applyReadOnly, handlePromoted])
+  }, [hash, applyHydratedState])
 
-  const configured = config !== null
-  // The landing only faces first-time visitors: existing sessions (seeded e2e
-  // included) go straight to the tool.
-  const showLanding = !entered && !configured
+  // Activation is a single shot per page, and only when the tool is visible:
+  // contact is excluded and the landing never acquires the lock.
+  useEffect(() => {
+    if (hash === '#/contacto') return
+    if (hydrating || showLanding || activated) return
+    if (!activationPromiseRef.current) activationPromiseRef.current = activateTool()
+    void activationPromiseRef.current
+  }, [hash, hydrating, showLanding, activated, activateTool])
 
   // Session persistence with an audible failure: a full quota must warn
   // instead of silently dropping edits (re-export the .xlsx backup then).
@@ -639,11 +809,13 @@ export default function App() {
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
   }
 
-  // The contact route is static: it must not wait on the IndexedDB hydration
-  // gate (or on a slow/hung database open).
+  // The contact route is static: it must not mount the data boot at all (no
+  // hydration, no lock, no IndexedDB read) and never waits on it.
   if (hash === '#/contacto') return <ContactPage />
 
-  if (hydrating) {
+  // The landing waits only for hydration. A tab heading to the tool keeps the
+  // splash until activation has applied its lock mode and read-only flag.
+  if (hydrating || (!showLanding && !activated)) {
     return (
       <div
         aria-busy="true"

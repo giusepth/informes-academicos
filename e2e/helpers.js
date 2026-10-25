@@ -69,6 +69,14 @@ export async function readDataKey(page, key) {
   }, key)
 }
 
+/** Number of writer locks currently held for this origin. */
+export async function heldWriterLocks(page) {
+  return page.evaluate(async () => {
+    const { held } = await navigator.locks.query()
+    return held.filter((lock) => lock.name === 'informes.writer').length
+  })
+}
+
 export async function waitForPersisted(
   page,
   key,
@@ -166,6 +174,9 @@ export async function seedLegacy(page, {
   }
 
   await page.addInitScript((s) => {
+    // A legacy session already belongs to someone who used the tool: skip the
+    // landing gate so the deferred migration still runs on activation.
+    sessionStorage.setItem('informes.entered', JSON.stringify(true))
     sessionStorage.setItem('informes.config', JSON.stringify(s.config))
     sessionStorage.setItem('informes.reports', JSON.stringify(s.reports))
     if (s.activeReport) sessionStorage.setItem('informes.activeReport', JSON.stringify(s.activeReport))
