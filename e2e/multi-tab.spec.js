@@ -144,6 +144,12 @@ test('closing the writer promotes the read-only tab with fresh data', async ({ p
   await second.close()
 })
 
+const heldWriterLocks = (page) =>
+  page.evaluate(async () => {
+    const { held } = await navigator.locks.query()
+    return held.filter((lock) => lock.name === 'informes.writer').length
+  })
+
 test('exactly one writer: a third tab stays read-only until the promoted tab closes', async ({
   page,
   context,
@@ -151,18 +157,35 @@ test('exactly one writer: a third tab stays read-only until the promoted tab clo
   await seed(page, { reports })
   const second = await openTool(context)
   await expect(banner(second)).toBeVisible()
+  expect(await heldWriterLocks(page)).toBe(1)
 
   await page.close()
   await expect(banner(second)).toHaveCount(0, { timeout: 3000 })
+  expect(await heldWriterLocks(second)).toBe(1)
 
   const third = await openTool(context)
   await expect(banner(third)).toBeVisible()
   await expect(third.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
   await expect(banner(second)).toHaveCount(0)
+  expect(await heldWriterLocks(third)).toBe(1)
 
   await second.close()
   await expect(banner(third)).toHaveCount(0, { timeout: 3000 })
   await expect(third.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  expect(await heldWriterLocks(third)).toBe(1)
 
   await third.close()
+})
+
+test('a read-only tab can still export the backup', async ({ page, context }) => {
+  await seed(page, { reports })
+  const second = await openTool(context)
+  await expect(banner(second)).toBeVisible()
+
+  const downloadPromise = second.waitForEvent('download')
+  await second.getByRole('button', { name: 'Exportar backup (.xlsx)' }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/^informes-backup-\d{4}-\d{2}-\d{2}\.xlsx$/)
+
+  await second.close()
 })
