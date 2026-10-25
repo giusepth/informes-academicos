@@ -143,7 +143,7 @@ export default function DataInputMode({
         <p className="text-base font-semibold text-slate-800">Desempeños</p>
         <p className="mt-1 mb-4 text-sm text-slate-500">
           Carga la matriz de textos por asignatura y banda. Se aplicará al primer informe
-          que abras y solo completará los casilleros de desempeño vacíos.
+          que abras, cuando tenga notas, y solo completará los casilleros de desempeño vacíos.
         </p>
         <input
           ref={matrixFileInputRef}
@@ -151,7 +151,12 @@ export default function DataInputMode({
           accept=".xlsx,.xls"
           className="hidden"
           aria-label="Archivo de desempeños"
-          onChange={(e) => readMatrixFile(e.target.files?.[0])}
+          onChange={(event) => {
+            const input = event.currentTarget
+            void readMatrixFile(input.files?.[0]).finally(() => {
+              input.value = ''
+            })
+          }}
         />
         <div className="flex flex-wrap gap-2">
           <Button

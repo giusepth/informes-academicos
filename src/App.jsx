@@ -21,7 +21,13 @@ import {
   migrateLegacy,
   MIGRATION_FLAG,
 } from './utils/idbState'
-import { applyMatrixToReport, fillPerformances, finalPerformanceKey, makeId } from './utils/parser'
+import {
+  applyMatrixToReport,
+  countMatrixFills,
+  fillPerformances,
+  finalPerformanceKey,
+  makeId,
+} from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync } from './utils/tabSync'
@@ -599,9 +605,11 @@ export default function App() {
   const maxScore = scaleType === 'centesimal' ? 100 : 5
 
   // A matrix loaded from the empty main menu waits here until there is an
-  // active period report with students. It fills ONLY empty desempeño cells
-  // and clears itself in the same batch, so it can never apply twice to the
-  // same payload. The final tab is excluded: annotations live elsewhere.
+  // active period report with students AND real grades to band. It fills ONLY
+  // empty desempeño cells and clears itself in the same batch, so it can never
+  // apply twice to the same payload. A roster without scores keeps the pending
+  // matrix waiting instead of consuming it. The final tab is excluded:
+  // annotations live elsewhere.
   useEffect(() => {
     // Activation lands the real lock mode/readOnly flag; before it, a reader
     // must never consume the pending payload.
@@ -609,6 +617,8 @@ export default function App() {
     if (!activeReport || (activeReport.students ?? []).length === 0) return
 
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
+    if (countMatrixFills(activeReport, pendingMatrix, scale, scaleType) === 0) return
+
     const students = applyMatrixToReport(activeReport, pendingMatrix, scale, scaleType)
     setReports((current) =>
       current.map((entry) => (entry.id === activeReport.id ? { ...entry, students } : entry)),

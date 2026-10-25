@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
 import { DEFAULT_SCALE } from './calculations'
-import { applyMatrixToReport, fillPerformances, parsePerformanceMatrix } from './parser'
+import {
+  applyMatrixToReport,
+  countMatrixFills,
+  fillPerformances,
+  parsePerformanceMatrix,
+} from './parser'
 
 /**
  * The descriptive matrix (RF-Nuevo "carga de desempeños"): an Excel sheet
@@ -179,5 +184,78 @@ describe('applyMatrixToReport', () => {
       'decimal',
     )
     expect(students).toEqual([{ id: 's3', name: 'Sin nota', performances: {} }])
+  })
+})
+
+describe('countMatrixFills', () => {
+  const matrix = {
+    'Matemáticas': { Bajo: 'm-bajo', 'Básico': 'm-basico', Alto: 'm-alto', Superior: 'm-sup' },
+  }
+  const centesimal = [
+    { label: 'Bajo', min: 1, max: 59 },
+    { label: 'Básico', min: 60, max: 79 },
+    { label: 'Alto', min: 80, max: 89 },
+    { label: 'Superior', min: 90, max: 100 },
+  ]
+
+  it('returns 0 for a roster with no numeric scores (pending must wait)', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [
+        { id: 's1', name: 'Ana', scores: { 'Matemáticas': null }, performances: { 'Matemáticas': '' } },
+        { id: 's2', name: 'Luis', scores: {}, performances: {} },
+      ],
+    }
+    expect(countMatrixFills(report, matrix, DEFAULT_SCALE, 'decimal')).toBe(0)
+  })
+
+  it('counts the cells that appear once grades exist', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [
+        { id: 's1', name: 'Ana', scores: { 'Matemáticas': null }, performances: { 'Matemáticas': '' } },
+      ],
+    }
+    expect(countMatrixFills(report, matrix, DEFAULT_SCALE, 'decimal')).toBe(0)
+
+    const scored = {
+      ...report,
+      students: [{ ...report.students[0], scores: { 'Matemáticas': 4.5 } }],
+    }
+    expect(countMatrixFills(scored, matrix, DEFAULT_SCALE, 'decimal')).toBe(1)
+    const students = applyMatrixToReport(scored, matrix, DEFAULT_SCALE, 'decimal')
+    expect(students[0].performances['Matemáticas']).toBe('m-alto')
+  })
+
+  it('counts centesimal bands with the integer rounding rule', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [
+        { id: 's1', name: 'Ana', scores: { 'Matemáticas': 85 }, performances: { 'Matemáticas': '' } },
+        { id: 's2', name: 'Luis', scores: { 'Matemáticas': 89.3 }, performances: { 'Matemáticas': '' } },
+        { id: 's3', name: 'Eva', scores: { 'Matemáticas': 59.3 }, performances: { 'Matemáticas': '' } },
+      ],
+    }
+    expect(countMatrixFills(report, matrix, centesimal, 'centesimal')).toBe(3)
+
+    const students = applyMatrixToReport(report, matrix, centesimal, 'centesimal')
+    expect(students[0].performances['Matemáticas']).toBe('m-alto') // 85 → Alto
+    expect(students[1].performances['Matemáticas']).toBe('m-sup') // 89.3 → 90
+    expect(students[2].performances['Matemáticas']).toBe('m-basico') // 59.3 → 60
+  })
+
+  it('never counts a cell that already has teacher-written text', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': 4.5 },
+          performances: { 'Matemáticas': 'Mi texto' },
+        },
+      ],
+    }
+    expect(countMatrixFills(report, matrix, DEFAULT_SCALE, 'decimal')).toBe(0)
   })
 })
