@@ -24,6 +24,16 @@ test.describe('Landing', () => {
     const privacy = page.locator('#datos')
     await expect(privacy).toContainText(/se guardan? en este navegador/i)
     await expect(privacy).not.toContainText(/se borra|muere al cerrar/i)
+    await expect(privacy).toContainText(/\.xlsx/)
+    await expect(privacy).toContainText(/modo privado/i)
+    await expect(privacy).toContainText(/computadora compartida/i)
+  })
+
+  test('feature ledger says each period stays in this browser', async ({ page }) => {
+    await page.goto('/')
+    const features = page.locator('#features')
+    await expect(features).toContainText('Sesiones por período')
+    await expect(features).toContainText(/Cada periodo se guarda en este navegador/i)
   })
 
   test('navbar anchor "Qué hace" scrolls the features section into view', async ({ page }) => {

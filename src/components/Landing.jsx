@@ -114,7 +114,7 @@ export default function Landing({ onOpen }) {
       ['Informe por estudiante', 'Una página A4 lista para imprimir o exportar a PDF, con el escudo del colegio como marca de agua.'],
       ['Quinto informe consolidado', 'El consolidado final con el desempeño escrito y editable de cada asignatura, listo para el cierre del año.'],
       ['Matriz de desempeños', 'Carga descripciones desde una matriz Asignatura×Banda, pero solo llena las celdas vacías: la última palabra es del docente.'],
-      ['Sesiones por período', 'Cada periodo académico se guarda en su propia sesión: abre y sigue donde quedó.'],
+      ['Sesiones por período', 'Cada periodo se guarda en este navegador: al volver, retomas donde quedaste.'],
     ],
     [],
   )
@@ -333,8 +333,10 @@ export default function Landing({ onOpen }) {
           <p className="mt-4 max-w-[70ch] text-[15px] leading-[1.65] text-[#5d6a85]">
             Los datos se guardan en este navegador (IndexedDB), no en un servidor: siguen
             disponibles aunque cierres la pestaña. Se pierden si cambias de navegador o
-            computadora, si borras los datos del sitio o en modo privado. Exporta el respaldo
-            .xlsx para conservarlos o pasarlos a otro equipo.
+            computadora, si borras los datos del sitio o en modo privado; el navegador puede
+            liberar espacio. Para conservarlos o pasarlos a otro equipo, exporta el respaldo
+            .xlsx. En una computadora compartida, cualquiera que abra este navegador puede ver
+            los informes.
           </p>
         </div>
       </section>

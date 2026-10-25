@@ -81,7 +81,7 @@ export default function DataInputMode({
         >
           <p className="text-base font-semibold text-slate-800">Importar Excel (.xlsx)</p>
           <p className="mt-1 mb-4 text-sm text-slate-500">
-            Arrastrá el archivo acá o elegilo manualmente.
+            Arrastra el archivo aquí o elígelo manualmente.
           </p>
           <input
             ref={fileInputRef}
@@ -106,7 +106,7 @@ export default function DataInputMode({
         <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 text-center">
           <p className="text-base font-semibold text-slate-800">Carga manual</p>
           <p className="mt-1 mb-4 text-sm text-slate-500">
-            Cargá grado, docente, asignaturas y estudiantes a mano.
+            Carga grado, docente, asignaturas y estudiantes a mano.
           </p>
           <Button variant="secondary" onClick={() => setMode('manual')} disabled={readOnly}>
             Crear manualmente

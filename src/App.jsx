@@ -900,7 +900,7 @@ export default function App() {
           <div>
             <h1 className="text-base font-bold text-slate-900">Informes académicos</h1>
             <p className="text-xs text-slate-500">
-              Generá y exportá informes 100% en tu navegador. Nada se sube a un servidor.
+              Genera y exporta informes 100% en tu navegador. Nada se sube a un servidor.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -936,7 +936,7 @@ export default function App() {
       <main className="mx-auto max-w-7xl px-4 py-6">
         {!configured ? (
           <p className="text-sm text-slate-500">
-            Configurá la escala y el escudo para comenzar.
+            Configura la escala y el escudo para comenzar.
           </p>
         ) : reports.length > 0 ? (
           <div className="space-y-6">

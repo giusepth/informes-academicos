@@ -141,7 +141,7 @@ export default function PeriodBar({
         size="sm"
         disabled={busy || reports.length === 0}
         onClick={handleBackup}
-        title="Descarga un .xlsx con una hoja por informe (notas, docentes y desempeños). Podés volver a importarlo más tarde."
+        title="Descarga un .xlsx con una hoja por informe (notas, docentes y desempeños). Puedes volver a importarlo más tarde."
       >
         Exportar backup (.xlsx)
       </Button>
