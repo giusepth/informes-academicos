@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ContactPage from './components/ContactPage'
 import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
@@ -100,10 +100,8 @@ export default function App() {
   const [hash, setHash] = useState(() => window.location.hash)
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
-  const dataQueueRef = useRef(null)
-
-  if (!dataQueueRef.current) {
-    dataQueueRef.current = createPersistQueue({
+  const [dataQueue] = useState(() =>
+    createPersistQueue({
       write: async (key, value) => {
         if (storageModeRef.current === 'session') {
           if (!writeStorage(key, value)) throw new Error('sessionStorage write failed')
@@ -112,35 +110,38 @@ export default function App() {
         return idb.set(key, value)
       },
       onError: () => setToast(SAVE_ERROR_TOAST),
-    })
-  }
+    }),
+  )
+
+  const applyHydratedState = useCallback((state) => {
+    const nextConfig = state.config ?? null
+    const nextReports = Array.isArray(state.reports) ? state.reports : []
+    const nextFinalPerformances = state.finalPerformances ?? {}
+
+    storageModeRef.current = state.available ? 'idb' : 'session'
+    dataQueue.prime(STORAGE_KEYS.config, nextConfig)
+    dataQueue.prime(STORAGE_KEYS.reports, nextReports)
+    dataQueue.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
+    dataQueue.enable()
+
+    setConfig(nextConfig)
+    setReports(nextReports)
+    setFinalPerformances(nextFinalPerformances)
+    setHydrating(false)
+    document.documentElement.dataset.hydrated = 'true'
+    if (state.migrated) setToast(MIGRATED_TOAST)
+    else if (!state.available) setToast(PRIVATE_MODE_TOAST)
+  }, [dataQueue])
 
   useEffect(() => {
     let active = true
     boot().then((state) => {
-      if (!active) return
-      const nextConfig = state.config ?? null
-      const nextReports = Array.isArray(state.reports) ? state.reports : []
-      const nextFinalPerformances = state.finalPerformances ?? {}
-
-      storageModeRef.current = state.available ? 'idb' : 'session'
-      dataQueueRef.current.prime(STORAGE_KEYS.config, nextConfig)
-      dataQueueRef.current.prime(STORAGE_KEYS.reports, nextReports)
-      dataQueueRef.current.prime(STORAGE_KEYS.finalPerformances, nextFinalPerformances)
-      dataQueueRef.current.enable()
-
-      setConfig(nextConfig)
-      setReports(nextReports)
-      setFinalPerformances(nextFinalPerformances)
-      setHydrating(false)
-      document.documentElement.dataset.hydrated = 'true'
-      if (state.migrated) setToast(MIGRATED_TOAST)
-      else if (!state.available) setToast(PRIVATE_MODE_TOAST)
+      if (active) applyHydratedState(state)
     })
     return () => {
       active = false
     }
-  }, [])
+  }, [applyHydratedState])
 
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
@@ -155,17 +156,17 @@ export default function App() {
     }
   }
   useEffect(() => {
-    dataQueueRef.current.enqueue(STORAGE_KEYS.config, config)
-  }, [config])
+    dataQueue.enqueue(STORAGE_KEYS.config, config)
+  }, [config, dataQueue])
   useEffect(() => {
-    dataQueueRef.current.enqueue(STORAGE_KEYS.reports, reports)
-  }, [reports])
+    dataQueue.enqueue(STORAGE_KEYS.reports, reports)
+  }, [reports, dataQueue])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
   useEffect(() => {
-    dataQueueRef.current.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
-  }, [finalPerformances])
+    dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
+  }, [finalPerformances, dataQueue])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
