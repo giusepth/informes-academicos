@@ -157,6 +157,37 @@ test('closing the writer promotes the read-only tab with fresh data', async ({ p
   await second.close()
 })
 
+test('promotion re-reads IndexedDB even without BroadcastChannel', async ({ page, context }) => {
+  await seed(page, { reports })
+
+  const second = await context.newPage()
+  await second.addInitScript(() => {
+    Object.defineProperty(window, 'BroadcastChannel', {
+      configurable: true,
+      value: undefined,
+    })
+  })
+  await second.goto('/')
+  await waitForHydrated(second)
+  await expect(banner(second)).toBeVisible()
+
+  await mathPerformance(page).fill('Editado sin canal')
+  await waitForPersisted(
+    page,
+    'informes.reports',
+    (value) => value[0].students[0].performances?.['Matemáticas'] === 'Editado sin canal',
+  )
+
+  await page.close()
+
+  // No channel announcement can reach the reader: only promotion's own
+  // re-read can bring the writer's fresh value into this tab.
+  await expect(banner(second)).toHaveCount(0, { timeout: 3000 })
+  await expect(mathPerformance(second)).toHaveValue('Editado sin canal')
+
+  await second.close()
+})
+
 test('exactly one writer: a third tab stays read-only until the promoted tab closes', async ({
   page,
   context,

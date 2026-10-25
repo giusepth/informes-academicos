@@ -174,9 +174,6 @@ export async function seedLegacy(page, {
   }
 
   await page.addInitScript((s) => {
-    // A legacy session already belongs to someone who used the tool: skip the
-    // landing gate so the deferred migration still runs on activation.
-    sessionStorage.setItem('informes.entered', JSON.stringify(true))
     sessionStorage.setItem('informes.config', JSON.stringify(s.config))
     sessionStorage.setItem('informes.reports', JSON.stringify(s.reports))
     if (s.activeReport) sessionStorage.setItem('informes.activeReport', JSON.stringify(s.activeReport))

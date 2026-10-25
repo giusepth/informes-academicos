@@ -28,6 +28,32 @@ const reports = [
 
 const finalPerformances = { ANA: { 'Matemáticas': 'Anotación final previa' } }
 
+test('a true legacy session (no entered flag) is not parked on the landing', async ({ page }) => {
+  await page.addInitScript(
+    (state) => {
+      sessionStorage.setItem('informes.config', JSON.stringify(state.config))
+      sessionStorage.setItem('informes.reports', JSON.stringify(state.reports))
+    },
+    { config, reports },
+  )
+
+  await page.goto('/')
+  await waitForHydrated(page)
+
+  await expect(page.getByRole('button', { name: 'Informe 1', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', {
+      level: 1,
+      name: 'De la planilla de notas a los informes listos para imprimir.',
+    }),
+  ).toHaveCount(0)
+  await waitForPersisted(
+    page,
+    'informes.reports',
+    (value) => Array.isArray(value) && value.length === 1,
+  )
+})
+
 test('legacy session data is migrated once and survives a reload', async ({ page }) => {
   await seedLegacy(page, { config, reports, finalPerformances, tab: 'final' })
 
