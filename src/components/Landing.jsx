@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from './ui'
 import '@fontsource-variable/archivo/wdth.css'
 import '@fontsource/ibm-plex-mono/400.css'
@@ -15,6 +15,69 @@ const typed = { fontFamily: "'IBM Plex Mono', monospace" }
 const headed = {
   fontFamily: "'Archivo Variable', sans-serif",
   fontVariationSettings: "'wdth' 78, 'wght' 700",
+}
+
+// In-page anchors: ids live on the landing sections below.
+const NAV_LINKS = [
+  ['Cómo funciona', 'pasos'],
+  ['Qué hace', 'features'],
+  ['Datos', 'datos'],
+  ['Para quién', 'quien'],
+]
+
+/**
+ * Sticky bar over the landing only: thin form surface (paper at 97% + blur) on
+ * a double kraft rule. Brand row left; typed anchor links scroll-ended right
+ * beside the compact CTA — on <sm they become a horizontal scroll row while
+ * the CTA stays pinned. The active section underlines from the observer in
+ * Landing (typed 2px form-blue).
+ */
+function LandingNavbar({ onOpen, activeSection }) {
+  const linkClass = (id) =>
+    `block shrink-0 whitespace-nowrap border-b-2 px-0.5 py-1 text-[12.5px] tracking-[0.05em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3e6fa8] ${
+      activeSection === id
+        ? 'border-[#3e6fa8] text-[#3e6fa8]'
+        : 'border-transparent text-[#6f6757] hover:text-[#3e6fa8]'
+    }`
+  return (
+    <header
+      className="sticky top-0 z-40 border-b-[3px] border-double border-[#c9b48f] backdrop-blur-[3px]"
+      style={{ backgroundColor: 'rgba(247,245,239,0.97)' }}
+    >
+      <div className="mx-auto flex max-w-6xl items-center gap-5 px-4 py-2 sm:px-6">
+        <div className="flex shrink-0 flex-col leading-[1.05]">
+          <span style={headed} className="text-[14px] uppercase tracking-[0.08em] text-[#33455c]">
+            Informes
+          </span>
+          <span style={typed} className="mt-0.5 text-[10px] tracking-[0.05em] text-[#6f6757]">
+            informes académicos · 2026
+          </span>
+        </div>
+        <nav
+          aria-label="Secciones de la página"
+          className="flex min-w-0 flex-1 gap-4 overflow-x-auto pb-0.5 pt-1 sm:justify-end sm:gap-5"
+        >
+          {NAV_LINKS.map(([label, id]) => (
+            <a
+              key={id}
+              href={`#${id}`}
+              style={typed}
+              aria-current={activeSection === id ? 'true' : undefined}
+              className={linkClass(id)}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+        <Button
+          onClick={onOpen}
+          className="sheet-lift shrink-0 whitespace-nowrap rounded-[3px] bg-[#3e6fa8] px-4 py-2 text-[13.5px] font-semibold text-white shadow-[2px_3px_0_#adc6e4] hover:bg-[#4f7bb4]"
+        >
+          Abrir la herramienta
+        </Button>
+      </div>
+    </header>
+  )
 }
 
 function Rule() {
@@ -35,6 +98,10 @@ function Field({ label, value }) {
 }
 
 export default function Landing({ onOpen }) {
+  // Which anchored section currently sits in the reading band: drives the
+  // typed underline in the navbar (one observer, four sections).
+  const [activeSection, setActiveSection] = useState('')
+
   const features = useMemo(
     () => [
       ['Promedios automáticos', 'El promedio de cada estudiante sale de la planilla, sin escribir una fórmula a mano.'],
@@ -46,6 +113,30 @@ export default function Landing({ onOpen }) {
     ],
     [],
   )
+
+  // Navbar underline: track the four anchors once; the topmost section inside
+  // the reading band (-15% / -60% margins) wins.
+  useEffect(() => {
+    const ids = NAV_LINKS.map(([, id]) => id)
+    const visible = new Set()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id)
+          else visible.delete(entry.target.id)
+        }
+        const current = ids.find((id) => visible.has(id))
+        if (current) setActiveSection(current)
+      },
+      { rootMargin: '-15% 0px -60% 0px' },
+    )
+    for (const id of ids) {
+      const section = document.getElementById(id)
+      if (section) observer.observe(section)
+    }
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div className="landing-world min-h-screen bg-[#f7f5ef] text-[#33455c]">
       <style>{`
@@ -63,7 +154,12 @@ export default function Landing({ onOpen }) {
         }
         .landing-world p, .landing-world h1 { text-wrap: pretty; }
         .landing-world h1, .landing-world h2 { text-wrap: balance; }
+        @media (prefers-reduced-motion: no-preference) {
+          html { scroll-behavior: smooth; }
+        }
       `}</style>
+
+      <LandingNavbar onOpen={onOpen} activeSection={activeSection} />
 
       {/* Hero: title-left, working triplicate-right. */}
       <section className="mx-auto max-w-6xl px-6 pb-14 pt-16 md:pt-24">
@@ -135,7 +231,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Steps: numbered form boxes, sequence carries real information. */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
+      <section id="pasos" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-16">
         <h2 style={headed} className="text-[26px] leading-snug text-[#3b4a63] md:text-[30px]">
           De la planilla al informe impreso, en tres pasos
         </h2>
@@ -162,7 +258,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Features: ruled form ledger rows, not icon cards. */}
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-16">
         <Rule />
         <h2 style={headed} className="pb-6 pt-8 text-[26px] text-[#3b4a63] md:text-[30px]">
           Qué hace, en concreto
@@ -183,7 +279,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Privacy: a stamped side-note block. */}
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="datos" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-16">
         <div className="border-l-[3px] border-[#ece5d3] bg-[#fdfcf8] p-6">
           <h2 style={headed} className="text-[24px] text-[#3b4a63] md:text-[28px]">
             Los datos son del colegio
@@ -198,7 +294,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Audience: honest targeting. */}
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="quien" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-16">
         <h2 style={headed} className="text-[24px] text-[#3b4a63] md:text-[28px]">
           ¿Para quién es?
         </h2>

@@ -10,13 +10,21 @@ test.describe('Landing', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'De la planilla de notas a los informes listos para imprimir.' })).toBeVisible()
 
     const open = page.getByRole('button', { name: 'Abrir la herramienta' })
-    await expect(open).toHaveCount(2)
+    await expect(open).toHaveCount(3)
 
     await expect(page.getByText('Servicio de desarrollo a medida')).toBeVisible()
     await expect(page.getByRole('link', { name: 'giusepthrivera@gmail.com' })).toBeVisible()
 
     await open.first().click()
     await expect(page.getByText('Configuración inicial')).toBeVisible()
+  })
+
+  test('navbar anchor "Qué hace" scrolls the features section into view', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1, name: 'De la planilla de notas a los informes listos para imprimir.' })).toBeVisible()
+
+    await page.locator('a[href="#features"]').click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Qué hace, en concreto' })).toBeInViewport()
   })
 
   test('entering the tool persists for the tab: a reload skips the landing', async ({ page }) => {
