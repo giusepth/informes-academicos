@@ -28,7 +28,8 @@ test('full backup round trip: export, wipe session, import again', async ({ page
   await page.getByRole('button', { name: 'Exportar backup (.xlsx)' }).click()
   const backupPath = await (await download).path()
 
-  // "Next day" simulation: the tab view state and the IndexedDB data are gone.
+  // "Next day" simulation: sessionStorage (view state) and the IndexedDB data
+  // are both gone.
   await clearAllStorage(page)
   await completeFirstRun(page)
   await expect(page.getByText('Importar Excel (.xlsx)')).toBeVisible()

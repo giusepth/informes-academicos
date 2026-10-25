@@ -112,8 +112,15 @@ test('booting with stored data does not write to IndexedDB until an edit', async
   await page.reload()
   await waitForHydrated(page)
   await expect(page.getByRole('button', { name: 'Informe 1' })).toBeVisible()
-  await page.waitForTimeout(300)
-  expect(await page.evaluate(() => window.__idbPuts)).toBe(0)
+  // Hydration must not write the hydrated state back. Poll a few spaced
+  // samples instead of sleeping: the counter must stay 0 once boot settled.
+  await expect
+    .poll(() => page.evaluate(() => window.__idbPuts), {
+      message: 'hydration must not write to IndexedDB',
+      timeout: 2000,
+      intervals: [150, 250, 400],
+    })
+    .toBe(0)
 
   await page.getByRole('button', { name: 'Configuración', exact: true }).click()
   await page.getByPlaceholder('Colegio Ejemplo').fill('Colegio Editado')

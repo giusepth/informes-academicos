@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { seed } from './helpers'
+import { seed, waitForHydrated } from './helpers'
 
 // The landing only faces first-time visitors: a fresh tab opens it, the CTA
 // enters the tool, and a configured session never sees it.
@@ -48,14 +48,30 @@ test.describe('Landing', () => {
     await expect(page.getByText('Configuración inicial')).toBeVisible()
 
     await page.reload()
+    await waitForHydrated(page)
     await expect(page.getByRole('heading', { level: 1, name: 'De la planilla de notas a los informes listos para imprimir.' })).toBeHidden()
     await expect(page.getByText('Configuración inicial')).toBeVisible()
   })
 
   test('a configured session goes straight to the tool, no landing', async ({ page }) => {
     await seed(page, { reports: [] })
+    await waitForHydrated(page)
     await expect(page.getByRole('heading', { level: 1, name: 'De la planilla de notas a los informes listos para imprimir.' })).toBeHidden()
     await expect(page.getByRole('button', { name: 'Configuración', exact: true })).toBeVisible()
+  })
+
+  test('a new tab with IDB config skips the landing', async ({ page, context }) => {
+    await seed(page, { reports: [] })
+
+    const second = await context.newPage()
+    await second.goto('/')
+    await waitForHydrated(second)
+
+    await expect(
+      second.getByRole('heading', { level: 1, name: 'De la planilla de notas a los informes listos para imprimir.' }),
+    ).toBeHidden()
+    await expect(second.getByRole('button', { name: 'Configuración', exact: true })).toBeVisible()
+    await second.close()
   })
 })
 
