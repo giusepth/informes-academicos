@@ -61,6 +61,11 @@ no salta puestos).
 - **Boletín editable** (derecha): en cada asignatura edita la nota y el
   **desempeño** (juicio valorativo). Se guarda en este navegador al instante y
   sigue disponible aunque cierres la pestaña.
+- **Carga manual de notas**: **Editar notas** abre la escritura directa de las
+  notas del período activo y **Nuevo periodo en blanco** entra directo en ese
+  modo. Mientras está activo también puedes agregar un estudiante a mano con su
+  nombre y el botón **Agregar**. **Terminar edición** vuelve a la vista de solo
+  lectura.
 - **Gestión de informes**: con más de un periodo cargado aparece una pestaña
   por informe, además del botón del informe final.
 
