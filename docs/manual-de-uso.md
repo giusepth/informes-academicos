@@ -87,6 +87,8 @@ se cierra. Si el navegador no ofrece esta función, ambas pestañas pueden
 editar y se aplica el criterio de "la última escritura gana": revisa los
 cambios antes de seguir.
 
+Sin IndexedDB (modo privado o navegador bloqueado), el trabajo vive por pestaña y no hay coordinación entre pestañas.
+
 ## 4. Varios periodos y el informe final
 
 1. Importa `informe-1.xlsx` → aparece la barra de gestión con **Informe 1**.
