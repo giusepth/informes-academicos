@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { assertImportSize, buildBackupWorkbook, parsePerformanceMatrix, parseWorkbook } from '../utils/parser'
 import { Button, TextInput } from './ui'
 
@@ -28,6 +28,11 @@ export default function PeriodBar({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [studentName, setStudentName] = useState('')
+  // A half-typed name belongs to one period and one edit session: never leak
+  // it into another report or back into edit mode after committing.
+  useEffect(() => {
+    setStudentName('')
+  }, [activeReportId, scoreEntry])
   const fileInputRef = useRef(null)
   const matrixFileInputRef = useRef(null)
 
