@@ -33,7 +33,7 @@ export function report({ label, grade = '5° A', teacher = 'Prof. Rivera', subje
  * Seeds sessionStorage through an init script so the app boots straight into
  * the given state: config + period reports (+ optional final annotations).
  */
-export async function seed(page, { config, reports, selected = null, tab = 'period' }) {
+export async function seed(page, { config, reports, selected = null, tab = 'period', finalPerformances }) {
   const state = {
     config: config ?? {
       institution: 'Colegio Ejemplo',
@@ -45,6 +45,7 @@ export async function seed(page, { config, reports, selected = null, tab = 'peri
     activeReport: reports[0]?.id ?? null,
     selected,
     tab,
+    finalPerformances,
   }
   await page.addInitScript((s) => {
     sessionStorage.setItem('informes.config', JSON.stringify(s.config))
@@ -52,6 +53,9 @@ export async function seed(page, { config, reports, selected = null, tab = 'peri
     if (s.activeReport) sessionStorage.setItem('informes.activeReport', JSON.stringify(s.activeReport))
     if (s.selected) sessionStorage.setItem('informes.selected', JSON.stringify(s.selected))
     sessionStorage.setItem('informes.tab', JSON.stringify(s.tab))
+    if (s.finalPerformances) {
+      sessionStorage.setItem('informes.finalPerformances', JSON.stringify(s.finalPerformances))
+    }
   }, state)
   await page.goto('/')
 }

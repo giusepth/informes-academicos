@@ -1,3 +1,5 @@
+import { roundUpTenth } from './calculations'
+
 /**
  * Tabular spreadsheet parser (SheetJS).
  *
@@ -171,6 +173,102 @@ export async function parseWorkbook(arrayBuffer) {
     // ids can never leak edits across periods (see PeriodBar duplication).
     students: report.students.map((student) => ({ ...student, id: makeId() })),
   }
+}
+
+/**
+ * Descriptive performance matrix (carga de desempeños).
+ *
+ * Expected first sheet layout (row 1 = headers):
+ *   Asignatura | Bajo | Básico | Alto | Superior
+ *
+ * Each data row carries, per subject, the text to pre-load for students whose
+ * rounded score falls in that band. Applying the matrix NEVER overwrites a
+ * teacher-written judgment: only empty desempeño cells get filled.
+ */
+
+const MATRIX_SUBJECT_ALIASES = ['asignatura', 'materia', 'area', 'área']
+const BAND_ALIASES = { 'bajo': 'Bajo', 'basico': 'Básico', 'alto': 'Alto', 'superior': 'Superior' }
+
+/**
+ * Reads a performance-matrix workbook and returns
+ * { [subject]: { Bajo: text, 'Básico': text, Alto: text, Superior: text } }.
+ * Columns may come in any order, casing or accent style; rows without a
+ * subject name are skipped. Throws when no sheet qualifies or a band column
+ * is missing.
+ */
+export async function parsePerformanceMatrix(arrayBuffer) {
+  const XLSX = await loadXlsx()
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+  for (const name of workbook.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], {
+      header: 1,
+      blankrows: true,
+      defval: '',
+    })
+    if (rows.length < 2) continue
+
+    const header = rows[0]
+    const subjectIndex = header.findIndex((h) => MATRIX_SUBJECT_ALIASES.includes(normalizeHeader(h)))
+    if (subjectIndex === -1) continue
+
+    const bandColumns = {}
+    header.forEach((h, index) => {
+      const alias = BAND_ALIASES[normalizeHeader(h)]
+      if (alias && bandColumns[alias] === undefined) bandColumns[alias] = index
+    })
+
+    const missing = Object.values(BAND_ALIASES).filter((label) => bandColumns[label] === undefined)
+    if (missing.length > 0) {
+      throw new Error(`A la matriz le faltan columnas de banda: ${missing.join(', ')}.`)
+    }
+
+    const matrix = {}
+    for (const row of rows.slice(1)) {
+      const subject = String(row[subjectIndex] ?? '').trim()
+      if (!subject) continue
+      matrix[subject] = Object.fromEntries(
+        Object.entries(bandColumns).map(([label, index]) => [label, String(row[index] ?? '').trim()]),
+      )
+    }
+    return matrix
+  }
+  throw new Error('No se detectó una hoja de matriz (columna "Asignatura" + bandas Bajo/Básico/Alto/Superior).')
+}
+
+/**
+ * Fills ONLY empty desempeño cells: for every student × subject, the rounded
+ * institutional score selects the band and the matrix provides the text.
+ * `scoresById` maps student.id → { [subject]: score }. Cells that already
+ * have text, or where score/band/matrix text are missing, stay untouched.
+ * Returns { [studentId]: performances } for callers to merge into state.
+ */
+export function fillPerformances(
+  students,
+  subjects,
+  scoresById = {},
+  scale = DEFAULT_SCALE,
+  matrix = {},
+) {
+  const next = {}
+  for (const student of students) {
+    const performances = { ...(student.performances ?? {}) }
+    for (const subject of subjects ?? []) {
+      const current = String(performances[subject] ?? '')
+      if (current.trim().length > 0) continue
+
+      const score = scoresById[student.id]?.[subject]
+      if (score === null || score === undefined) continue
+
+      const rounded = roundUpTenth(score)
+      const band = scale.find((b) => rounded >= b.min && rounded <= b.max)
+      if (!band) continue
+
+      const text = matrix[subject]?.[band.label]
+      if (text) performances[subject] = text
+    }
+    next[student.id] = performances
+  }
+  return next
 }
 
 /**
