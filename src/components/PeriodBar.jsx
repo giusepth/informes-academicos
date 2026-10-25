@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { parseWorkbook } from '../utils/parser'
+import { buildBackupWorkbook, parseWorkbook } from '../utils/parser'
 import { Button } from './ui'
 
 /**
@@ -30,6 +30,18 @@ export default function PeriodBar({
       onImportReport(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo leer el archivo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleBackup = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await buildBackupWorkbook(reports)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo generar el backup.')
     } finally {
       setBusy(false)
     }
@@ -78,6 +90,15 @@ export default function PeriodBar({
         onClick={() => fileInputRef.current?.click()}
       >
         {busy ? 'Leyendo…' : 'Importar Excel (periodo)'}
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={busy || reports.length === 0}
+        onClick={handleBackup}
+        title="Descarga un .xlsx con una hoja por informe (notas, docentes y desempeños). Podés volver a importarlo más tarde."
+      >
+        Exportar backup (.xlsx)
       </Button>
       <input
         ref={fileInputRef}

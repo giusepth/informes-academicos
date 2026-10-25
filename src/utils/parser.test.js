@@ -1,0 +1,128 @@
+import { describe, expect, it } from 'vitest'
+import * as XLSX from 'xlsx'
+import { backupSheets, parseBackupWorkbook } from './parser'
+
+/**
+ * Round-trip coverage for the Excel backup feature (RNF-01 companion):
+ * whatever a teacher entered by hand must survive into a downloaded
+ * .xlsx and be restored later, period by period.
+ */
+
+const MK_ID = (n) => `s_${n}`
+
+function buildReport(n) {
+  return {
+    id: MK_ID(n),
+    label: `Informe ${n}`,
+    grade: '5° A',
+    teacher: 'Prof. Rivera',
+    subjects: ['Matemáticas', 'Ciencias'],
+    teachers: { 'Matemáticas': 'Prof. Torres', 'Ciencias': 'Prof. Suárez' },
+    students: [
+      {
+        id: MK_ID(`a${n}`),
+        name: 'Ana Gómez',
+        scores: { 'Matemáticas': 4.5, 'Ciencias': 4.2 },
+        performances: { 'Matemáticas': `Excelente P${n}`, 'Ciencias': 'Muy bue análisis' },
+      },
+      {
+        id: MK_ID(`b${n}`),
+        name: 'Luis Pérez',
+        scores: { 'Matemáticas': 3.2, 'Ciencias': null },
+        performances: { 'Matemáticas': '', 'Ciencias': `Aún en proceso P${n}` },
+      },
+    ],
+  }
+}
+
+function workbookBytes(sheets) {
+  const workbook = XLSX.utils.book_new()
+  sheets.forEach(({ name, aoa }) => {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), name)
+  })
+  return XLSX.write(workbook, { type: 'array' })
+}
+
+describe('backupSheets', () => {
+  it('creates one sheet per report with score, docent and desempeño columns', () => {
+    const sheets = backupSheets([buildReport(1)])
+    expect(sheets).toHaveLength(1)
+    expect(sheets[0].name).toBe('Informe 1')
+
+    const header = sheets[0].aoa[0]
+    expect(header).toEqual([
+      'Estudiante',
+      'Grado',
+      'Docente',
+      'Matemáticas',
+      'Docente (Matemáticas)',
+      'Desempeño (Matemáticas)',
+      'Ciencias',
+      'Docente (Ciencias)',
+      'Desempeño (Ciencias)',
+    ])
+
+    // Row 0 carries the report-level metadata under the template convention.
+    const firstRow = sheets[0].aoa[1]
+    expect(firstRow[0]).toBe('Ana Gómez')
+    expect(firstRow[1]).toBe('5° A')
+    expect(firstRow[2]).toBe('Prof. Rivera')
+    expect(firstRow[3]).toBe(4.5)
+    expect(firstRow[4]).toBe('Prof. Torres')
+    expect(firstRow[5]).toBe('Excelente P1')
+    expect(firstRow[6]).toBe(4.2)
+    expect(firstRow[7]).toBe('Prof. Suárez')
+    expect(firstRow[8]).toBe('Muy bue análisis')
+
+    // Luis row (second data row): mismo layout SIN prefijo de metadata.
+    expect(sheets[0].aoa[2][0]).toBe('Luis Pérez')
+    expect(sheets[0].aoa[2][1]).toBe(3.2) // Matemáticas
+    expect(sheets[0].aoa[2][4]).toBe('') // Ciencias ausente → ''
+    expect(sheets[0].aoa[2][6]).toBe('Aún en proceso P1')
+  })
+})
+
+describe('parseBackupWorkbook', () => {
+  it('restores every report sheet with scores, teachers and desempeños', async () => {
+    const bytes = workbookBytes(backupSheets([buildReport(1), buildReport(2)]))
+    const reports = await parseBackupWorkbook(bytes)
+
+    expect(reports).toHaveLength(2)
+    expect(reports[0].label).toBe('Informe 1')
+    expect(reports[1].label).toBe('Informe 2')
+
+    const restored = reports[1]
+    expect(restored.grade).toBe('5° A')
+    expect(restored.teacher).toBe('Prof. Rivera')
+    expect(restored.subjects).toEqual(['Matemáticas', 'Ciencias'])
+    expect(restored.teachers).toEqual({ 'Matemáticas': 'Prof. Torres', 'Ciencias': 'Prof. Suárez' })
+    expect(restored.students[0].name).toBe('Ana Gómez')
+    expect(restored.students[0].scores).toEqual({ 'Matemáticas': 4.5, 'Ciencias': 4.2 })
+    expect(restored.students[0].performances).toEqual({
+      'Matemáticas': 'Excelente P2',
+      'Ciencias': 'Muy bue análisis',
+    })
+    expect(restored.students[1].scores['Ciencias']).toBeNull()
+  })
+
+  it('accepts unaccented sheet names and Desempeno aliases', async () => {
+    const bytes = workbookBytes([
+      {
+        name: 'Informe',
+        aoa: [
+          ['Estudiante', 'Matemáticas', 'Docente (Matemáticas)', 'Desempeno (Matemáticas)'],
+          ['Ana Gómez', 4.5, 'Prof. Torres', 'OK'],
+        ],
+      },
+    ])
+    const reports = await parseBackupWorkbook(bytes)
+    expect(reports).toHaveLength(1)
+    expect(reports[0].students[0].scores['Matemáticas']).toBe(4.5)
+    expect(reports[0].students[0].performances['Matemáticas']).toBe('OK')
+  })
+
+  it('throws a descriptive error when no sheet is a report sheet', async () => {
+    const bytes = workbookBytes([{ name: 'Notas sueltas', aoa: [['X'], [1]] }])
+    await expect(parseBackupWorkbook(bytes)).rejects.toThrow(/no contiene hojas de informe/i)
+  })
+})

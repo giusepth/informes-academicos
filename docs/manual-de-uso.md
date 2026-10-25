@@ -71,17 +71,22 @@ Detalles completos del módulo: `docs/final-report.md`.
 - **Imprimir**: imprime sólo la hoja del informe activo (el resto de la
   interfaz queda fuera de la impresión).
 - **Generar ZIP (todos)**: descarga un .zip con un PDF por estudiante.
+- **Exportar backup (.xlsx)**: descarga un Excel con **una hoja por informe**
+  (notas, docentes por asignatura y desempeños incluidos). Es tu resguardo:
+  la sesión vive en `sessionStorage` y muere al cerrar la pestaña.
+  Para recuperar: abrí la app fresca, completá la configuración y **empezá por
+  importar ese mismo archivo** (si detecta hojas Informe N restaura todo el
+  año de una vez).
 
 ## 6. Consejos y límites actuales
 
-- Los datos **no salen del navegador** y no hay backup automático
-  configurable: si cargaste todo a mano, exportá tu información antes de
-  cerrar la pestaña.
+- Los datos **no salen del navegador** excepto por los archivos que vos
+  descargás: exportá tu backup antes de cerrar la pestaña.
 - Si escribís desempeños largos, el boletín puede superar una página A4:
   la exportación a PDF corta el contenido en páginas automáticamente y la
   impresión del navegador respetará el paginado nativo.
-- Cada navegador tiene su propia sesión: no hay forma de pasar la carga a
-  otra máquina sin exportar/importar datos, aún.
+- Renombrá el backup si guardás varios días (`informes-backup-AAAA-MM-DD`
+  ya trae fecha).
 
 ## 7. Documentación de módulos
 

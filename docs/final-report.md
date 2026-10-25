@@ -109,8 +109,10 @@ node samples/make-sample-workbooks.cjs ~/Downloads
 
 ## 7. Limitaciones conocidas
 
-- Un import ejecuta **una hoja activa**: no hay aún importación de un único
-  workbook con varias hojas (una por periodo).
+- El import **de periodo individual** (`Importar Excel (periodo)`) ejecuta una
+  sola hoja. El **backup** (`Exportar backup (.xlsx)` / re-import desde la
+  pantalla inicial) en cambio trabaja con una hoja por informe y restaura la
+  sesión multi-periodo completa, desempeños incluidos.
 - Cambiar nombres de estudiantes entre periodos los desempareja (se combinan
   por nombre; es la identidad institucional esperada). Los desempeños finales
   siguen la misma identidad: si se renombra a un estudiante, el texto guardado

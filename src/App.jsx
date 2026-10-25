@@ -147,6 +147,23 @@ export default function App() {
     setToast(`Informe 1 cargado con ${first.students.length} estudiantes.`)
   }
 
+  const handleLoadedBackup = (rawReports) => {
+    if (!config) {
+      setConfig({ institution: '', period: '', scale: DEFAULT_SCALE, logo: null })
+    }
+    const restored = rawReports.map((report, index) => ({
+      ...report,
+      id: makeId(),
+      label: report.label ?? `Informe ${index + 1}`,
+      students: (report.students ?? []).map((student) => ({ ...student, id: makeId() })),
+    }))
+    setReports(restored)
+    setActiveReportId(restored[0]?.id ?? null)
+    setSelectedStudentId(restored[0]?.students[0]?.id ?? null)
+    setTab('period')
+    setToast(`Backup restaurado: ${restored.length} informe(s) importados.`)
+  }
+
   const handleImportPeriod = (data) => {
     const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
     setReports((current) => [...current, next])
@@ -290,6 +307,7 @@ export default function App() {
         ) : (
           <DataInputMode
             onLoaded={handleLoaded}
+            onLoadedBackup={handleLoadedBackup}
             onOpenSettings={() => setSettingsOpen(true)}
             hasConfig={configured}
           />
