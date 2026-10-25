@@ -51,3 +51,43 @@ test.describe('Landing', () => {
     await expect(page.getByRole('button', { name: 'Configuración', exact: true })).toBeVisible()
   })
 })
+
+test('narrow phones: anchors clear the sticky navbar (360px)', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  for (const [label, id] of [['Cómo funciona', 'pasos'], ['Qué hace', 'features'], ['Datos', 'datos'], ['Para quién', 'quien']]) {
+    await page.locator(`nav a[href="#${id}"]`).click()
+    await expect(page.locator(`nav a[href="#${id}"]`)).toHaveAttribute('aria-current', 'location')
+    const header = await page.locator('header').boundingBox()
+    const section = await page.locator(`#${id}`).boundingBox()
+    expect(section.y, `${label} heading hidden under navbar`).toBeGreaterThanOrEqual(header.y + header.height - 1)
+  }
+})
+
+test('tablet: every anchor is visible, clickable and becomes active', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await page.goto('/')
+  for (const id of ['pasos', 'features', 'datos', 'quien']) {
+    const link = page.locator(`nav a[href="#${id}"]`)
+    await expect(link).toBeInViewport()
+    await link.click()
+    await expect(link).toHaveAttribute('aria-current', 'location')
+  }
+})
+
+test('last intersecting section wins the active underline at 1440x980', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 980 })
+  await page.goto('/')
+  await page.locator('nav a[href="#quien"]').click()
+  await expect(page.locator('nav a[href="#quien"]')).toHaveAttribute('aria-current', 'location')
+})
+
+test('manual download serves the public asset', async ({ page, request }) => {
+  await page.goto('/')
+  await expect(page.locator('a[download][href="/manual-de-uso.md"]')).toBeVisible()
+  const res = await request.get('/manual-de-uso.md')
+  expect(res.ok()).toBeTruthy()
+  const body = await res.text()
+  expect(body).not.toMatch(/https?:\/\/|api[_-]?key|BEGIN [A-Z ]*PRIVATE/i)
+})

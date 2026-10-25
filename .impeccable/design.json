@@ -28,28 +28,98 @@
     "ruleKraftLine": "#c9b48f"
   },
   "fonts": {
-    "display": { "family": "Archivo Variable", "source": "@fontsource-variable/archivo/wdth.css", "variation": "wdth 78, wght 700" },
-    "typed": { "family": "IBM Plex Mono", "source": "@fontsource/ibm-plex-mono", "weights": [400, 600] }
+    "display": {
+      "family": "Archivo Variable",
+      "source": "@fontsource-variable/archivo/wdth.css",
+      "variation": "wdth 78, wght 700"
+    },
+    "typed": {
+      "family": "IBM Plex Mono",
+      "source": "@fontsource/ibm-plex-mono",
+      "weights": [
+        400,
+        600
+      ]
+    }
   },
-  "components": ["landing-sticky-navbar", "anchor-links-io-underline", "manual-download-link", "register-stamp", "landing-form-rule", "landing-field", "triplicate-stack", "trust-band", "human-touch-line", "steps-as-form-boxes", "feature-ledger", "stamped-privacy-block", "soft-offer-footer"],
+  "components": [
+    "landing-sticky-navbar",
+    "anchor-links-io-underline",
+    "manual-download-link",
+    "register-stamp",
+    "landing-form-rule",
+    "landing-field",
+    "triplicate-stack",
+    "trust-band",
+    "human-touch-line",
+    "steps-as-form-boxes",
+    "feature-ledger",
+    "stamped-privacy-block",
+    "soft-offer-footer",
+    "navbar-anchors"
+  ],
   "motion": {
-    "settle": { "target": "original sheet only", "durationMs": 640, "ease": [0.19, 0.75, 0.22, 1], "fill": "both" },
-    "stampThump": { "target": "register stamp on original sheet (aria-hidden)", "delayAfterSettleMs": 900, "durationMs": 260, "ease": [0.34, 1.56, 0.64, 1], "from": "scale 1.35 / opacity 0", "to": "scale 1 / opacity 0.9", "held": "static after thump, no repeat", "inkBleed": "inset hairline box-shadow + 2px white gap between rings" },
+    "settle": {
+      "target": "original sheet only",
+      "durationMs": 640,
+      "ease": [
+        0.19,
+        0.75,
+        0.22,
+        1
+      ],
+      "fill": "both"
+    },
+    "stampThump": {
+      "target": "register stamp on original sheet (aria-hidden)",
+      "delayAfterSettleMs": 900,
+      "durationMs": 260,
+      "ease": [
+        0.34,
+        1.56,
+        0.64,
+        1
+      ],
+      "from": "scale 1.35 / opacity 0",
+      "to": "scale 1 / opacity 0.9",
+      "held": "static after thump, no repeat",
+      "inkBleed": "inset hairline box-shadow + 2px white gap between rings"
+    },
     "smoothScroll": "css scroll-behavior:smooth under prefers-reduced-motion:no-preference only; sections carry id + scroll-mt so the sticky bar never covers headings",
     "activeLink": "IntersectionObserver underline (2px form-blue, typed voice)",
     "ctaLift": "-3px on hover",
-    "reducedMotion": "off (both authored moments disabled; stamp paints at final state)"
+    "reducedMotion": "off (both authored moments disabled; stamp paints at final state)",
+    "stamp": {
+      "target": "original sheet (>=md only)",
+      "delayMs": 900,
+      "durationMs": 260,
+      "ease": [
+        0.16,
+        1,
+        0.3,
+        1
+      ],
+      "finalOpacity": 1,
+      "ink": "#55704f",
+      "textPx": 12,
+      "reducedMotion": "instant final state"
+    }
   },
   "craftNotes": [
     "cx() now merges with tailwind-merge; Button className overrides are deterministic",
     "animating back layers breaks their paint under CDP capture in this Chromium; back layers are static by design",
     "no eyebrow kickers; features are ruled ledger rows, not icon cards; ban list in DESIGN.md",
-    "the stamp registers the sheet's own PROM 4.17: the moment echoes a number the visitor can already read",
-    "ownership: footer offer paragraph + contact flow belong to the parallel contact PR; manual-de-uso.md asset belongs to #15 (linked here with download, never created here)"
+    "ownership: footer offer paragraph + contact flow belong to the parallel contact PR; manual-de-uso.md asset belongs to #15 (linked here with download, never created here)",
+    "stamp shipped softened: #55704f, 12px, opacity 1, exponential ease; hidden below md by design",
+    "viewport screenshots only: fullPage capture mispaints animated absolutes in this Chromium",
+    "navbar: single row only >=lg; scroll-mt-28 lg:scroll-mt-24; aria-current=location"
   ],
   "verification": {
     "impeccableDetect": "clean (0 anti-patterns, 0 advisories)",
-    "screenshots": [".impeccable/review/landing-v2-desktop.png", ".impeccable/review/landing-v2-mobile.png"],
+    "screenshots": [
+      ".impeccable/review/landing-v2-desktop.png",
+      ".impeccable/review/landing-v2-mobile.png"
+    ],
     "e2e": "e2e/landing.spec.js (5 tests); tracked suite 17/17",
     "unit": "vitest 39/39",
     "designMd": "DESIGN.md"

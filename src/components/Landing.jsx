@@ -44,37 +44,42 @@ function LandingNavbar({ onOpen, activeSection }) {
       className="sticky top-0 z-40 border-b-[3px] border-double border-[#c9b48f] backdrop-blur-[3px]"
       style={{ backgroundColor: 'rgba(247,245,239,0.97)' }}
     >
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:flex-nowrap sm:gap-5 sm:px-6">
+      {/* One visual row only when the anchors genuinely fit (lg). Below that:
+          brand + CTA on the first row, anchors on their own scrollable row —
+          DOM stays brand → nav → CTA so tab order and semantics never depend
+          on CSS `order`. The subline hides on the tiniest screens (360–384px)
+          so the CTA never wraps to a third row. */}
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 lg:flex-nowrap lg:gap-5 lg:px-6">
         <div className="flex shrink-0 flex-col leading-[1.05]">
           <span style={headed} className="text-[14px] uppercase tracking-[0.08em] text-[#33455c]">
             Informes
           </span>
-          <span style={typed} className="mt-0.5 text-[12px] tracking-[0.02em] text-[#6f6757]">
+          <span style={typed} className="mt-0.5 hidden text-[12px] tracking-[0.02em] text-[#6f6757] min-[420px]:block">
             informes académicos · 2026
           </span>
         </div>
-        <Button
-          onClick={onOpen}
-          className="sheet-lift order-2 ml-auto shrink-0 whitespace-nowrap rounded-[3px] bg-[#3e6fa8] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-[2px_3px_0_#adc6e4] hover:bg-[#4f7bb4] sm:order-3 sm:px-4 sm:py-2 sm:text-[13.5px]"
-        >
-          Abrir la herramienta
-        </Button>
         <nav
           aria-label="Secciones de la página"
-          className="order-3 flex w-full basis-full gap-3 overflow-x-auto pb-1 pt-1 sm:order-2 sm:w-auto sm:basis-auto sm:flex-1 sm:justify-end sm:gap-5 sm:pb-0.5 sm:pt-1"
+          className="order-3 -mx-1 flex w-full basis-full gap-3 overflow-x-auto px-1 pb-1 pt-1 lg:order-none lg:mx-0 lg:w-auto lg:basis-auto lg:flex-1 lg:justify-end lg:gap-5 lg:overflow-visible lg:px-0 lg:pb-0.5 lg:pt-1"
         >
           {NAV_LINKS.map(([label, id]) => (
             <a
               key={id}
               href={`#${id}`}
               style={typed}
-              aria-current={activeSection === id ? 'true' : undefined}
+              aria-current={activeSection === id ? 'location' : undefined}
               className={linkClass(id)}
             >
               {label}
             </a>
           ))}
         </nav>
+        <Button
+          onClick={onOpen}
+          className="sheet-lift ml-auto shrink-0 whitespace-nowrap rounded-[3px] bg-[#3e6fa8] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-[2px_3px_0_#adc6e4] hover:bg-[#345f92] sm:px-4 sm:py-2 sm:text-[13.5px]"
+        >
+          Abrir la herramienta
+        </Button>
       </div>
     </header>
   )
@@ -125,7 +130,7 @@ export default function Landing({ onOpen }) {
           if (entry.isIntersecting) visible.add(entry.target.id)
           else visible.delete(entry.target.id)
         }
-        const current = ids.find((id) => visible.has(id))
+        const current = ids.filter((id) => visible.has(id)).at(-1)
         if (current) setActiveSection(current)
       },
       { rootMargin: '-15% 0px -60% 0px' },
@@ -150,7 +155,7 @@ export default function Landing({ onOpen }) {
         }
         @media (prefers-reduced-motion: reduce) {
           .sheet-settle { animation: none; }
-          .cta-sheet:hover .sheet-lift { transform: none; }
+          .cta-sheet:hover .sheet-lift, .sheet-lift:hover { transform: none; }
         }
         /* Register stamp: one thump after the settle, then ink-dry static. */
         .stamp-thumps-in {
@@ -199,7 +204,7 @@ export default function Landing({ onOpen }) {
                 href="/manual-de-uso.md"
                 download
                 style={typed}
-                className="mt-4 inline-block text-[13px] text-[#6f6757] underline decoration-[#c9b48f] underline-offset-4 transition-colors hover:decoration-[#3e6fa8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3e6fa8]"
+                className="mt-4 inline-block text-[13px] text-[#6f6757] underline decoration-[#8a7d63] underline-offset-4 transition-colors hover:decoration-[#3e6fa8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3e6fa8]"
               >
                 Descargar el manual de uso (.md)
               </a>
@@ -233,7 +238,7 @@ export default function Landing({ onOpen }) {
               <Field label="MATEMÁTICAS" value="4.5 · Alto" />
               <Field label="CIENCIAS" value="4.2 · Alto" />
               <Field label="ESPAÑOL" value="3.8 · Básico" />
-              <div className="mt-auto flex items-center justify-between px-5 py-4 pr-24 text-[12px] text-[#6f6757] md:pr-28">
+              <div className="mt-auto flex items-center justify-between px-5 py-4 text-[12px] text-[#6f6757] md:pr-28">
                 <span>Informe A4 · una página por estudiante</span>
                 <span style={typed}>PROM 4.17</span>
               </div>
@@ -272,7 +277,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Steps: numbered form boxes, sequence carries real information. */}
-      <section id="pasos" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-16">
+      <section id="pasos" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 py-16">
         <h2 style={headed} className="text-[26px] leading-snug text-[#3b4a63] md:text-[30px]">
           De la planilla al informe impreso, en tres pasos
         </h2>
@@ -299,7 +304,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Features: ruled form ledger rows, not icon cards. */}
-      <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-16">
+      <section id="features" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 pb-16">
         <Rule />
         <h2 style={headed} className="pb-6 pt-8 text-[26px] text-[#3b4a63] md:text-[30px]">
           Qué hace, en concreto
@@ -320,7 +325,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Privacy: a stamped side-note block. */}
-      <section id="datos" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-16">
+      <section id="datos" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 pb-16">
         <div className="border-l-[3px] border-[#ece5d3] bg-[#fdfcf8] p-6">
           <h2 style={headed} className="text-[24px] text-[#3b4a63] md:text-[28px]">
             Los datos son del colegio
@@ -335,7 +340,7 @@ export default function Landing({ onOpen }) {
       </section>
 
       {/* Audience: honest targeting. */}
-      <section id="quien" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-16">
+      <section id="quien" className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 pb-16">
         <h2 style={headed} className="text-[24px] text-[#3b4a63] md:text-[28px]">
           ¿Para quién es?
         </h2>

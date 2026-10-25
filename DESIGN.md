@@ -31,10 +31,9 @@ Restricción del usuario (vinculante): paleta clara, amable y gentil — nada de
 5. **Privacidad**, **Para quién**, cierre + segundo CTA, **footer** con oferta suave (giusepthrivera@gmail.com + micro-disclosure).
 
 ## Movimiento / estados
-- Momentos autorales: **dos y solo dos, y secuenciales**. (1) `settle` de la hoja ORIGINAL al cargar (640ms, ease `.19 .75 .22 1`, `animation-fill-mode: both`). (2) El **thump del sello REGISTRADO**: aro doble verde oliva `#5d7d5a` rotado -12° en la esquina inferior derecha de la hoja original, texto `REGISTRADO` (Plex Mono 9px caps espaciado) con `4.17` al centro — registra el promedio que sí se ve en la hoja; thump único ~900ms tras el settle (escala 1.35→1, opacity 0→0.9, 260ms, ease resorte `.34 1.56 .64 1`) y queda seco (estático). Sangrado de tinta: hairline `box-shadow` inset + gap blanco de 2px entre aros. `aria-hidden` puro (decorativo). `prefers-reduced-motion`: aparece al estado final, sin animar.
+- Momentos autorales: **dos y solo dos, y secuenciales**. (1) `settle` de la hoja ORIGINAL al cargar (640ms, ease `.19 .75 .22 1`, `animation-fill-mode: both`). (2) El **thump del sello REGISTRADO**: aro doble verde oliva `#55704f` rotado -12° en la esquina inferior derecha de la hoja original, texto `REGISTRADO` (Plex Mono 12px caps espaciado) con `4.17` al centro — registra el promedio que sí se ve en la hoja; thump único ~900ms tras el settle (escala 1.35→1, opacity 0→1, 260ms, ease-out exponencial `.16,1,.3,1` — sin rebotes) y queda seco (estático). Solo ≥md: en móvil el sello no se monta para no tapar filas (adaptación responsive declarada). Sangrado de tinta: hairline `box-shadow` inset + gap blanco de 2px entre aros. `aria-hidden` puro (decorativo). `prefers-reduced-motion`: aparece al estado final, sin animar.
 - Hover del CTA: `sheet-lift` (−3px). Estados de foco: anillo `focus-visible` en navbar y form-link del manual; `outline` heredado del sistema en el resto.
-- Gotcha capturado: **animar las capas traseras impide su pintado en este Chromium/CDP** — quedaron estáticas por diseño (probes en `.impeccable/review/`).
-- Gotcha capturado: **animar las capas traseras impide su pintado en este Chromium/CDP** — quedaron estáticas por diseño (probes en `.impeccable/review/`).
+- Gotcha capturado: **animar las capas traseras impide su pintado en este Chromium/CDP** — quedaron estáticas por diseño (probes en `.impeccable/review/`). Las capturas finales se toman en viewport (no `fullPage`): la captura extendida no repinta de forma fiable absolutos animados.
 
 ## Mundo (deuda y escalado)
 - `cx()` ahora fusiona con `tailwind-merge` (últimos args ganan) — los overrides de `className` en `<Button>` son ahora deterministas.
@@ -42,6 +41,6 @@ Restricción del usuario (vinculante): paleta clara, amable y gentil — nada de
 - **Fronteras de PRs paralelos**: el párrafo de oferta del footer y su flujo de contacto pertenecen al PR paralelo de contacto — la navbar ni el sello tocan el footer; el asset `public/manual-de-uso.md` pertenece al PR de `#15`. Este pass: navbar + link manual + sello + línea humana.
 
 ## Verificación
-- `impeccable detect` limpio (0 anti-patrones, 0 avisos) sobre la página sirviendo. Todo texto nuevo pasa AA: navbar y form-link usan `#6f6757`/`#3e6fa8` (ya verificados en tokens); el verde `#5d7d5a` del sello es decorativo `aria-hidden`.
+- `impeccable detect` limpio (0 anti-patrones, 0 avisos) sobre la página sirviendo. Todo texto nuevo pasa AA: navbar y form-link usan `#6f6757`/`#3e6fa8` (ya verificados en tokens); el verde `#55704f` del sello mide 5.36:1 (AA pleno) y es decorativo `aria-hidden`.
 - Capturas: `.impeccable/review/landing-v2-desktop.png`, `landing-v2-mobile.png` (fresh load, settle + thump terminados, 1.5s).
 - e2e: `e2e/landing.spec.js` (5 tests) + suite trackeada completa 17/17. (Un `e2e/contact.spec.js` WIP de PR paralelo vive sin trackear; no corre en este gate.)
