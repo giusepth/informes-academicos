@@ -69,6 +69,24 @@ no salta puestos).
 - **Gestión de informes**: con más de un periodo cargado aparece una pestaña
   por informe, además del botón del informe final.
 
+### Varias pestañas abiertas
+
+Una sola pestaña edita los informes a la vez. Si abres una segunda pestaña
+del mismo navegador:
+
+- La pestaña que ya estaba abierta conserva la edición.
+- La segunda queda en **solo lectura**: puede navegar por los periodos y
+  estudiantes, previsualizar, imprimir y exportar (PDF, ZIP o backup .xlsx),
+  pero no puede modificar notas, desempeños ni la configuración.
+- Al cerrar la pestaña que edita, la pestaña en solo lectura se activa
+  automáticamente con los datos más recientes. El aviso de solo lectura
+  también ofrece **Reintentar** para volver a pedir el turno.
+
+El bloqueo lo administra el navegador y se libera cuando la pestaña editora
+se cierra. Si el navegador no ofrece esta función, ambas pestañas pueden
+editar y se aplica el criterio de "la última escritura gana": revisa los
+cambios antes de seguir.
+
 ## 4. Varios periodos y el informe final
 
 1. Importa `informe-1.xlsx` → aparece la barra de gestión con **Informe 1**.
@@ -116,6 +134,9 @@ Detalles completos del módulo: `docs/final-report.md`.
   los datos del sitio.
 - En un equipo compartido, cualquier persona que use ese navegador puede
   abrir la herramienta y ver el trabajo guardado.
+- Trabaja con una sola pestaña editora: las demás quedan en solo lectura y se
+  activan al cerrarse la primera. Exportar e imprimir sigue disponible en la
+  pestaña de solo lectura.
 - El navegador puede liberar espacio automáticamente y borrar los datos si
   necesita almacenamiento; el backup .xlsx es la copia segura.
 - Si escribes desempeños largos, el boletín puede superar una página A4:
