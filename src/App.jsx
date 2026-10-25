@@ -488,7 +488,7 @@ export default function App() {
       ),
     )
     setSelectedStudentId(student.id)
-    setToast(`${name} agregado a ${activeReport.label}.`)
+    setToast(`Se agregó a ${name} en ${activeReport.label}.`)
   }
 
   const handleReset = () => {
