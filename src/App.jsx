@@ -14,8 +14,13 @@ import {
   DEFAULT_SCALES,
   rankStudents,
 } from './utils/calculations'
+import { idb } from './utils/idbStorage'
+import { loadDataState, migrateLegacy } from './utils/idbState'
 import { fillPerformances, makeId } from './utils/parser'
 import { readStorage, writeStorage } from './utils/storage'
+
+const MIGRATED_TOAST = 'Trabajo anterior importado a este navegador.'
+const PRIVATE_MODE_TOAST = 'Modo privado: el trabajo se guarda solo en esta pestaña.'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -44,14 +49,39 @@ const initReports = () => {
   return []
 }
 
+const readSessionFallback = () => ({
+  available: false,
+  migrated: false,
+  config: readStorage(STORAGE_KEYS.config),
+  reports: initReports(),
+  finalPerformances: readStorage(STORAGE_KEYS.finalPerformances) ?? {},
+})
+
+let bootPromise = null
+
+const boot = () => {
+  if (!bootPromise) {
+    bootPromise = (async () => {
+      try {
+        if (!(await idb.isAvailable())) return readSessionFallback()
+        const { migrated } = await migrateLegacy({ idb, session: sessionStorage })
+        return { available: true, migrated, ...(await loadDataState(idb)) }
+      } catch {
+        return readSessionFallback()
+      }
+    })()
+  }
+  return bootPromise
+}
+
 /**
- * App orchestrator: owns session state (persisted in sessionStorage so a reload
- * survives but closing the tab wipes everything), the active period report,
- * the computed final report and the configuration modal.
+ * App orchestrator: owns report data (persisted in IndexedDB), view state
+ * (kept in sessionStorage per tab), the active period report, the computed
+ * final report and the configuration modal.
  */
 export default function App() {
-  const [config, setConfig] = useState(() => readStorage(STORAGE_KEYS.config))
-  const [reports, setReports] = useState(initReports)
+  const [config, setConfig] = useState(null)
+  const [reports, setReports] = useState([])
   const [activeReportId, setActiveReportId] = useState(() =>
     readStorage(STORAGE_KEYS.activeReport),
   )
@@ -59,15 +89,31 @@ export default function App() {
   const [selectedStudentId, setSelectedStudentId] = useState(() =>
     readStorage(STORAGE_KEYS.selected),
   )
-  const [finalPerformances, setFinalPerformances] = useState(() =>
-    readStorage(STORAGE_KEYS.finalPerformances) ?? {},
-  )
+  const [finalPerformances, setFinalPerformances] = useState({})
+  const [hydrating, setHydrating] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
   const [hash, setHash] = useState(() => window.location.hash)
   const printSheetRef = useRef(null)
+
+  useEffect(() => {
+    let active = true
+    boot().then((state) => {
+      if (!active) return
+      setConfig(state.config ?? null)
+      setReports(Array.isArray(state.reports) ? state.reports : [])
+      setFinalPerformances(state.finalPerformances ?? {})
+      setHydrating(false)
+      document.documentElement.dataset.hydrated = 'true'
+      if (state.migrated) setToast(MIGRATED_TOAST)
+      else if (!state.available) setToast(PRIVATE_MODE_TOAST)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
@@ -81,12 +127,18 @@ export default function App() {
       setToast('La pestaña no pudo guardar la sesión (cuota llena): exportá el backup (.xlsx) para no perder datos.')
     }
   }
-  useEffect(() => persist(STORAGE_KEYS.config, config), [config])
-  useEffect(() => persist(STORAGE_KEYS.reports, reports), [reports])
+  useEffect(() => {
+    if (!hydrating) persist(STORAGE_KEYS.config, config)
+  }, [config, hydrating])
+  useEffect(() => {
+    if (!hydrating) persist(STORAGE_KEYS.reports, reports)
+  }, [reports, hydrating])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
   useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
-  useEffect(() => persist(STORAGE_KEYS.finalPerformances, finalPerformances), [finalPerformances])
+  useEffect(() => {
+    if (!hydrating) persist(STORAGE_KEYS.finalPerformances, finalPerformances)
+  }, [finalPerformances, hydrating])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
@@ -315,6 +367,20 @@ export default function App() {
       ),
     )
     setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
+  }
+
+  if (hydrating) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f5ef] px-6">
+        <p
+          role="status"
+          style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+          className="text-center text-[13px] tracking-[0.03em] text-[#6f6757]"
+        >
+          Preparando tu trabajo…
+        </p>
+      </div>
+    )
   }
 
   // The contact route bypasses the landing gate once every hook has run.

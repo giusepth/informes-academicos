@@ -17,7 +17,7 @@ const TRANSACTION_FAILED = 'IndexedDB transaction failed'
  * @param {IDBFactory | null} [options.indexedDB] IndexedDB implementation.
  * @param {string} [options.dbName] Database name.
  * @param {number} [options.version] Schema version.
- * @returns {{ openDb: () => Promise<IDBDatabase>, get: (key: IDBValidKey) => Promise<unknown>, set: (key: IDBValidKey, value: unknown) => Promise<boolean>, remove: (key: IDBValidKey) => Promise<boolean>, isAvailable: () => Promise<boolean>, close: () => Promise<void> }}
+ * @returns {{ openDb: () => Promise<IDBDatabase>, get: (key: IDBValidKey) => Promise<unknown>, set: (key: IDBValidKey, value: unknown) => Promise<boolean>, setMany: (entries: Array<[IDBValidKey, unknown]>) => Promise<boolean>, remove: (key: IDBValidKey) => Promise<boolean>, isAvailable: () => Promise<boolean>, close: () => Promise<void> }}
  */
 export function createIdbStorage(options = {}) {
   const dbName = options.dbName ?? DB_NAME
@@ -168,6 +168,26 @@ export function createIdbStorage(options = {}) {
   }
 
   /**
+   * Stores several key/value pairs in one atomic transaction. `null` and
+   * `undefined` values delete their key; any failure rolls the whole batch
+   * back, so partial migrations can never happen.
+   *
+   * @param {Array<[IDBValidKey, unknown]>} entries
+   * @returns {Promise<boolean>} Resolves true after the transaction commits.
+   */
+  const setMany = async (entries) => {
+    if (!Array.isArray(entries) || entries.length === 0) return true
+    const db = await openDb()
+    await transact(db, 'readwrite', (store) => {
+      for (const [key, value] of entries) {
+        if (value === null || value === undefined) store.delete(key)
+        else store.put(value, key)
+      }
+    })
+    return true
+  }
+
+  /**
    * Deletes a key.
    *
    * @param {IDBValidKey} key
@@ -197,7 +217,7 @@ export function createIdbStorage(options = {}) {
     }
   }
 
-  return { openDb, get, set, remove, isAvailable, close }
+  return { openDb, get, set, setMany, remove, isAvailable, close }
 }
 
 /** Shared adapter for application code. */
