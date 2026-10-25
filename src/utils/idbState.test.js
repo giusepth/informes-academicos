@@ -4,6 +4,7 @@ import { createIdbStorage } from './idbStorage'
 import {
   createPersistQueue,
   DATA_STORAGE_KEYS,
+  deepEqual,
   loadDataState,
   MIGRATION_FLAG,
   migrateLegacy,
@@ -230,6 +231,18 @@ describe('migrateLegacy', () => {
   })
 })
 
+describe('deepEqual', () => {
+  it('treats undefined-valued keys as significant', () => {
+    expect(deepEqual({ a: 1 }, { a: 1 })).toBe(true)
+    expect(deepEqual({ a: 1 }, { a: 1, b: undefined })).toBe(false)
+  })
+
+  it('compares nested arrays and objects structurally', () => {
+    expect(deepEqual({ list: [1, { b: 2 }] }, { list: [1, { b: 2 }] })).toBe(true)
+    expect(deepEqual({ list: [1, { b: 2 }] }, { list: [1, { b: 3 }] })).toBe(false)
+  })
+})
+
 describe('createPersistQueue', () => {
   it('does not write before hydration is enabled', async () => {
     const write = vi.fn().mockResolvedValue(true)
@@ -312,5 +325,51 @@ describe('createPersistQueue', () => {
 
     await expect(Promise.all([first, second])).resolves.toEqual([false, false])
     expect(onError).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes twice when a key is added with an undefined value', async () => {
+    const write = vi.fn().mockResolvedValue(true)
+    const queue = createPersistQueue({ write, onError: vi.fn() })
+    queue.enable()
+
+    await queue.enqueue('key', { a: 1 })
+    await queue.enqueue('key', { a: 1, b: undefined })
+
+    expect(write).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries a failed value on the next enqueue instead of deduping it', async () => {
+    const write = vi.fn().mockRejectedValueOnce(new Error('quota')).mockResolvedValue(true)
+    const queue = createPersistQueue({ write, onError: vi.fn() })
+    queue.enable()
+
+    await expect(queue.enqueue('key', { a: 1 })).resolves.toBe(false)
+    await expect(queue.enqueue('key', { a: 1 })).resolves.toBe(true)
+
+    expect(write).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports idleness and flushes in-flight writes', async () => {
+    let release
+    const gate = new Promise((resolve) => {
+      release = resolve
+    })
+    const write = vi.fn(async () => {
+      await gate
+      return true
+    })
+    const queue = createPersistQueue({ write, onError: vi.fn() })
+    queue.enable()
+
+    const first = queue.enqueue('key', 1)
+    expect(queue.isIdle()).toBe(false)
+
+    const flushed = queue.flush()
+    expect(queue.isIdle()).toBe(false)
+
+    release()
+    await expect(flushed).resolves.toBe(true)
+    await expect(first).resolves.toBe(true)
+    expect(queue.isIdle()).toBe(true)
   })
 })

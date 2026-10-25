@@ -103,11 +103,37 @@ export async function migrateLegacy({ idb, session } = {}) {
   }
 }
 
+/**
+ * Structural equality that treats `undefined`-valued keys as significant:
+ * `{ a: 1 }` and `{ a: 1, b: undefined }` are NOT equal. IndexedDB preserves
+ * own keys with `undefined` values, so JSON serialization would silently drop
+ * them and skip a write that actually changes the stored shape.
+ */
+export function deepEqual(a, b) {
+  if (Object.is(a, b)) return true
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false
+
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime()
+  }
+
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+
+  return aKeys.every(
+    (key) => Object.prototype.hasOwnProperty.call(b, key) && deepEqual(a[key], b[key]),
+  )
+}
+
 export function createPersistQueue({ write, onError } = {}) {
   let enabled = false
+  let pending = 0
   let failureScheduled = false
   const chains = new Map()
-  const queued = new Map()
+  const snapshots = new Map()
 
   const notifyFailure = (error) => {
     if (failureScheduled) return
@@ -122,27 +148,16 @@ export function createPersistQueue({ write, onError } = {}) {
     }
   }
 
-  const signatureOf = (value) => {
-    try {
-      return JSON.stringify(value)
-    } catch {
-      return undefined
-    }
-  }
-
   const prime = (key, value) => {
-    const signature = signatureOf(value)
-    if (signature !== undefined) queued.set(key, signature)
+    snapshots.set(key, value)
   }
 
   const enqueue = (key, value) => {
     if (!enabled) return Promise.resolve(false)
+    if (snapshots.has(key) && deepEqual(snapshots.get(key), value)) return Promise.resolve(false)
+    snapshots.set(key, value)
 
-    const signature = signatureOf(value)
-    const canDedupe = signature !== undefined
-    if (canDedupe && queued.get(key) === signature) return Promise.resolve(false)
-    if (canDedupe) queued.set(key, signature)
-
+    pending += 1
     const previous = chains.get(key) ?? Promise.resolve()
     const next = previous
       .catch(() => {})
@@ -151,9 +166,13 @@ export function createPersistQueue({ write, onError } = {}) {
           await write(key, value)
           return true
         } catch (error) {
-          if (canDedupe && queued.get(key) === signature) queued.delete(key)
+          // Forget the failed snapshot so the next enqueue of the same value
+          // actually retries instead of being deduped as already persisted.
+          if (snapshots.has(key) && deepEqual(snapshots.get(key), value)) snapshots.delete(key)
           notifyFailure(error)
           return false
+        } finally {
+          pending -= 1
         }
       })
 
@@ -165,5 +184,18 @@ export function createPersistQueue({ write, onError } = {}) {
     enabled = true
   }
 
-  return { enqueue, prime, enable }
+  const isIdle = () => pending === 0
+
+  /*
+   * Best-effort flush: awaits every write already scheduled in this tab.
+   * A write still queued when the browser destroys the page can be lost in
+   * that close race (IndexedDB commits asynchronously); the visibility flush
+   * narrows the window but cannot eliminate it.
+   */
+  const flush = async () => {
+    await Promise.all([...chains.values()].map((chain) => chain.catch(() => {})))
+    return isIdle()
+  }
+
+  return { enqueue, prime, enable, isIdle, flush }
 }
