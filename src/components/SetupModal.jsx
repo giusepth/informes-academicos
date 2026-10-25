@@ -109,6 +109,19 @@ export default function SetupModal({
       }
     >
       <div className="space-y-5">
+        <div role="status" aria-live="polite" className="min-h-[2.25rem]">
+          {persistenceStatus === 'granted' || persistenceStatus === 'denied' ? (
+            <p
+              style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+              className="text-[12.5px] leading-relaxed text-[#6f6757]"
+            >
+              {persistenceStatus === 'granted'
+                ? 'Almacenamiento protegido en este navegador.'
+                : 'El navegador puede liberar espacio; exporta el backup (.xlsx) para conservar el trabajo.'}
+            </p>
+          ) : null}
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Institución educativa">
             <TextInput
@@ -234,17 +247,6 @@ export default function SetupModal({
             Se usa como marca de agua en el informe. La imagen queda solo en memoria.
           </p>
         </div>
-
-        {persistenceStatus === 'granted' || persistenceStatus === 'denied' ? (
-          <p
-            style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-            className="text-[12.5px] leading-relaxed text-[#6f6757]"
-          >
-            {persistenceStatus === 'granted'
-              ? 'Almacenamiento protegido en este navegador.'
-              : 'El navegador puede liberar espacio; exporta el backup (.xlsx) para conservar el trabajo.'}
-          </p>
-        ) : null}
 
         {error ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
