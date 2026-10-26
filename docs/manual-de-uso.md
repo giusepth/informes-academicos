@@ -35,7 +35,12 @@ quiere una versión a medida, el pie ofrece contacto.
 
 ## 2. Cargar datos de un informe (RF-02, RF-03)
 
-Dos caminos:
+El botón **Menú** del encabezado abre **Gestión de informes**, disponible
+siempre, incluso cuando ya hay informes. El menú se organiza en cuatro
+secciones: **Nuevo trabajo**, **Trabajo actual**, **Desempeños** y
+**Respaldo y datos**.
+
+Dos caminos para empezar:
 
 - **Importar Excel (.xlsx)**: arrastra el archivo o elígelo con el botón.
   Formato: una fila de encabezados, luego una fila por estudiante.
@@ -58,13 +63,14 @@ no salta puestos).
 
 ### Descargar y cargar desempeños desde el menú
 
-Antes de crear el primer informe, la pantalla inicial ofrece la sección
-**Desempeños** con tres acciones:
+La sección **Desempeños** del menú ofrece tres acciones:
 
 - **Cargar desempeños (excel)**: importa la matriz descriptiva del colegio.
-  Como todavía no hay informes, la matriz queda **pendiente** y se aplica
-  automáticamente al **primer informe que abras**, sea manual o importado como
-  archivo de un solo informe, cuando tenga estudiantes y al menos una nota.
+  La matriz queda **pendiente** y se aplica automáticamente al **primer
+  informe que abras**, sea manual o importado como archivo de un solo informe,
+  cuando tenga estudiantes y al menos una nota. Mientras sigas en el menú, el
+  estado pendiente se muestra con la cantidad de asignaturas detectadas y las
+  opciones **Reemplazar archivo** y **Quitar matriz**.
   Si el informe todavía no tiene notas, la matriz sigue pendiente y no se
   consume. El aviso confirma la carga y, después, el informe donde se aplicó.
   La carga pendiente se conserva en esta pestaña aunque recargues la página.
@@ -78,9 +84,8 @@ Antes de crear el primer informe, la pantalla inicial ofrece la sección
   banda. Sirve para ver el formato esperado o para partir de ella.
 
 La matriz completa **solo los casilleros de desempeño vacíos**: si ya
-escribiste un juicio valorativo, se conserva. Las acciones de plantilla y
-ejemplo también están disponibles en **Gestión de informes**, junto a
-«Cargar desempeños (excel)».
+escribiste un juicio valorativo, se conserva. Si quieres aplicarla al informe
+final, usa **Aplicar al informe final** mientras la matriz está pendiente.
 
 Si restauras un backup mientras hay una matriz pendiente, la restauración
 **no consume** la matriz: se mantiene el resumen del backup y la matriz queda
@@ -96,12 +101,14 @@ página.
   las escrituras ya confirmadas se conservan al cerrar la pestaña; una edición
   hecha justo antes de cerrar puede no alcanzar a guardarse.
 - **Carga manual de notas**: **Editar notas** abre la escritura directa de las
-  notas del período activo y **Nuevo periodo en blanco** entra directo en ese
+  notas del período activo. Para crear un período nuevo en blanco, abre
+  **Menú → Nuevo trabajo → Nuevo periodo en blanco**: entra directo en ese
   modo. Mientras está activo también puedes agregar un estudiante a mano con su
   nombre y el botón **Agregar**. **Terminar edición** vuelve a la vista de solo
   lectura.
-- **Gestión de informes**: con más de un periodo cargado aparece una pestaña
-  por informe, además del botón del informe final.
+- **Períodos**: en la barra del boletín aparece una pestaña por informe,
+  además del botón del informe final. Las importaciones, el respaldo y las
+  matrices viven en **Menú**.
 
 ### Varias pestañas abiertas
 
@@ -126,10 +133,10 @@ Sin IndexedDB (modo privado o navegador bloqueado), el trabajo vive por pestaña
 ## 4. Varios periodos y el informe final
 
 1. Importa `informe-1.xlsx` → aparece la barra de gestión con **Informe 1**.
-2. Para el siguiente periodo: **"Importar Excel (periodo)"** con un archivo
-   nuevo, o **"Nuevo periodo en blanco"** para dejar la estructura lista y
-   escribir a mano (los ids de estudiantes se regeneran: las observaciones
-   quedan separadas por periodo, como corresponde).
+2. Para el siguiente periodo: **Menú → Nuevo trabajo → Importar Excel
+   (.xlsx)** con un archivo nuevo, o **Nuevo periodo en blanco** para dejar la
+   estructura lista y escribir a mano (los ids de estudiantes se regeneran: las
+   observaciones quedan separadas por periodo, como corresponde).
 3. El botón **"Informe N (final)"** (se numera según la cantidad cargada)
    abre el boletín que promedia cada asignatura entre los periodos: una
    columna por informe + **Promedio** + **Valoración** + **Desempeño**.
@@ -148,7 +155,7 @@ Detalles completos del módulo: `docs/final-report.md`.
 - **Imprimir**: imprime sólo la hoja del informe activo (el resto de la
   interfaz queda fuera de la impresión).
 - **Generar ZIP (todos)**: descarga un .zip con un PDF por estudiante.
-- **Exportar backup (.xlsx)**: descarga un Excel con **una hoja por informe**
+- **Exportar backup (.xlsx)** (en **Menú → Respaldo y datos**): descarga un Excel con **una hoja por informe**
   (notas, docentes por asignatura y desempeños de período incluidos) y, si hay
   anotaciones, una hoja **Final (desempeños)** con los desempeños del informe
   final. El backup incluye periodos, notas, desempeños de período y desempeños
@@ -158,14 +165,16 @@ Detalles completos del módulo: `docs/final-report.md`.
   configuración y **empieza por importar ese mismo archivo** (si detecta hojas
   Informe N restaura la sesión completa de una vez: periodos, notas y
   desempeños, finales incluidos).
-- **Cargar desempeños (excel)**: importa la **matriz descriptiva** —una hoja
+- **Cargar desempeños (excel)** (en **Menú → Desempeños**): importa la
+  **matriz descriptiva** —una hoja
   `Asignatura | Bajo | Básico | Alto | Superior` con el texto que usas por
   banda— y precarga los casilleros de desempeño que están **vacíos** según la
   banda del redondeo institucional de cada nota. Lo que ya escribió el docente
-  **no se sobrescribe**. Se aplica al informe activo (periodo) o al final si estás en
-  la pestaña del informe final; los textos quedan guardados. Junto a este botón,
-  **Plantilla de desempeños** y **Ejemplo de desempeños** descargan los mismos
-  archivos que ofrece el menú inicial (`plantilla-desempenos.xlsx` y
+  **no se sobrescribe**. La matriz queda pendiente y se aplica al abrir un
+  boletín de período; con **Aplicar al informe final** completa solo los
+  desempeños finales vacíos. Junto a este botón,
+  **Descargar plantilla de desempeños** y **Descargar ejemplo de desempeños**
+  ofrecen los mismos archivos (`plantilla-desempenos.xlsx` y
   `ejemplo-desempenos.xlsx`): la plantilla incluye la hoja Instrucciones y las
   celdas de banda vacías (si la cargas sin completar, la app avisa y no aplica
   nada); el ejemplo, una matriz lista para usar.
@@ -188,9 +197,9 @@ cerrar puede no alcanzar a guardarse. Se pierde si:
 3. usas el modo privado;
 4. el navegador puede liberar espacio automáticamente bajo presión de cuota
    (por ejemplo, si el equipo tiene poco espacio disponible);
-5. usas **Limpiar informes**: borra los informes y los desempeños finales
-   guardados en este navegador (pide confirmación y conserva la configuración), así que exporta
-   el backup antes.
+5. usas **Limpiar informes** (en **Menú → Respaldo y datos**): borra los
+   informes y los desempeños finales guardados en este navegador (pide
+   confirmación y conserva la configuración), así que exporta el backup antes.
 
 El **backup .xlsx** es el puente entre equipos y navegadores, y el resguardo
 recomendado antes de borrar los datos del sitio o de usar **Limpiar informes**.

@@ -80,6 +80,15 @@ describe('manual de uso', () => {
     expect(manual).toMatch(/Final \(desempeños\)/)
   })
 
+  it('describes the organized management menu and its sections', () => {
+    for (const section of ['Nuevo trabajo', 'Trabajo actual', 'Desempeños', 'Respaldo y datos']) {
+      expect(manual).toContain(`**${section}**`)
+    }
+    expect(manual).toMatch(/Menú.*Gestión de informes/s)
+    expect(manual).toMatch(/Nuevo periodo en blanco/)
+    expect(manual).toMatch(/Aplicar al informe final/)
+  })
+
   it('does not use "copia segura" without also naming the final annotations', () => {
     for (const source of [manual, publicManual, finalReport, product]) {
       if (/copia segura/i.test(source)) {
