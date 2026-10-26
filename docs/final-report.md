@@ -33,8 +33,10 @@ aparte, para que reimportar periodos no los pise.
    vista previa, la impresión (`Ctrl+P`) y el ZIP masivo igual que en los
    informes de periodo.
 
-Cada importación acepta **un archivo con una hoja activa**; un periodo = un
-archivo (o un periodo manual a mano).
+Cada importación de período acepta **un archivo con una hoja activa**; un
+periodo = un archivo (o un periodo manual a mano). Si ya hay informes, la
+importación agrega un período y lee la primera hoja; un backup completo solo se
+restaura cuando la sesión está vacía.
 
 ## 3. Formato del Excel
 
@@ -136,8 +138,9 @@ node samples/make-sample-workbooks.cjs ~/Downloads
 ## 7. Limitaciones conocidas
 
 - El import **de periodo individual** (`Importar Excel (.xlsx)`) ejecuta una
-  sola hoja. El **backup** (en **Menú → Respaldo y datos** / re-import desde
-  la pantalla inicial) en cambio trabaja con una hoja por informe más la hoja
+  sola hoja. El **backup** se exporta en **Menú → Respaldo y datos** y se
+  re-importa en **Menú → Nuevo trabajo** (o desde la pantalla inicial) cuando
+  no hay informes cargados. Trabaja con una hoja por informe más la hoja
   `Final (desempeños)`, y restaura la sesión multi-periodo completa: periodos,
   notas, desempeños de período y desempeños finales.
 - Cambiar nombres de estudiantes entre periodos los desempareja (se combinan

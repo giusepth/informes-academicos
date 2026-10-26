@@ -54,23 +54,30 @@ export default function ManagementMenu({
       try {
         const { reports: restored, skipped, finalPerformances: restoredFinals } =
           await parseBackupWorkbook(buffer)
+        // A backup is more than one report sheet or a final-annotations sheet.
+        // A stray worksheet next to one report must not turn a period import
+        // into a silent full restore.
         const isBackup =
           restored.length > 1 ||
-          skipped.length > 0 ||
           Object.keys(restoredFinals ?? {}).length > 0
-        if (isBackup && onLoadedBackup) {
-          onLoadedBackup(restored, skipped, restoredFinals)
-          return
-        }
-        if (!isBackup && restored.length === 1) {
-          // A single sheet with no final performances is a normal report, not
-          // a backup: a pending matrix must be able to apply right away.
-          onNewReport?.(restored[0])
-          return
+        if (isBackup) {
+          if (reports.length > 0) {
+            setError(
+              'Ese archivo parece un backup completo. Para restaurarlo, elimina primero los informes actuales con Limpiar informes.',
+            )
+            return
+          }
+          if (onLoadedBackup) {
+            onLoadedBackup(restored, skipped, restoredFinals)
+            return
+          }
         }
       } catch {
         // Not a backup workbook: fall through to the single-period import.
       }
+      // With existing work, importing is always a new period: read only the
+      // first sheet through parseWorkbook so student ids are assigned and the
+      // current session is preserved. With no work it is the first report.
       const data = await parseWorkbook(buffer)
       onNewReport?.(data)
     } catch (err) {

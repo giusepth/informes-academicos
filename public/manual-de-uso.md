@@ -61,6 +61,12 @@ valoración cualitativa con redondeo institucional (2.92 → 3.0) y puesto
 (descendente por promedio crudo; empates comparten puesto y la numeración
 no salta puestos).
 
+Con informes ya cargados, **Importar Excel (.xlsx)** agrega un período nuevo y
+lee la primera hoja del archivo. Un backup completo (varias hojas de informe o
+la hoja `Final (desempeños)`) no se restaura encima del trabajo actual: la app
+avisa y pide limpiar los informes primero. Restaurar un backup es una acción de
+inicio, cuando todavía no hay informes cargados.
+
 ### Descargar y cargar desempeños desde el menú
 
 La sección **Desempeños** del menú ofrece tres acciones:
