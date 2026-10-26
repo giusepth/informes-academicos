@@ -73,7 +73,7 @@ test('a clear removes legacy session copies from another tab', async ({ page, co
   await expect(second.getByRole('button', { name: 'Informe 1', exact: true })).toHaveCount(0)
 })
 
-test('without BroadcastChannel a cleared matrix never applies after promotion', async ({
+test('without BroadcastChannel a clear still drops the pending final matrix', async ({
   page,
   context,
 }) => {
@@ -105,14 +105,8 @@ test('without BroadcastChannel a cleared matrix never applies after promotion', 
   await expect(second.getByRole('status').filter({ hasText: 'Solo lectura' })).toHaveCount(0, {
     timeout: 15_000,
   })
-
-  await second.getByRole('button', { name: 'Crear manualmente' }).click()
-  await expect(second).toHaveURL(/#\/editor$/)
-  await second.getByPlaceholder('5° A').fill('6° A')
-  await second.getByPlaceholder('Nombre del estudiante').first().fill('Ana')
-  await second.getByLabel('Nota de Ana en Matemáticas').fill('4,5')
-  await second.getByRole('button', { name: 'Crear período' }).click()
-
-  await expect(second.locator('.report-sheet').first()).toBeVisible({ timeout: 15_000 })
-  await expect(second.locator('.report-sheet').first()).not.toContainText('Pendiente ajeno.')
+  await expect
+    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
+    .toBeNull()
+  await second.close()
 })

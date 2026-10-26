@@ -250,30 +250,6 @@ test('a remote report refresh keeps the open draft and its unsaved state', async
   await expect(page.getByText('Cambio remoto').first()).toBeVisible()
 })
 
-test('a pending matrix waits while the period editor is open', async ({ page }) => {
-  await seed(page, { reports: [first] })
-  await page.goto('/#/gestion')
-  await page.evaluate(() =>
-    sessionStorage.setItem(
-      'informes.pendingMatrix',
-      JSON.stringify({ Ciencias: { Básico: 'Ciencias desde matriz' } }),
-    ),
-  )
-  await page.reload()
-  await waitForHydrated(page)
-  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Editar período' }).click()
-  await expect(page.getByLabel('Desempeño de Ana en Ciencias')).toHaveValue('')
-
-  await page.getByRole('button', { name: 'Volver' }).click()
-  await page.getByRole('button', { name: 'Informe 1', exact: true }).click()
-  await expect(page.getByText('Ciencias desde matriz').first()).toBeVisible()
-  await expect
-    .poll(() => page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
-    .toBeNull()
-})
-
 test('blank names cannot silently delete a subject or a student with data', async ({ page }) => {
   await seed(page, { reports: [first] })
   const before = await readDataKey(page, 'informes.reports')

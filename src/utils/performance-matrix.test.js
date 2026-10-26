@@ -5,6 +5,7 @@ import {
   applyMatrixToReport,
   countMatrixFills,
   fillPerformances,
+  matrixApplicationStats,
   matrixHasText,
   parsePerformanceMatrix,
 } from './parser'
@@ -304,5 +305,54 @@ describe('countMatrixFills', () => {
       ],
     }
     expect(countMatrixFills(report, matrix, DEFAULT_SCALE, 'decimal')).toBe(0)
+  })
+})
+
+
+describe('matrixApplicationStats', () => {
+  const matrix = {
+    'Matemáticas': { Bajo: 'm-bajo', 'Básico': 'm-basico', Alto: 'm-alto', Superior: 'm-sup' },
+    Ciencias: { Bajo: 'c-bajo', 'Básico': 'c-basico', Alto: 'c-alto', Superior: 'c-sup' },
+  }
+
+  it('separates fillable, own-text and missing-score cells', () => {
+    const report = {
+      subjects: ['Matemáticas', 'Ciencias', 'Historia'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': 4.5, 'Ciencias': 4.0, Historia: 4.5 },
+          performances: { 'Matemáticas': 'Texto propio', 'Ciencias': '', Historia: '' },
+        },
+        {
+          id: 's2',
+          name: 'Luis',
+          scores: { 'Matemáticas': null, 'Ciencias': 2.0 },
+          performances: {},
+        },
+      ],
+    }
+
+    // Ana Ciencias is fillable, Ana Matemáticas is own text, Luis Ciencias is
+    // fillable and Luis Matemáticas has no score. Historia is not in the
+    // matrix and must not count at all.
+    expect(matrixApplicationStats(report, matrix, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 2,
+      ownText: 1,
+      missingScore: 1,
+    })
+  })
+
+  it('counts no fillable cells when the roster has no grades', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [{ id: 's1', name: 'Ana', scores: {}, performances: {} }],
+    }
+    expect(matrixApplicationStats(report, matrix, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 1,
+    })
   })
 })

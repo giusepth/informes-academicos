@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import * as XLSX from 'xlsx'
-import { openManagementMenu, report, seed, waitForPersisted } from './helpers'
+import { openManagementMenu, report, seed } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -32,42 +32,6 @@ const reports = [1, 2].map((n) =>
   }),
 )
 
-test('the matrix pre-loads only empty period desempeños', async ({ page }) => {
-  await seed(page, { reports })
-  await openManagementMenu(page)
-
-  await page.locator('input[aria-label="Archivo de desempeños"]').setInputFiles({
-    name: 'matriz.xlsx',
-    mimeType: 'application/octet-stream',
-    buffer: MATRIX,
-  })
-  await expect(page.getByText('Matriz pendiente: 2 asignaturas detectadas.')).toBeVisible()
-  await page.getByRole('button', { name: 'Abrir boletín' }).click()
-
-  await expect(page.getByText('Desempeños aplicados a Informe 1.')).toBeVisible()
-  await waitForPersisted(
-    page,
-    'informes.reports',
-    (value) =>
-      value?.[0]?.students?.find((student) => student.name === 'Ana')?.performances
-        ?.Ciencias === 'AltoC.',
-  )
-
-  // Period boletines are read-only, so the stored judgments are checked
-  // through the editor that owns every period field.
-  await openManagementMenu(page)
-  await page.getByRole('button', { name: 'Editar período' }).click()
-
-  // Ana keeps her teacher-written judgment; her empty Ciencias cell gets the
-  // Alto text (4.0 → Alto).
-  await expect(page.getByLabel('Desempeño de Ana en Matemáticas')).toHaveValue('Ya anotado.')
-  await expect(page.getByLabel('Desempeño de Ana en Ciencias')).toHaveValue('AltoC.')
-
-  // Luis: Matemáticas 3.2/3.4 → mean 3.3 → Básico text; Ciencias 2.0 → Bajo.
-  await expect(page.getByLabel('Desempeño de Luis en Matemáticas')).toHaveValue('Básico.')
-  await expect(page.getByLabel('Desempeño de Luis en Ciencias')).toHaveValue('BajoC.')
-})
-
 test('the matrix applies to the final report and never rewrites saved judgments', async ({ page }) => {
   await seed(page, {
     reports,
@@ -77,7 +41,7 @@ test('the matrix applies to the final report and never rewrites saved judgments'
   })
 
   await openManagementMenu(page)
-  await page.locator('input[aria-label="Archivo de desempeños"]').setInputFiles({
+  await page.locator('input[aria-label="Archivo de matriz del informe final"]').setInputFiles({
     name: 'matriz.xlsx',
     mimeType: 'application/octet-stream',
     buffer: MATRIX,

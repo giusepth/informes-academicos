@@ -1,9 +1,46 @@
 import { useEffect, useState } from 'react'
-import { makeId } from '../utils/parser'
+import { DEFAULT_SCALE } from '../utils/calculations'
+import {
+  applyMatrixToReport,
+  makeId,
+  matrixApplicationStats,
+} from '../utils/parser'
 import { parseScoreInput } from '../utils/scoreInput'
+import PeriodMatrixImport from './PeriodMatrixImport'
 import { Button, Field, TextInput } from './ui'
 
 const normalizeSubject = (value) => value.trim().toLocaleLowerCase('es')
+
+/** Commits score drafts without touching React state, for live matrix counts. */
+const materializeScores = (students, subjects, scoreDrafts, maxScore) =>
+  students.map((student) => {
+    const scores = { ...(student.scores ?? {}) }
+    for (const subject of subjects) {
+      const draft = scoreDrafts[`${student.id}:${subject.id}`]
+      if (draft === undefined) continue
+      scores[subject.id] =
+        draft.trim() === '' ? null : parseScoreInput(draft, maxScore)
+    }
+    return { ...student, scores }
+  })
+
+/** Translates id-keyed subjects/performances into the name-keyed report shape. */
+const buildMatrixReport = (subjects, students) => ({
+  subjects: subjects.map((subject) => subject.name),
+  students: students.map((student) => ({
+    id: student.id,
+    name: student.name,
+    scores: Object.fromEntries(
+      subjects.map((subject) => [subject.name, student.scores?.[subject.id] ?? null]),
+    ),
+    performances: Object.fromEntries(
+      subjects.map((subject) => [
+        subject.name,
+        student.performances?.[subject.id] ?? '',
+      ]),
+    ),
+  })),
+})
 
 const emptyStudent = () => ({
   id: makeId(),
@@ -56,6 +93,8 @@ export default function PeriodEditor({
   mode = 'create',
   initial = null,
   maxScore = 5,
+  scale = DEFAULT_SCALE,
+  scaleType = 'decimal',
   readOnly = false,
   onSave,
   onCancel,
@@ -70,6 +109,8 @@ export default function PeriodEditor({
   const [subjects, setSubjects] = useState(base.subjects)
   const [students, setStudents] = useState(base.students)
   const [scoreDrafts, setScoreDrafts] = useState({})
+  const [matrix, setMatrix] = useState(null)
+  const [matrixNotice, setMatrixNotice] = useState('')
   const [error, setError] = useState('')
 
   const snapshot = JSON.stringify({ grade, teacher, subjects, students })
@@ -182,20 +223,85 @@ export default function PeriodEditor({
     clearDraft()
   }
 
+  const namedSubjects = subjects
+    .map((subject) => ({ ...subject, name: subject.name.trim() }))
+    .filter((subject) => subject.name !== '')
+  const matrixDraftStudents = matrix
+    ? materializeScores(students, subjects, scoreDrafts, maxScore)
+    : null
+  const matrixNamedStudents = matrixDraftStudents?.filter(
+    (student) => student.name.trim() !== '',
+  )
+  const matrixStats = matrix
+    ? matrixApplicationStats(
+        buildMatrixReport(namedSubjects, matrixNamedStudents),
+        matrix,
+        scale,
+        scaleType,
+      )
+    : null
+
   const flushDrafts = () => {
-    const next = students.map((student) => {
-      const scores = { ...(student.scores ?? {}) }
-      for (const subject of subjects) {
-        const draft = scoreDrafts[`${student.id}:${subject.id}`]
-        if (draft === undefined) continue
-        scores[subject.id] =
-          draft.trim() === '' ? null : parseScoreInput(draft, maxScore)
-      }
-      return { ...student, scores }
-    })
+    const next = materializeScores(students, subjects, scoreDrafts, maxScore)
     setStudents(next)
     setScoreDrafts({})
     return next
+  }
+
+  const handleLoadMatrix = (nextMatrix) => {
+    setMatrix(nextMatrix)
+    setMatrixNotice('')
+  }
+
+  const handleClearMatrix = () => {
+    setMatrix(null)
+    setMatrixNotice('')
+  }
+
+  const handleApplyMatrix = () => {
+    if (!matrix || readOnly) return
+    if (namedSubjects.length !== subjects.length) {
+      setMatrixNotice('Completa o quita las asignaturas sin nombre antes de aplicar la matriz.')
+      return
+    }
+    const normalized = namedSubjects.map((subject) => normalizeSubject(subject.name))
+    if (new Set(normalized).size !== normalized.length) {
+      setMatrixNotice('Corrige los nombres repetidos antes de aplicar la matriz.')
+      return
+    }
+    const draftStudents = materializeScores(students, subjects, scoreDrafts, maxScore)
+    const namedStudents = draftStudents.filter((student) => student.name.trim() !== '')
+    const report = buildMatrixReport(namedSubjects, namedStudents)
+    const stats = matrixApplicationStats(report, matrix, scale, scaleType)
+    if (stats.fillable === 0) {
+      setMatrixNotice(
+        stats.missingScore > 0
+          ? 'Todavía no hay notas para aplicar la matriz. Carga las notas y vuelve a intentar.'
+          : 'No hay casilleros vacíos para completar en este período.',
+      )
+      return
+    }
+
+    const filled = applyMatrixToReport(report, matrix, scale, scaleType)
+    const filledById = new Map(filled.map((student) => [student.id, student]))
+    setStudents(
+      draftStudents.map((student) => {
+        const next = filledById.get(student.id)
+        if (!next) return student
+        const performances = { ...(student.performances ?? {}) }
+        for (const subject of namedSubjects) {
+          performances[subject.id] =
+            next.performances?.[subject.name] ?? performances[subject.id] ?? ''
+        }
+        return { ...student, performances }
+      }),
+    )
+    setScoreDrafts({})
+    setMatrixNotice(
+      stats.fillable === 1
+        ? 'Matriz aplicada: 1 casillero completado.'
+        : `Matriz aplicada: ${stats.fillable} casilleros completados.`,
+    )
   }
 
   const handleSave = () => {
@@ -426,6 +532,16 @@ export default function PeriodEditor({
         <Button variant="secondary" size="sm" onClick={addStudent}>
           Agregar estudiante
         </Button>
+
+        <PeriodMatrixImport
+          matrix={matrix}
+          stats={matrixStats}
+          readOnly={readOnly}
+          notice={matrixNotice}
+          onLoadMatrix={handleLoadMatrix}
+          onClearMatrix={handleClearMatrix}
+          onApply={handleApplyMatrix}
+        />
 
         {error ? (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import * as XLSX from 'xlsx'
-import { readDataKey, report, seed, waitForPersisted } from './helpers'
+import { readDataKey, report, seed } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -65,7 +65,7 @@ test('the management menu groups every action in the four semantic sections', as
   await expect(current).toContainText('Estado del período activo')
 
   await expect(
-    performances.getByRole('button', { name: 'Cargar desempeños (excel)' }),
+    performances.getByRole('button', { name: 'Cargar matriz del informe final (excel)' }),
   ).toBeVisible()
   await expect(
     performances.getByRole('button', { name: 'Descargar plantilla de desempeños' }),
@@ -99,7 +99,7 @@ test('editing the active period from the menu opens the period editor', async ({
   await expect(page.getByLabel('Nota de Ana en Matemáticas')).toBeVisible()
 })
 
-test('a pending matrix shows its status and can be replaced or removed', async ({ page }) => {
+test('a final matrix shows its status and can be replaced or removed', async ({ page }) => {
   await seed(page, { reports })
   await openMenu(page)
 
@@ -108,9 +108,9 @@ test('a pending matrix shows its status and can be replaced or removed', async (
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     buffer: matrixBytes(),
   }
-  await page.locator('input[aria-label="Archivo de desempeños"]').setInputFiles(file)
+  await page.locator('input[aria-label="Archivo de matriz del informe final"]').setInputFiles(file)
 
-  const status = page.getByRole('status').filter({ hasText: 'Matriz pendiente' })
+  const status = page.locator('div[role="status"]').filter({ hasText: 'asignaturas detectadas' })
   await expect(status).toContainText('2 asignaturas detectadas')
   await expect(page.getByRole('button', { name: 'Reemplazar archivo' })).toBeVisible()
   await expect(
@@ -120,41 +120,32 @@ test('a pending matrix shows its status and can be replaced or removed', async (
   await page.getByRole('button', { name: 'Quitar matriz' }).click()
 
   await expect(status).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Cargar desempeños (excel)' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Cargar matriz del informe final (excel)' }),
+  ).toBeVisible()
   expect(
     await page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')),
   ).toBeNull()
 })
 
-test('the pending matrix waits in the menu and fills the first report on open', async ({
-  page,
-}) => {
+test('a final matrix never fills a period automatically', async ({ page }) => {
   await seed(page, { reports })
   await openMenu(page)
 
-  await page.locator('input[aria-label="Archivo de desempeños"]').setInputFiles({
+  await page.locator('input[aria-label="Archivo de matriz del informe final"]').setInputFiles({
     name: 'matriz.xlsx',
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     buffer: matrixBytes(),
   })
 
-  // Still on the menu: loading the matrix must not mutate the current report.
-  await expect(page.getByText('Matriz pendiente: 2 asignaturas detectadas.')).toBeVisible()
+  await page.getByRole('button', { name: 'Abrir boletín' }).click()
+  await expect(page.getByText('Desempeños aplicados a Informe 1.')).toHaveCount(0)
+
   const stored = await readDataKey(page, 'informes.reports')
   expect(stored[0].students[0].performances?.['Matemáticas']).toBeUndefined()
-
-  await page.getByRole('button', { name: 'Abrir boletín' }).click()
-
-  await expect(page.getByText('Desempeños aplicados a Informe 1.')).toBeVisible()
-  await waitForPersisted(
-    page,
-    'informes.reports',
-    (value) => value?.[0]?.students?.[0]?.performances?.['Matemáticas'] === 'Alto.',
-  )
-  await expect(page.getByText('Alto.').first()).toBeVisible()
-  expect(
-    await page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')),
-  ).toBeNull()
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
+    .not.toBeNull()
 })
 
 test('the menu has no horizontal overflow on a narrow viewport', async ({ page }) => {

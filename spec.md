@@ -12,7 +12,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
    * **Modo Manual (Vanilla):** Creación e ingreso de datos 100% a mano desde una interfaz interactiva.
 2. **Estructura Dinámica de Asignaturas ($N$ Asignaturas):** Capacidad de adaptarse a cursos que manejan diferente número y nombre de asignaturas sin restricciones fijas.
 3. **Cálculos Automáticos y Edge Cases:** Redondeo institucional hacia arriba (ej. $2.92 \to 3.0$) aplicado a la valoración cualitativa, ranking por promedio crudo descendente y visualización del promedio con dos decimales.
-4. **Desempeños Cualitativos y Carga Opcional:** Espacio editable por asignatura para el docente, con opción de pre-cargar textos mediante matriz auxiliar (opcional).
+4. **Desempeños Cualitativos y Carga Opcional:** Espacio editable por asignatura para el docente, con opción de pre-cargar textos mediante una matriz auxiliar local al período; la matriz del informe final se aplica explícitamente desde el menú hasta F5.
 5. **Identidad Institucional:** Inserción de escudo institucional PNG con opacidad controlada en el fondo del informe impreso/exportado.
 6. **Exportación Versátil:** Descarga individual en PDF, paquete compilado en formato `.ZIP` y opción de impresión directa optimizada (`@media print`).
 7. **Despliegue Gratuito:** Configurado para compilación estática lista para producción en Vercel.
@@ -66,6 +66,7 @@ src/
 │   ├── SetupModal.jsx          # Configuración inicial de escala y escudo PNG
 │   ├── ManagementMenu.jsx       # Menú de gestión: nuevo trabajo, período actual, desempeños y respaldo
 │   ├── PeriodEditor.jsx         # Editor compartido para crear o editar un período completo
+│   ├── PeriodMatrixImport.jsx   # Matriz de desempeños local al borrador del período
 │   ├── ReportDashboard.jsx      # Vista de solo lectura del período y edición de desempeños finales
 │   └── ExportToolbar.jsx       # Panel de acciones (Imprimir, Descargar PDF individual, Generar ZIP)
 ├── utils/
