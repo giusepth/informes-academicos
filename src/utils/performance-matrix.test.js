@@ -335,12 +335,13 @@ describe('matrixApplicationStats', () => {
     }
 
     // Ana Ciencias is fillable, Ana Matemáticas is own text, Luis Ciencias is
-    // fillable and Luis Matemáticas has no score. Historia is not in the
-    // matrix and must not count at all.
+    // fillable and Luis Matemáticas has no score. Ana Historia has a score
+    // but no matrix subject, so it is a mismatch the matrix cannot fill.
     expect(matrixApplicationStats(report, matrix, DEFAULT_SCALE, 'decimal')).toEqual({
       fillable: 2,
       ownText: 1,
       missingScore: 1,
+      unmatched: 1,
     })
   })
 
@@ -353,6 +354,29 @@ describe('matrixApplicationStats', () => {
       fillable: 0,
       ownText: 0,
       missingScore: 1,
+      unmatched: 0,
+    })
+  })
+
+  it('separates graded cells that the matrix cannot cover', () => {
+    const report = {
+      subjects: ['Matemáticas', 'Historia'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': 4.5, Historia: 4.5 },
+          performances: { 'Matemáticas': '', Historia: '' },
+        },
+      ],
+    }
+    const partial = { 'Matemáticas': { Bajo: 'm-bajo', 'Básico': '', Alto: '', Superior: '' } }
+
+    expect(matrixApplicationStats(report, partial, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 0,
+      unmatched: 2,
     })
   })
 })

@@ -38,6 +38,9 @@ export default function PeriodMatrixImport({
       assertImportSize(file)
       const next = await parsePerformanceMatrix(await file.arrayBuffer())
       if (!matrixHasText(next)) {
+        // Replacing a loaded matrix with the blank template must not leave
+        // the previous one silently armed.
+        onClearMatrix?.()
         setLocalNotice(EMPTY_MATRIX_MESSAGE)
         return
       }
@@ -51,6 +54,12 @@ export default function PeriodMatrixImport({
 
   const subjectCount = Object.keys(matrix ?? {}).length
   const message = localNotice || notice
+
+  const clearMatrix = () => {
+    setLocalNotice('')
+    setError('')
+    onClearMatrix?.()
+  }
 
   return (
     <section
@@ -91,7 +100,10 @@ export default function PeriodMatrixImport({
           <p className="mt-1">
             {countLabel(stats.fillable, 'casillero a completar', 'casilleros a completar')} ·{' '}
             {countLabel(stats.ownText, 'con texto propio', 'con texto propio')} ·{' '}
-            {countLabel(stats.missingScore, 'sin nota', 'sin nota')}.
+            {countLabel(stats.missingScore, 'sin nota', 'sin nota')}
+            {stats.unmatched > 0
+              ? ` · ${countLabel(stats.unmatched, 'casillero sin coincidencia', 'casilleros sin coincidencia')}`
+              : ''}.
           </p>
         </div>
       ) : null}
@@ -109,7 +121,7 @@ export default function PeriodMatrixImport({
             >
               {busy ? 'Leyendo…' : 'Reemplazar matriz'}
             </Button>
-            <Button variant="ghost" onClick={onClearMatrix} disabled={busy || readOnly}>
+            <Button variant="ghost" onClick={clearMatrix} disabled={busy || readOnly}>
               Quitar matriz
             </Button>
           </>

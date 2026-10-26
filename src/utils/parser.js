@@ -468,9 +468,10 @@ export function countMatrixFills(report, matrix, scale = DEFAULT_SCALE, scaleTyp
  * Summarizes what applying a matrix would change in one period draft:
  *   fillable      cells with a numeric score, empty text and a band match
  *   ownText       cells that already carry teacher-written text
- *   missingScore  cells with empty text and no numeric score
- * Only subjects present in the matrix are counted. The editor uses this to
- * show the confirmation counts before the teacher applies anything.
+ *   missingScore  matrix-covered cells with empty text and no numeric score
+ *   unmatched     graded empty cells with no matrix subject or band text
+ * The editor uses this to show the confirmation counts before the teacher
+ * applies anything.
  */
 export function matrixApplicationStats(
   report,
@@ -479,26 +480,41 @@ export function matrixApplicationStats(
   scaleType = 'decimal',
 ) {
   const students = report?.students ?? []
-  const subjects = (report?.subjects ?? []).filter(
-    (subject) => matrix?.[subject] !== undefined,
-  )
+  const subjects = report?.subjects ?? []
   let ownText = 0
   let missingScore = 0
+  let unmatched = 0
   students.forEach((student) => {
     for (const subject of subjects) {
       const text = String(student.performances?.[subject] ?? '').trim()
-      const score = student.scores?.[subject]
       if (text.length > 0) {
-        ownText += 1
-      } else if (score === null || score === undefined) {
-        missingScore += 1
+        if (matrix?.[subject] !== undefined) ownText += 1
+        continue
       }
+
+      const score = student.scores?.[subject]
+      const inMatrix = matrix?.[subject] !== undefined
+      if (!inMatrix) {
+        // A graded cell the matrix cannot cover is a mismatch, not "no grade".
+        if (score !== null && score !== undefined) unmatched += 1
+        continue
+      }
+      if (score === null || score === undefined) {
+        missingScore += 1
+        continue
+      }
+
+      const rounded = roundForScale(score, scaleType)
+      const band = scale.find((entry) => rounded >= entry.min && rounded <= entry.max)
+      const bandText = band ? String(matrix[subject]?.[band.label] ?? '').trim() : ''
+      if (bandText.length === 0) unmatched += 1
     }
   })
   return {
     fillable: countMatrixFills(report, matrix, scale, scaleType),
     ownText,
     missingScore,
+    unmatched,
   }
 }
 

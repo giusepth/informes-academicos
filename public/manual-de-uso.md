@@ -104,8 +104,9 @@ modifica los desempeños de período.
   la app pregunta antes de salir (o al cerrar o recargar la pestaña).
 - **Matriz de desempeños del período**: dentro del editor, **Cargar matriz
   (.xlsx)** lee una hoja `Asignatura × Banda` y muestra cuántas asignaturas
-  detectó, cuántos casilleros se completarían, cuántos ya tienen texto propio
-  y cuántos no tienen nota. **Aplicar a este período** completa solo los
+  detectó, cuántos casilleros se completarían, cuántos ya tienen texto propio,
+  cuántos no tienen nota y cuántos no coinciden con la matriz. **Aplicar a este
+  período** completa solo los
   casilleros vacíos del borrador; **Quitar matriz** la descarta. La matriz no
   se guarda en el respaldo: al guardar el período solo quedan los textos
   aplicados. Sin notas, la matriz permanece cargada y explica por qué no puede

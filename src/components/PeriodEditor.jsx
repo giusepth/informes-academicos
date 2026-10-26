@@ -232,14 +232,24 @@ export default function PeriodEditor({
   const matrixNamedStudents = matrixDraftStudents?.filter(
     (student) => student.name.trim() !== '',
   )
-  const matrixStats = matrix
-    ? matrixApplicationStats(
-        buildMatrixReport(namedSubjects, matrixNamedStudents),
-        matrix,
-        scale,
-        scaleType,
-      )
-    : null
+  const normalizedSubjectNames = namedSubjects.map((subject) =>
+    normalizeSubject(subject.name),
+  )
+  const matrixNamesValid =
+    namedSubjects.length === subjects.length &&
+    new Set(normalizedSubjectNames).size === normalizedSubjectNames.length
+  const matrixStats =
+    matrix && matrixNamesValid
+      ? matrixApplicationStats(
+          buildMatrixReport(namedSubjects, matrixNamedStudents),
+          matrix,
+          scale,
+          scaleType,
+        )
+      : null
+  const matrixPanelNotice = matrix && !matrixNamesValid
+    ? 'Corrige los nombres de las asignaturas para ver el resumen de la matriz.'
+    : matrixNotice
 
   const flushDrafts = () => {
     const next = materializeScores(students, subjects, scoreDrafts, maxScore)
@@ -277,7 +287,9 @@ export default function PeriodEditor({
       setMatrixNotice(
         stats.missingScore > 0
           ? 'Todavía no hay notas para aplicar la matriz. Carga las notas y vuelve a intentar.'
-          : 'No hay casilleros vacíos para completar en este período.',
+          : stats.unmatched > 0
+            ? 'La matriz no coincide con las asignaturas o bandas de este período.'
+            : 'No hay casilleros vacíos para completar en este período.',
       )
       return
     }
@@ -537,7 +549,7 @@ export default function PeriodEditor({
           matrix={matrix}
           stats={matrixStats}
           readOnly={readOnly}
-          notice={matrixNotice}
+          notice={matrixPanelNotice}
           onLoadMatrix={handleLoadMatrix}
           onClearMatrix={handleClearMatrix}
           onApply={handleApplyMatrix}

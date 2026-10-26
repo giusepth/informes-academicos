@@ -21,6 +21,16 @@ const MATRIX_B = matrixBytes([
   ['Ciencias', '', 'B-Básico', '', ''],
 ])
 
+const EMPTY_MATRIX = matrixBytes([
+  ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior'],
+  ['Matemáticas', '', '', '', ''],
+])
+
+const HISTORY_MATRIX = matrixBytes([
+  ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior'],
+  ['Historia', 'H-Bajo', 'H-Básico', 'H-Alto', 'H-Superior'],
+])
+
 const first = report({
   label: 'Informe 1',
   subjects: SUBJECTS,
@@ -147,6 +157,61 @@ test('each period keeps its own matrix and applied texts', async ({ page }) => {
     Matemáticas: '',
     Ciencias: 'B-Básico',
   })
+})
+
+test('a matrix that does not match the period explains the mismatch', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await loadPeriodMatrix(page, HISTORY_MATRIX)
+  const status = page.getByRole('status').filter({ hasText: 'Matriz cargada' })
+  await expect(status).toContainText('0 casilleros a completar')
+  await expect(status).toContainText('1 casillero sin coincidencia')
+
+  await page.getByRole('button', { name: 'Aplicar a este período' }).click()
+  await expect(
+    page.getByText('La matriz no coincide con las asignaturas o bandas de este período.'),
+  ).toBeVisible()
+  await expect(page.getByLabel('Desempeño de Ana en Ciencias')).toHaveValue('')
+})
+
+test('replacing a matrix with the blank template clears the previous one', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await loadPeriodMatrix(page, MATRIX_A)
+  await expect(page.getByRole('status').filter({ hasText: 'Matriz cargada' })).toBeVisible()
+
+  await loadPeriodMatrix(page, EMPTY_MATRIX)
+  await expect(page.getByText('La plantilla no tiene textos de desempeño', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cargar matriz (.xlsx)' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Matriz cargada' })).toHaveCount(0)
+})
+
+test('live counts and apply include an uncommitted score draft', async ({ page }) => {
+  const noGrades = report({
+    label: 'Informe 1',
+    subjects: SUBJECTS,
+    students: [{ name: 'Ana', scores: { Matemáticas: null, Ciencias: null }, performances: {} }],
+  })
+  await seed(page, { reports: [noGrades] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await loadPeriodMatrix(page, MATRIX_A)
+  const status = page.getByRole('status').filter({ hasText: 'Matriz cargada' })
+  await expect(status).toContainText('2 sin nota')
+
+  // Do not blur: the count must use the draft score immediately.
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('4.5')
+  await expect(status).toContainText('1 casillero a completar')
+  await expect(status).toContainText('1 sin nota')
+
+  await page.getByRole('button', { name: 'Aplicar a este período' }).click()
+  await expect(page.getByLabel('Desempeño de Ana en Matemáticas')).toHaveValue('M-Alto')
+  await expect(page.getByLabel('Desempeño de Ana en Ciencias')).toHaveValue('')
 })
 
 test('a matrix without grades stays loaded and explains why it cannot fill', async ({ page }) => {
