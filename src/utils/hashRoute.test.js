@@ -16,6 +16,8 @@ describe('parseToolRoute', () => {
   it('ignores landing anchors and unknown hashes', () => {
     expect(parseToolRoute('#pasos')).toBeNull()
     expect(parseToolRoute('#/desconocido')).toBeNull()
+    // The final editor route belongs to F5; until then it is not exposed.
+    expect(parseToolRoute('#/editor-final')).toBeNull()
     expect(parseToolRoute('')).toBeNull()
     expect(parseToolRoute(undefined)).toBeNull()
   })

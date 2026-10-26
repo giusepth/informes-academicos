@@ -194,8 +194,9 @@ Detalles completos del módulo: `docs/final-report.md`.
 Los **datos del colegio** (configuración, informes de periodo, desempeños y
 desempeños del informe final) se guardan en la base de datos local del
 navegador (**IndexedDB**) para este sitio. El **estado de vista** (pestaña
-activa, periodo y estudiante seleccionados) se guarda en `sessionStorage`, por
-pestaña; es una comodidad de navegación, no el respaldo del trabajo.
+activa, periodo y estudiante seleccionados, y la intención del editor
+`informes.editor`, que nunca incluye el borrador) se guarda en `sessionStorage`,
+por pestaña; es una comodidad de navegación, no el respaldo del trabajo.
 
 El trabajo sobrevive a recargas y a reinicios del equipo. Las escrituras ya
 confirmadas se conservan al cerrar la pestaña; una edición hecha justo antes de

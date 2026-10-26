@@ -201,43 +201,60 @@ export default function PeriodEditor({
   const handleSave = () => {
     if (readOnly) return
     const currentStudents = flushDrafts()
-    const validSubjects = subjects
+    const namedSubjects = subjects
       .map((subject) => ({ ...subject, name: subject.name.trim() }))
       .filter((subject) => subject.name !== '')
-    if (validSubjects.length === 0) {
+    if (namedSubjects.length === 0) {
       setError('Agrega al menos una asignatura.')
       return
     }
-    const normalized = validSubjects.map((subject) => normalizeSubject(subject.name))
+    if (namedSubjects.length !== subjects.length) {
+      setError('Completa o quita las asignaturas sin nombre.')
+      return
+    }
+    const normalized = namedSubjects.map((subject) => normalizeSubject(subject.name))
     if (new Set(normalized).size !== normalized.length) {
       setError('No repitas el nombre de una asignatura.')
       return
     }
-    const validStudents = currentStudents
-      .filter((student) => student.name.trim() !== '')
-      .map((student) => ({
-        id: student.id,
-        name: student.name.trim(),
-        scores: Object.fromEntries(
-          validSubjects.map((subject) => [subject.name, student.scores?.[subject.id] ?? null]),
-        ),
-        performances: Object.fromEntries(
-          validSubjects.map((subject) => [
-            subject.name,
-            student.performances?.[subject.id] ?? '',
-          ]),
-        ),
-      }))
-    if (validStudents.length === 0) {
+
+    const namedStudents = currentStudents.filter((student) => student.name.trim() !== '')
+    if (namedStudents.length === 0) {
       setError('Agrega al menos un estudiante con nombre.')
       return
     }
+    const hasData = (student) =>
+      Object.values(student.scores ?? {}).some((score) => score !== null && score !== undefined) ||
+      Object.values(student.performances ?? {}).some(
+        (performance) => String(performance).trim() !== '',
+      )
+    if (currentStudents.some((student) => student.name.trim() === '' && hasData(student))) {
+      setError('Completa el nombre de los estudiantes con notas o desempeños, o quítalos.')
+      return
+    }
+
+    const validStudents = namedStudents.map((student) => ({
+      id: student.id,
+      name: student.name.trim(),
+      scores: Object.fromEntries(
+        namedSubjects.map((subject) => [
+          subject.name,
+          student.scores?.[subject.id] ?? null,
+        ]),
+      ),
+      performances: Object.fromEntries(
+        namedSubjects.map((subject) => [
+          subject.name,
+          student.performances?.[subject.id] ?? '',
+        ]),
+      ),
+    }))
     onSave?.({
       grade: grade.trim(),
       teacher: teacher.trim(),
-      subjects: validSubjects.map((subject) => subject.name),
+      subjects: namedSubjects.map((subject) => subject.name),
       teachers: Object.fromEntries(
-        validSubjects
+        namedSubjects
           .map((subject) => [subject.name, subject.teacher.trim()])
           .filter(([, value]) => value !== ''),
       ),

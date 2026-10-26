@@ -100,8 +100,9 @@ backup (.xlsx)** y se re-importa al abrir la app en el otro navegador.
 
 Claves de estado de vista (`sessionStorage`, por pestaña): `informes.activeReport`
 (informe activo), `informes.tab` (`period` o `final`), `informes.selected`
-(estudiante seleccionado) e `informes.entered` (si la pestaña ya entró a la
-herramienta).
+(estudiante seleccionado), `informes.entered` (si la pestaña ya entró a la
+herramienta) e `informes.editor` (intención del editor: modo, período y origen;
+nunca el borrador).
 
 Notas del modelo:
 

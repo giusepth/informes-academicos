@@ -78,7 +78,7 @@ Rutas mínimas:
 |---|---|---|
 | `#/gestion` | Menú de gestión | Nuevo trabajo, períodos existentes, desempeños y respaldo |
 | `#/editor` | Editor del período activo | Crear o editar estudiantes, notas, asignaturas y desempeños |
-| `#/editor-final` | Editor final | Desempeños finales por estudiante y asignatura |
+| `#/editor-final` | Editor final (F5, aún no expuesta) | Desempeños finales por estudiante y asignatura |
 | `#/boletin` | Boletín del período activo | Vista de solo lectura |
 | `#/final` | Informe final | Vista de solo lectura |
 | `#/contacto` | Contacto | Formulario existente |

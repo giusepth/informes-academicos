@@ -4,6 +4,7 @@ import {
   readDataKey,
   report,
   seed,
+  waitForHydrated,
   waitForPersisted,
 } from './helpers'
 
@@ -160,6 +161,19 @@ test('a direct editor route without intent redirects to management', async ({ pa
   await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
 })
 
+test('a clean editor left through history does not keep a stale intent', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await page.goBack()
+  await expect(page).toHaveURL(/#\/gestion$/)
+
+  await page.goto('/#/editor')
+  await expect(page).toHaveURL(/#\/gestion$/)
+  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
+})
+
 test('reloading the editor restores the edit intent but starts a fresh draft', async ({ page }) => {
   await seed(page, { reports: [first] })
   await openManagementMenu(page)
@@ -226,7 +240,172 @@ test('a remote report refresh keeps the open draft and its unsaved state', async
   await expect(page.getByLabel('Nota de Ana en Matemáticas')).toHaveValue('1.0')
 
   await page.getByRole('button', { name: 'Volver' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Cambios sin guardar' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Volver sin guardar' }).click()
+
+  // Discarding reveals the resynced snapshot: this proves the remote change
+  // actually reached React state, not just IndexedDB.
+  await page.getByRole('button', { name: 'Informe 1', exact: true }).click()
+  await expect(page.getByText('Cambio remoto').first()).toBeVisible()
+})
+
+test('a pending matrix waits while the period editor is open', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await page.goto('/#/gestion')
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'informes.pendingMatrix',
+      JSON.stringify({ Ciencias: { Básico: 'Ciencias desde matriz' } }),
+    ),
+  )
+  await page.reload()
+  await waitForHydrated(page)
+  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await expect(page.getByLabel('Desempeño de Ana en Ciencias')).toHaveValue('')
+
+  await page.getByRole('button', { name: 'Volver' }).click()
+  await page.getByRole('button', { name: 'Informe 1', exact: true }).click()
+  await expect(page.getByText('Ciencias desde matriz').first()).toBeVisible()
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
+    .toBeNull()
+})
+
+test('blank names cannot silently delete a subject or a student with data', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  const before = await readDataKey(page, 'informes.reports')
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await page.getByLabel('Nombre de asignatura 1').fill('   ')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page.getByRole('alert')).toContainText('Completa o quita las asignaturas')
+
+  await page.getByLabel('Nombre de asignatura 1').fill('Matemáticas')
+  await page.getByRole('button', { name: 'Agregar estudiante' }).click()
+  await page.getByPlaceholder('Nombre del estudiante').last().fill('Luis')
+  await page.getByPlaceholder('Nombre del estudiante').first().fill('   ')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page.getByRole('alert')).toContainText(
+    'Completa el nombre de los estudiantes con notas o desempeños',
+  )
+
+  expect(await readDataKey(page, 'informes.reports')).toEqual(before)
+})
+
+test('browser back after leaving the editor reaches the previous screens', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await page.goto('/#/boletin')
+  await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
+
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('4.6')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page).toHaveURL(/#\/boletin$/)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/#\/gestion$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/#\/boletin$/)
+  await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
+})
+
+test('browser back with a dirty editor asks before discarding', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  const before = await readDataKey(page, 'informes.reports')
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('1.0')
+
+  await page.goBack()
+  const dialog = page.getByRole('dialog', { name: 'Cambios sin guardar' })
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: 'Volver sin guardar' }).click()
+
+  await expect(page).toHaveURL(/#\/gestion$/)
+  expect(await readDataKey(page, 'informes.reports')).toEqual(before)
+})
+
+test('a remote clear keeps a dirty editor and saves the draft as a new period', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Grado / Curso').fill('6° C')
+
+  await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('informes', 1)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readwrite')
+        tx.objectStore('kv').put([], 'informes.reports')
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+    } finally {
+      db.close()
+    }
+
+    const channel = new BroadcastChannel('informes.tab-sync')
+    channel.postMessage({
+      type: 'informes:data-changed',
+      source: 'another-tab',
+      reason: 'data',
+    })
+    channel.close()
+  })
+
   await expect(page.getByRole('dialog', { name: 'Cambios sin guardar' })).toBeVisible()
+  await page.getByRole('dialog', { name: 'Cambios sin guardar' })
+    .getByRole('button', { name: 'Seguir editando' })
+    .click()
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+
+  await expect(page).toHaveURL(/#\/boletin$/)
+  await waitForPersisted(
+    page,
+    'informes.reports',
+    (value) => value?.length === 1 && value[0]?.grade === '6° C',
+  )
+})
+
+test('promotion remounts an open editor from the fresh report', async ({ page, context }) => {
+  await seed(page, { reports: [first] })
+
+  const second = await context.newPage()
+  await second.addInitScript((reportId) => {
+    sessionStorage.setItem(
+      'informes.editor',
+      JSON.stringify({ mode: 'edit', reportId }),
+    )
+    sessionStorage.setItem('informes.activeReport', JSON.stringify(reportId))
+  }, first.id)
+  await second.goto('/#/editor')
+  await waitForHydrated(second)
+  await expect(second.getByRole('heading', { name: 'Editar período' })).toBeVisible()
+  await expect(second.getByLabel('Nota de Ana en Matemáticas')).toHaveValue('4.5')
+
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('4.9')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await waitForPersisted(
+    page,
+    'informes.reports',
+    (value) => value?.[0]?.students?.[0]?.scores?.Matemáticas === 4.9,
+  )
+  await page.close()
+
+  await expect(second.getByRole('heading', { name: 'Editar período' })).toBeVisible()
+  await expect(second.getByLabel('Nota de Ana en Matemáticas')).toHaveValue('4.9')
+  await second.close()
 })
 
 test('leaving with unsaved changes asks first and can keep editing', async ({ page }) => {

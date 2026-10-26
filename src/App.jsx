@@ -195,6 +195,7 @@ export default function App() {
   )
   const [editorState, setEditorState] = useState(() => readStorage(STORAGE_KEYS.editor))
   const [editorDirty, setEditorDirty] = useState(false)
+  const [editorEpoch, setEditorEpoch] = useState(0)
   const [leaveTarget, setLeaveTarget] = useState(null)
   const [hydrating, setHydrating] = useState(true)
   const [activated, setActivated] = useState(false)
@@ -208,10 +209,19 @@ export default function App() {
   const [persistenceStatus, setPersistenceStatus] = useState()
   const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
   const [hash, setHash] = useState(() => window.location.hash)
-  const navigate = useCallback((route) => {
-    const nextHash = hashForRoute(route)
-    if (window.location.hash !== nextHash) window.location.hash = nextHash
-  }, [])
+  const navigate = useCallback(
+    (route, { replace = false } = {}) => {
+      const nextHash = hashForRoute(route)
+      if (window.location.hash === nextHash) return
+      if (replace) {
+        window.history.replaceState(null, '', nextHash)
+        setHash(nextHash)
+        return
+      }
+      window.location.hash = nextHash
+    },
+    [],
+  )
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
@@ -226,7 +236,6 @@ export default function App() {
   // A duplicated blank period switches the report and enters score entry in
   // the same render: skip the navigation reset exactly once.
   const editorDirtyRef = useRef(false)
-  const allowEditorLeaveRef = useRef(false)
   // A restored backup must not consume a pending matrix while it shows its own
   // restore summary. The hold is persisted so a reload keeps waiting until the
   // teacher edits or scores again.
@@ -423,6 +432,10 @@ export default function App() {
     lockModeRef.current = 'writer'
     setReadOnly(false)
     setLockState('writer')
+    // The editor only had a read-only snapshot while this tab was waiting:
+    // remount it from the fresh reports so saving cannot overwrite the
+    // writer's newer data.
+    setEditorEpoch((current) => current + 1)
     setToast(PROMOTED_TOAST)
   }, [dataQueue, resyncFromIdb])
 
@@ -533,7 +546,7 @@ export default function App() {
   )
   const editorInitial = editorState?.mode === 'edit' ? editorReport : editorState?.initial ?? null
   const editorKey = editorState
-    ? `${editorState.mode}:${editorState.reportId ?? editorState.source ?? 'new'}`
+    ? `${editorState.mode}:${editorState.reportId ?? editorState.source ?? 'new'}:${editorEpoch}`
     : ''
 
   // A direct editor hash without a valid intent must not fall back to editing
@@ -541,12 +554,16 @@ export default function App() {
   // with a persisted edit intent finds its report only after IndexedDB loads.
   useEffect(() => {
     if (route !== TOOL_ROUTES.editor || hydrating) return
-    if (allowEditorLeaveRef.current) return
-    if (editorState && (editorState.mode === 'create' || editorReport)) return
-    allowEditorLeaveRef.current = true
+    if (editorState?.mode === 'create' || editorReport) return
+    if (editorState && editorDirtyRef.current) {
+      // The resync removed the period under an open draft. Ask before
+      // discarding it instead of clearing the editor silently.
+      setLeaveTarget(TOOL_ROUTES.gestion)
+      return
+    }
     setEditorState(null)
     setEditorDirty(false)
-    navigate(TOOL_ROUTES.gestion)
+    navigate(TOOL_ROUTES.gestion, { replace: true })
   }, [route, hydrating, editorState, editorReport, navigate])
 
   const configured = config !== null
@@ -687,18 +704,19 @@ export default function App() {
         activeTab: initialTab,
       })
       // A dirty editor owns the route: keep the hash on #/editor and ask
-      // before discarding. Programmatic exits (save/discard) set the bypass.
-      if (
-        route === TOOL_ROUTES.editor &&
-        editorDirtyRef.current &&
-        nextRoute !== TOOL_ROUTES.editor &&
-        !allowEditorLeaveRef.current
-      ) {
-        window.history.replaceState(null, '', hashForRoute(TOOL_ROUTES.editor))
-        setLeaveTarget(nextRoute)
-        return
+      // before discarding. Programmatic exits use replaceState and never
+      // reach this handler.
+      if (route === TOOL_ROUTES.editor && nextRoute !== TOOL_ROUTES.editor) {
+        if (editorDirtyRef.current) {
+          window.history.replaceState(null, '', hashForRoute(TOOL_ROUTES.editor))
+          setLeaveTarget(nextRoute)
+          return
+        }
+        // A clean editor left through history must not keep a stale intent:
+        // a later #/editor would reopen the old report.
+        setEditorState(null)
+        setEditorDirty(false)
       }
-      allowEditorLeaveRef.current = false
       setHash(nextHash)
     }
     window.addEventListener('hashchange', onHashChange)
@@ -913,11 +931,12 @@ export default function App() {
   }
 
   const leaveEditor = (target) => {
-    allowEditorLeaveRef.current = true
     setLeaveTarget(null)
     setEditorState(null)
     setEditorDirty(false)
-    navigate(target ?? TOOL_ROUTES.gestion)
+    // Replace the editor entry so Back returns to the screen before it,
+    // never to a dead #/editor state that redirects forward again.
+    navigate(target ?? TOOL_ROUTES.gestion, { replace: true })
   }
 
   const handleEditorCancel = () => {
@@ -933,10 +952,20 @@ export default function App() {
     let saved
     if (editorState.mode === 'edit') {
       const current = reports.find((report) => report.id === editorState.reportId)
-      if (!current) return
-      saved = { ...current, ...data, id: current.id, label: current.label }
+      // A remote clear may have removed the original period while this draft
+      // was open. Preserve the teacher's work as a new period.
+      saved = current
+        ? { ...current, ...data, id: current.id, label: current.label }
+        : {
+            ...data,
+            id: makeId(),
+            label: `Informe ${reports.length + 1}`,
+            students: data.students.map((student) => ({ ...student, id: makeId() })),
+          }
       setReports((currentReports) =>
-        currentReports.map((report) => (report.id === saved.id ? saved : report)),
+        current
+          ? currentReports.map((report) => (report.id === saved.id ? saved : report))
+          : [...currentReports, saved],
       )
       setActiveReportId(saved.id)
       setSelectedStudentId((selected) =>
@@ -944,7 +973,11 @@ export default function App() {
           ? selected
           : saved.students[0]?.id ?? null,
       )
-      setToast(`${saved.label ?? 'Período'} guardado.`)
+      setToast(
+        current
+          ? `${saved.label ?? 'Período'} guardado.`
+          : 'El período original ya no estaba disponible; se guardó como uno nuevo.',
+      )
     } else {
       saved = {
         ...data,
