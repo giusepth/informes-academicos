@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { TONE_CLASSES } from '../utils/calculations'
 import { cx } from '../utils/cx'
 
@@ -93,14 +93,57 @@ export function Info({ label, value }) {
 }
 
 export function Modal({ open, title, children, footer, onClose }) {
+  const containerRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!open) return undefined
+    const previous = document.activeElement
+    const container = containerRef.current
+    const focusables = () =>
+      Array.from(
+        container?.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((node) => node.getClientRects().length > 0)
+
+    const initial = container?.querySelector('[data-autofocus]') ?? focusables()[0] ?? container
+    initial?.focus()
+
     const onKey = (event) => {
-      if (event.key === 'Escape') onClose?.()
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseRef.current?.()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const nodes = focusables()
+      if (nodes.length === 0) {
+        event.preventDefault()
+        container?.focus()
+        return
+      }
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (event.shiftKey && (document.activeElement === first || !container?.contains(document.activeElement))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !container?.contains(document.activeElement))) {
+        event.preventDefault()
+        first.focus()
+      }
     }
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus()
+    }
+  }, [open])
 
   if (!open) return null
 
@@ -111,7 +154,11 @@ export function Modal({ open, title, children, footer, onClose }) {
       aria-modal="true"
       aria-label={title}
     >
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="w-full max-w-2xl rounded-2xl bg-white shadow-xl outline-none"
+      >
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           {onClose ? (

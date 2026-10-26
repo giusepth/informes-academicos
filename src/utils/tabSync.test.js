@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createTabSync } from './tabSync'
+import { createTabSync, TAB_SYNC_REASONS } from './tabSync'
 
 const liveChannels = []
 const track = (sync) => {
@@ -26,7 +26,24 @@ describe('createTabSync', () => {
 
     expect(onFirst).not.toHaveBeenCalled()
     expect(onSecond).toHaveBeenCalledTimes(1)
-    expect(onSecond).toHaveBeenCalledWith('channel')
+    expect(onSecond).toHaveBeenCalledWith(
+      'channel',
+      expect.objectContaining({ reason: TAB_SYNC_REASONS.data }),
+    )
+  })
+
+  it('forwards the clear reason so other tabs can drop session-local state', async () => {
+    const onSecond = vi.fn()
+    const first = track(createTabSync({ channelName: 'test-clear-sync', onRemoteChange: vi.fn() }))
+    track(createTabSync({ channelName: 'test-clear-sync', onRemoteChange: onSecond }))
+
+    first.notify(TAB_SYNC_REASONS.clearReports)
+    await settle()
+
+    expect(onSecond).toHaveBeenCalledWith(
+      'channel',
+      expect.objectContaining({ reason: TAB_SYNC_REASONS.clearReports }),
+    )
   })
 
   it('is a silent no-op when BroadcastChannel is absent', () => {

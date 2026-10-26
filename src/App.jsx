@@ -33,7 +33,7 @@ import {
 } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
-import { createTabSync } from './utils/tabSync'
+import { createTabSync, TAB_SYNC_REASONS } from './utils/tabSync'
 import { writerLock } from './utils/writerLock'
 
 const PROMOTED_TOAST = 'Otra pestaña dejó de editar: esta pestaña ya puede editar.'
@@ -524,7 +524,15 @@ export default function App() {
 
   useEffect(() => {
     const sync = createTabSync({
-      onRemoteChange: (origin) => {
+      onRemoteChange: (origin, message) => {
+        // A clear in another tab must also drop this tab's session-local
+        // matrix, otherwise it could be applied after promotion.
+        if (message?.reason === TAB_SYNC_REASONS.clearReports) {
+          pendingHoldRef.current = false
+          writeStorage(STORAGE_KEYS.pendingHold, null)
+          writeStorage(STORAGE_KEYS.pendingMatrix, null)
+          setPendingMatrix(null)
+        }
         requestResync()
         // Without Web Locks both tabs can write. Never claim exclusivity:
         // just warn when another tab actually committed something.
@@ -923,7 +931,7 @@ export default function App() {
       await clearReportData({ storageMode: storageModeRef.current, idb })
       dataQueue.prime(STORAGE_KEYS.reports, [])
       dataQueue.prime(STORAGE_KEYS.finalPerformances, {})
-      tabSyncRef.current?.notify()
+      tabSyncRef.current?.notify(TAB_SYNC_REASONS.clearReports)
 
       setPendingHold(false)
       setPendingMatrix(null)

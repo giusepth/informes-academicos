@@ -118,6 +118,29 @@ test('keyboard and scripted edits are rejected in the read-only tab', async ({ p
   await second.close()
 })
 
+test('clearing reports drops the pending matrix in another tab', async ({ page, context }) => {
+  await seed(page, { reports })
+  const second = await openTool(context)
+  await expect(banner(second)).toBeVisible()
+  await second.evaluate(() =>
+    sessionStorage.setItem(
+      'informes.pendingMatrix',
+      JSON.stringify({ Matemáticas: { Alto: 'Pendiente ajeno.' } }),
+    ),
+  )
+
+  await page.getByRole('button', { name: 'Limpiar informes' }).click()
+  await page
+    .getByRole('dialog', { name: 'Limpiar informes' })
+    .getByRole('button', { name: 'Limpiar informes' })
+    .click()
+
+  await expect
+    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
+    .toBeNull()
+  await expect(second.getByRole('button', { name: 'Informe 1', exact: true })).toHaveCount(0)
+})
+
 test('closing the writer promotes the read-only tab with fresh data', async ({ page, context }) => {
   await seed(page, { reports })
   const second = await openTool(context)

@@ -27,6 +27,22 @@ const config = {
 
 const clearDialog = (page) => page.getByRole('dialog', { name: 'Limpiar informes' })
 
+test('the dialog traps focus and returns it to the trigger', async ({ page }) => {
+  await seed(page, { config, reports })
+  const trigger = page.getByRole('button', { name: 'Limpiar informes' })
+
+  await trigger.click()
+  await expect(clearDialog(page).getByRole('button', { name: 'Cancelar' })).toBeFocused()
+
+  await clearDialog(page).getByRole('button', { name: 'Limpiar informes' }).focus()
+  await page.keyboard.press('Tab')
+  await expect(clearDialog(page).getByRole('button', { name: 'Cerrar' })).toBeFocused()
+
+  await page.keyboard.press('Escape')
+  await expect(clearDialog(page)).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+})
+
 test('cancelling the clear dialog changes nothing', async ({ page }) => {
   await seed(page, {
     config,
@@ -39,7 +55,7 @@ test('cancelling the clear dialog changes nothing', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await expect(clearDialog(page)).toBeVisible()
-  await expect(clearDialog(page)).toContainText('Se conservan la institución, la escala y el escudo.')
+  await expect(clearDialog(page)).toContainText('Se conservan la institución, el período lectivo, la escala y el escudo.')
   await clearDialog(page).getByRole('button', { name: 'Cancelar' }).click()
 
   await expect(clearDialog(page)).toHaveCount(0)

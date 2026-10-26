@@ -13,6 +13,12 @@
 
 const MESSAGE_TYPE = 'informes:data-changed'
 
+/** Reasons carried with a cross-tab announcement. */
+export const TAB_SYNC_REASONS = {
+  data: 'data',
+  clearReports: 'clear-reports',
+}
+
 const newTabId = () =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -43,7 +49,7 @@ export function createTabSync({ channelName = 'informes.tab-sync', onRemoteChang
     if (!payload || payload.type !== MESSAGE_TYPE) return
     // Our own write: this tab already has that state in memory.
     if (payload.source === tabId) return
-    safeCall(onRemoteChange, 'channel')
+    safeCall(onRemoteChange, 'channel', payload)
   }
 
   const handleVisibility = () => {
@@ -56,10 +62,10 @@ export function createTabSync({ channelName = 'informes.tab-sync', onRemoteChang
     document.addEventListener('visibilitychange', handleVisibility)
   }
 
-  const notify = () => {
+  const notify = (reason = TAB_SYNC_REASONS.data) => {
     if (!channel) return
     try {
-      channel.postMessage({ type: MESSAGE_TYPE, source: tabId })
+      channel.postMessage({ type: MESSAGE_TYPE, source: tabId, reason })
     } catch {
       /* A closed channel or a non-cloneable payload is not fatal. */
     }

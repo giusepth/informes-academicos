@@ -19,7 +19,7 @@ export default function ClearReportsDialog({
       onClose={busy ? undefined : onCancel}
       footer={
         <>
-          <Button variant="secondary" onClick={onCancel} disabled={busy} autoFocus>
+          <Button variant="secondary" onClick={onCancel} disabled={busy} data-autofocus>
             Cancelar
           </Button>
           <Button
@@ -41,7 +41,7 @@ export default function ClearReportsDialog({
           <li>Cualquier matriz de desempeños pendiente de aplicar.</li>
         </ul>
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
-          Se conservan la institución, la escala y el escudo.
+          Se conservan la institución, el período lectivo, la escala y el escudo.
         </p>
         <p>
           Esta acción no se puede deshacer. Si necesitas conservar el trabajo, cancela y
