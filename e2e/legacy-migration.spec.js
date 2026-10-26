@@ -108,7 +108,10 @@ test('reset after migration is not resurrected from legacy keys on reload', asyn
   await seedLegacy(page, { config, reports, finalPerformances })
   await expect(page.getByText(MIGRATION_TOAST)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Nuevo informe' }).click()
+  await page.getByRole('button', { name: 'Limpiar informes' }).click()
+  await page.getByRole('dialog', { name: 'Limpiar informes' })
+    .getByRole('button', { name: 'Limpiar informes' })
+    .click()
   await waitForPersisted(
     page,
     'informes.reports',
@@ -121,6 +124,40 @@ test('reset after migration is not resurrected from legacy keys on reload', asyn
   await expect(page.getByText(MIGRATION_TOAST)).toHaveCount(0)
   await expect(page.getByText('Importar Excel (.xlsx)')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Informe 1' })).toHaveCount(0)
+})
+
+test('cleared legacy keys cannot resurrect when IndexedDB becomes unavailable', async ({ page }) => {
+  // Seed sessionStorage once, without an init script: after the clear a reload
+  // must not repopulate the legacy keys behind the app's back.
+  await page.goto('/')
+  await page.evaluate(
+    (state) => {
+      sessionStorage.setItem('informes.config', JSON.stringify(state.config))
+      sessionStorage.setItem('informes.reports', JSON.stringify(state.reports))
+      sessionStorage.setItem('informes.finalPerformances', JSON.stringify(state.finalPerformances))
+    },
+    { config, reports, finalPerformances },
+  )
+  await page.reload()
+  await waitForHydrated(page)
+  await expect(page.getByRole('button', { name: 'Informe 1', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Limpiar informes' }).click()
+  await page
+    .getByRole('dialog', { name: 'Limpiar informes' })
+    .getByRole('button', { name: 'Limpiar informes' })
+    .click()
+  await waitForPersisted(page, 'informes.reports', (value) => Array.isArray(value) && value.length === 0)
+  expect(await page.evaluate(() => sessionStorage.getItem('informes.report'))).toBeNull()
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'indexedDB', { configurable: true, get: () => undefined })
+  })
+  await page.reload()
+  await waitForHydrated(page)
+
+  await expect(page.getByText('Importar Excel (.xlsx)')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Informe 1', exact: true })).toHaveCount(0)
 })
 
 test('booting with stored data does not write to IndexedDB until an edit', async ({ page }) => {

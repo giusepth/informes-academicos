@@ -8,7 +8,7 @@ export const DATA_STORAGE_KEYS = {
 
 export const MIGRATION_FLAG = 'informes.migratedFromSession'
 
-const LEGACY_REPORT_KEY = 'informes.report'
+export const LEGACY_REPORT_KEY = 'informes.report'
 
 function readSessionValue(session, key) {
   let raw

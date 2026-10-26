@@ -75,8 +75,9 @@ ya confirmadas se conservan al cerrar la pestaña, aunque una edición hecha jus
 antes de cerrar puede no alcanzar a guardarse. El estado de vista vive en
 `sessionStorage`, por pestaña. Se pierde si se cambia de navegador o
 computadora, si se borran los datos del sitio, en modo privado, si el navegador
-puede liberar espacio bajo presión de cuota o si se usa **Nuevo informe** (borra los
-informes y los desempeños finales guardados, sin confirmación). El backup
+puede liberar espacio bajo presión de cuota o si se usa **Limpiar informes** (pide
+confirmación; borra los informes y los desempeños finales guardados, y conserva la
+configuración). El backup
 `.xlsx` —periodos, notas, desempeños de período y desempeños finales— es el
 puente entre equipos: se exporta desde **Exportar backup (.xlsx)** y se
 re-importa al abrir la app en el otro navegador.

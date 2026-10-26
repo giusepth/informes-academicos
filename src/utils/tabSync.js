@@ -6,12 +6,19 @@
  * them into React state, so an already-open (stale) tab never overwrites newer
  * work with its old copy.
  *
- * BroadcastChannel is optional: without it the module degrades to a no-op
- * notifier. The visibility listener still works because browsers may throttle
- * background tabs and a channel message can be missed.
+ * BroadcastChannel is optional: the visibility listener still works without
+ * it, and destructive clears also publish a localStorage signal so other
+ * tabs converge even when the channel is unavailable.
  */
 
 const MESSAGE_TYPE = 'informes:data-changed'
+const LOCAL_SIGNAL_KEY = 'informes.tab-sync-signal'
+
+/** Reasons carried with a cross-tab announcement. */
+export const TAB_SYNC_REASONS = {
+  data: 'data',
+  clearReports: 'clear-reports',
+}
 
 const newTabId = () =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -43,7 +50,7 @@ export function createTabSync({ channelName = 'informes.tab-sync', onRemoteChang
     if (!payload || payload.type !== MESSAGE_TYPE) return
     // Our own write: this tab already has that state in memory.
     if (payload.source === tabId) return
-    safeCall(onRemoteChange, 'channel')
+    safeCall(onRemoteChange, 'channel', payload)
   }
 
   const handleVisibility = () => {
@@ -51,17 +58,47 @@ export function createTabSync({ channelName = 'informes.tab-sync', onRemoteChang
     if (document.visibilityState === 'visible') safeCall(onRemoteChange, 'visibility')
   }
 
+  // BroadcastChannel is the fast path, but a clear must still reach tabs in
+  // browsers without it. localStorage writes are shared across same-origin
+  // tabs and surface as a `storage` event in the others.
+  const handleStorage = (event) => {
+    if (event.key !== LOCAL_SIGNAL_KEY || !event.newValue) return
+    let payload
+    try {
+      payload = JSON.parse(event.newValue)
+    } catch {
+      return
+    }
+    if (!payload || payload.type !== MESSAGE_TYPE) return
+    if (payload.source === tabId) return
+    safeCall(onRemoteChange, 'storage', payload)
+  }
+
   if (channel) channel.onmessage = handleMessage
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', handleVisibility)
   }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', handleStorage)
+  }
 
-  const notify = () => {
-    if (!channel) return
-    try {
-      channel.postMessage({ type: MESSAGE_TYPE, source: tabId })
-    } catch {
-      /* A closed channel or a non-cloneable payload is not fatal. */
+  const notify = (reason = TAB_SYNC_REASONS.data) => {
+    if (channel) {
+      try {
+        channel.postMessage({ type: MESSAGE_TYPE, source: tabId, reason })
+      } catch {
+        /* A closed channel or a non-cloneable payload is not fatal. */
+      }
+    }
+    if (reason === TAB_SYNC_REASONS.clearReports && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(
+          LOCAL_SIGNAL_KEY,
+          JSON.stringify({ type: MESSAGE_TYPE, source: tabId, reason, at: Date.now() }),
+        )
+      } catch {
+        /* Storage can be blocked; BroadcastChannel already carried the event. */
+      }
     }
   }
 
@@ -73,6 +110,9 @@ export function createTabSync({ channelName = 'informes.tab-sync', onRemoteChang
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility)
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', handleStorage)
     }
   }
 

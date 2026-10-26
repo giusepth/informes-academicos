@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ClearReportsDialog from './components/ClearReportsDialog'
 import ContactPage from './components/ContactPage'
 import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
@@ -14,6 +15,7 @@ import {
   DEFAULT_SCALES,
   rankStudents,
 } from './utils/calculations'
+import { clearReportData, clearSessionReportCopies } from './utils/clearReports'
 import { hashForRoute, resolveToolRoute, TOOL_ROUTES } from './utils/hashRoute'
 import { idb } from './utils/idbStorage'
 import {
@@ -31,7 +33,7 @@ import {
 } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
-import { createTabSync } from './utils/tabSync'
+import { createTabSync, TAB_SYNC_REASONS } from './utils/tabSync'
 import { writerLock } from './utils/writerLock'
 
 const PROMOTED_TOAST = 'Otra pestaña dejó de editar: esta pestaña ya puede editar.'
@@ -193,6 +195,8 @@ export default function App() {
   const [readOnly, setReadOnly] = useState(false)
   const [lockState, setLockState] = useState('pending')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [clearOpen, setClearOpen] = useState(false)
+  const [clearing, setClearing] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [persistenceStatus, setPersistenceStatus] = useState()
@@ -520,7 +524,23 @@ export default function App() {
 
   useEffect(() => {
     const sync = createTabSync({
-      onRemoteChange: (origin) => {
+      onRemoteChange: (origin, message) => {
+        // A clear in another tab must also drop this tab's session-local
+        // matrix, otherwise it could be applied after promotion.
+        if (
+          message?.reason === TAB_SYNC_REASONS.clearReports &&
+          storageModeRef.current === 'idb'
+        ) {
+          try {
+            clearSessionReportCopies()
+          } catch {
+            /* A blocked sessionStorage does not block the pending cleanup. */
+          }
+          pendingHoldRef.current = false
+          writeStorage(STORAGE_KEYS.pendingHold, null)
+          writeStorage(STORAGE_KEYS.pendingMatrix, null)
+          setPendingMatrix(null)
+        }
         requestResync()
         // Without Web Locks both tabs can write. Never claim exclusivity:
         // just warn when another tab actually committed something.
@@ -909,15 +929,38 @@ export default function App() {
     setToast(`Se agregó a ${name} en ${activeReport.label}.`)
   }
 
-  const handleReset = () => {
-    if (readOnlyRef.current) return
-    setPendingHold(false)
-    setReports([])
-    setActiveReportId(null)
-    setSelectedStudentId(null)
-    setFinalPerformances({})
-    setToast('Datos de los informes reiniciados.')
-    navigate(TOOL_ROUTES.gestion)
+  const handleClearReports = async () => {
+    if (readOnlyRef.current || clearing) return
+    setClearing(true)
+    try {
+      // Wait for in-flight writes, then clear both data keys in one atomic
+      // transaction. A failure leaves the previous work untouched.
+      await dataQueue.flush()
+      await clearReportData({ storageMode: storageModeRef.current, idb })
+      dataQueue.prime(STORAGE_KEYS.reports, [])
+      dataQueue.prime(STORAGE_KEYS.finalPerformances, {})
+      // Session-only tabs are independent per the persistence contract:
+      // never broadcast a clear that would wipe another tab's session copy.
+      if (storageModeRef.current === 'idb') {
+        tabSyncRef.current?.notify(TAB_SYNC_REASONS.clearReports)
+      }
+
+      setPendingHold(false)
+      setPendingMatrix(null)
+      setReports([])
+      setFinalPerformances({})
+      setActiveReportId(null)
+      setSelectedStudentId(null)
+      setScoreEntry(false)
+      setPreviewOpen(false)
+      setClearOpen(false)
+      setToast('Informes eliminados. La configuración se conservó.')
+      navigate(TOOL_ROUTES.gestion)
+    } catch {
+      setToast('No se pudieron limpiar los informes. Exporta el backup (.xlsx) y vuelve a intentarlo.')
+    } finally {
+      setClearing(false)
+    }
   }
 
   /**
@@ -1044,8 +1087,13 @@ export default function App() {
               Configuración
             </Button>
             {reports.length > 0 ? (
-              <Button variant="secondary" size="sm" onClick={handleReset} disabled={readOnly}>
-                Nuevo informe
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setClearOpen(true)}
+                disabled={readOnly || clearing}
+              >
+                Limpiar informes
               </Button>
             ) : null}
           </div>
@@ -1145,6 +1193,14 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <ClearReportsDialog
+        open={clearOpen}
+        busy={clearing}
+        onCancel={() => setClearOpen(false)}
+        onConfirm={handleClearReports}
+        readOnly={readOnly}
+      />
 
       {previewOpen && activeStudent ? (
         <ReportPreview
