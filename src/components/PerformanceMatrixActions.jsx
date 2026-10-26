@@ -34,6 +34,12 @@ export default function PerformanceMatrixActions({
   const pendingCount = subjectCount(pendingMatrix)
   const hasPending = pendingCount > 0
 
+  const clearPending = () => {
+    setError('')
+    setNotice('')
+    onClearMatrix?.()
+  }
+
   const readMatrixFile = async (file) => {
     if (!file) return
     setBusy(true)
@@ -45,6 +51,7 @@ export default function PerformanceMatrixActions({
       // A blank matrix (the template loaded unedited) has nothing to apply:
       // say so instead of arming a pending payload that would never fill.
       if (!matrixHasText(matrix)) {
+        onClearMatrix?.()
         setNotice(EMPTY_MATRIX_MESSAGE)
         return
       }
@@ -63,7 +70,7 @@ export default function PerformanceMatrixActions({
         type="file"
         accept=".xlsx,.xls"
         className="hidden"
-        aria-label="Archivo de desempeños"
+        aria-label="Archivo de matriz del informe final"
         onChange={(event) => {
           const input = event.currentTarget
           void readMatrixFile(input.files?.[0]).finally(() => {
@@ -78,12 +85,11 @@ export default function PerformanceMatrixActions({
           className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
         >
           <p className="font-medium">
-            Matriz pendiente: {pendingCount}{' '}
+            Matriz del informe final: {pendingCount}{' '}
             {pendingCount === 1 ? 'asignatura detectada' : 'asignaturas detectadas'}.
           </p>
           <p className="mt-1 text-sky-900">
-            Se aplicará al primer informe con notas, solo en los casilleros de desempeño
-            vacíos.
+            Se aplicará solo al informe final, en los casilleros de desempeño vacíos.
           </p>
         </div>
       ) : null}
@@ -93,10 +99,10 @@ export default function PerformanceMatrixActions({
           onClick={() => fileInputRef.current?.click()}
           disabled={busy || readOnly}
         >
-          {busy ? 'Leyendo…' : hasPending ? 'Reemplazar archivo' : 'Cargar desempeños (excel)'}
+          {busy ? 'Leyendo…' : hasPending ? 'Reemplazar archivo' : 'Cargar matriz del informe final (excel)'}
         </Button>
         {hasPending && onClearMatrix ? (
-          <Button variant="secondary" onClick={onClearMatrix} disabled={busy || readOnly}>
+          <Button variant="secondary" onClick={clearPending} disabled={busy || readOnly}>
             Quitar matriz
           </Button>
         ) : null}

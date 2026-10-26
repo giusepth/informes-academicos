@@ -1,6 +1,6 @@
 # Refactor del flujo de trabajo — SDD
 
-**Estado:** F1–F3 fusionadas. F4 y su cierre de auditoría (F4.0) están implementados en la rama `feat/period-editor`, pendientes de PR y merge. F4.1 (matriz de desempeños por período) está aprobada y pendiente de implementación. F5–F7 pendientes.
+**Estado:** F1–F4 fusionadas (PR #47, incluido F4.0). F4.1 (matriz de desempeños por período) está implementada en la rama `feat/period-matrix`, pendiente de PR y merge. F5–F7 pendientes.
 **Alcance de este documento:** plan de trabajo estricto; no autoriza ejecutar código ni levantar agentes.
 **Base verificada:** aplicación React/Vite, IndexedDB, landing, menú de gestión, editor de períodos, boletines y matriz de desempeños actuales.
 
@@ -62,7 +62,7 @@ Si alguna decisión no se aprueba, se ajusta el SDD antes de crear issues.
 - Acciones: «Cancelar» y «Limpiar informes». No se usará `window.confirm`.
 - Al confirmar:
   - se borrarán de IndexedDB `informes.reports` e `informes.finalPerformances`;
-  - se restablecerán la vista activa, `informes.pendingMatrix` y `informes.pendingHold`;
+  - se restablecerán la vista activa y `informes.pendingMatrix`;
   - no se borrará `informes.config`;
   - se conservarán la pestaña y el estado `entered`;
   - se volverá a `#/gestion`;
@@ -105,10 +105,10 @@ El contenido se organizará en secciones, no en una única fila de botones:
    - Estado del período activo.
    - «Abrir boletín» y «Editar período» cuando corresponda.
 3. **Desempeños**
-   - Cargar matriz.
+   - Cargar matriz del informe final.
    - Descargar plantilla.
    - Descargar ejemplo.
-   - Estado visible de la matriz pendiente y opción para reemplazarla o quitarla.
+   - Estado visible de la matriz del informe final cargada y opción para reemplazarla o quitarla.
 4. **Respaldo y datos**
    - Exportar backup.
    - Limpiar informes.
@@ -147,7 +147,7 @@ Al guardar:
 
 - Solo se actualizará el período correspondiente; los demás no cambiarán.
 - Las asignaturas eliminadas se quitarán también de notas y desempeños.
-- La matriz pendiente se aplicará únicamente a celdas vacías y cuando existan notas válidas.
+- La matriz del período se carga dentro del editor y se aplica solo a su borrador, únicamente a celdas vacías y cuando existan notas válidas.
 - El texto escrito por el docente nunca será reemplazado por la matriz.
 - Se persistirá mediante la cola IndexedDB existente.
 
@@ -197,8 +197,8 @@ UX propuesta dentro de **Editar período** (y también al crear):
 
 1. Sección **Matriz de desempeños del período**.
 2. **Cargar matriz (.xlsx)** valida el archivo y muestra: asignaturas
-   detectadas, celdas que se completarían, celdas con texto propio y celdas
-   sin nota.
+   detectadas, celdas que se completarían, celdas con texto propio, celdas
+   sin nota y celdas sin coincidencia.
 3. **Aplicar a este período** completa solo celdas vacías del borrador. Si no
    hay notas, explica el motivo y mantiene la matriz cargada para reintentar.
 4. **Quitar matriz** descarta la carga local sin tocar el borrador.
@@ -424,7 +424,7 @@ Solo dentro de los editores:
 
 ### Fase 4.0 — Cierre de auditoría del editor
 
-**Estado:** completada en `feat/period-editor`.
+**Estado:** completada y fusionada en el PR #47.
 **Dependencia:** fase 4.
 
 - Corregir la pérdida de datos al renombrar asignaturas y al reutilizar
@@ -440,13 +440,12 @@ de regresión; suite completa verde.
 
 ### Fase 4.1 — Matriz de desempeños por período
 
-**Estado:** aprobada; pendiente de implementación.
-**Archivos:** `PeriodEditor`, `PerformanceMatrixActions` o componente de
-importación compartido, helpers de matriz, App, pruebas, manual.
+**Estado:** implementada en `feat/period-matrix`; pendiente de PR y merge.
+**Archivos:** `PeriodEditor`, `PeriodMatrixImport`, helpers de matriz, App, pruebas, manual.
 
 - Carga local de matriz dentro del editor de período.
 - Aplicación solo al borrador del período y solo a celdas vacías.
-- Conteo previo de celdas a completar, con texto propio y sin nota.
+- Conteo previo de celdas a completar, con texto propio, sin nota y sin coincidencia.
 - Retirar la aplicación automática de matrices de período desde la cola
   global del menú.
 - Mantener la matriz del próximo período para la landing (F6) y la matriz del

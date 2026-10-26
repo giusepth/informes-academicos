@@ -71,7 +71,7 @@ test('a second tab opens read-only with a banner and no editing affordances', as
   await expect(second.getByRole('button', { name: 'Nuevo periodo en blanco' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Elegir archivo' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Crear manualmente' })).toBeDisabled()
-  await expect(second.getByRole('button', { name: 'Cargar desempeños (excel)' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Cargar matriz del informe final (excel)' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Limpiar informes' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Exportar backup (.xlsx)' })).toBeEnabled()
 

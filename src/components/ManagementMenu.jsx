@@ -260,8 +260,8 @@ export default function ManagementMenu({
           Desempeños
         </h3>
         <p className="mt-1 mb-4 text-sm text-slate-500">
-          La matriz queda guardada y se aplica solo a los casilleros de desempeño vacíos
-          cuando el informe tenga notas.
+          Carga una matriz para el informe final, o descarga la plantilla y el ejemplo.
+          Los desempeños de cada período se cargan dentro de su editor.
         </p>
         <PerformanceMatrixActions
           pendingMatrix={pendingMatrix}
@@ -298,7 +298,7 @@ export default function ManagementMenu({
         <div className="mt-5 rounded-xl border border-red-200 bg-red-50/60 p-4">
           <p className="text-sm font-semibold text-red-900">Zona destructiva</p>
           <p className="mt-1 text-sm text-red-800">
-            Borra los informes, los desempeños finales y las matrices pendientes. Conserva
+            Borra los informes, los desempeños finales y la matriz del informe final pendiente. Conserva
             la configuración institucional.
           </p>
           <Button

@@ -5,6 +5,7 @@ import {
   applyMatrixToReport,
   countMatrixFills,
   fillPerformances,
+  matrixApplicationStats,
   matrixHasText,
   parsePerformanceMatrix,
 } from './parser'
@@ -304,5 +305,120 @@ describe('countMatrixFills', () => {
       ],
     }
     expect(countMatrixFills(report, matrix, DEFAULT_SCALE, 'decimal')).toBe(0)
+  })
+})
+
+
+describe('matrixApplicationStats', () => {
+  const matrix = {
+    'Matemáticas': { Bajo: 'm-bajo', 'Básico': 'm-basico', Alto: 'm-alto', Superior: 'm-sup' },
+    Ciencias: { Bajo: 'c-bajo', 'Básico': 'c-basico', Alto: 'c-alto', Superior: 'c-sup' },
+  }
+
+  it('separates fillable, own-text and missing-score cells', () => {
+    const report = {
+      subjects: ['Matemáticas', 'Ciencias', 'Historia'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': 4.5, 'Ciencias': 4.0, Historia: 4.5 },
+          performances: { 'Matemáticas': 'Texto propio', 'Ciencias': '', Historia: '' },
+        },
+        {
+          id: 's2',
+          name: 'Luis',
+          scores: { 'Matemáticas': null, 'Ciencias': 2.0 },
+          performances: {},
+        },
+      ],
+    }
+
+    // Ana Ciencias is fillable, Ana Matemáticas is own text, Luis Ciencias is
+    // fillable and Luis Matemáticas has no score. Ana Historia has a score
+    // but no matrix subject, so it is a mismatch the matrix cannot fill.
+    expect(matrixApplicationStats(report, matrix, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 2,
+      ownText: 1,
+      missingScore: 1,
+      unmatched: 1,
+      coverage: 2,
+    })
+  })
+
+  it('counts no fillable cells when the roster has no grades', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [{ id: 's1', name: 'Ana', scores: {}, performances: {} }],
+    }
+    expect(matrixApplicationStats(report, matrix, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 1,
+      unmatched: 0,
+      coverage: 1,
+    })
+  })
+
+  it('counts covered cells without grades and uncovered cells separately', () => {
+    const report = {
+      subjects: ['Matemáticas', 'Historia'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': null, Historia: null },
+          performances: {},
+        },
+      ],
+    }
+    const covered = { 'Matemáticas': { Bajo: 'm-bajo', 'Básico': '', Alto: '', Superior: '' } }
+
+    expect(matrixApplicationStats(report, covered, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 1,
+      unmatched: 0,
+      coverage: 1,
+    })
+  })
+
+  it('reports zero coverage when the matrix shares no subject', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [{ id: 's1', name: 'Ana', scores: { 'Matemáticas': null }, performances: {} }],
+    }
+    const elsewhere = { Historia: { Bajo: 'h', 'Básico': '', Alto: '', Superior: '' } }
+
+    expect(matrixApplicationStats(report, elsewhere, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 0,
+      unmatched: 0,
+      coverage: 0,
+    })
+  })
+
+  it('separates graded cells that the matrix cannot cover', () => {
+    const report = {
+      subjects: ['Matemáticas', 'Historia'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': 4.5, Historia: 4.5 },
+          performances: { 'Matemáticas': '', Historia: '' },
+        },
+      ],
+    }
+    const partial = { 'Matemáticas': { Bajo: 'm-bajo', 'Básico': '', Alto: '', Superior: '' } }
+
+    expect(matrixApplicationStats(report, partial, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 0,
+      unmatched: 2,
+      coverage: 1,
+    })
   })
 })
