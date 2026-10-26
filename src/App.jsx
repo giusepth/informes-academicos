@@ -532,18 +532,22 @@ export default function App() {
     [editorState, reports],
   )
   const editorInitial = editorState?.mode === 'edit' ? editorReport : editorState?.initial ?? null
+  const editorKey = editorState
+    ? `${editorState.mode}:${editorState.reportId ?? editorState.source ?? 'new'}`
+    : ''
 
   // A direct editor hash without a valid intent must not fall back to editing
-  // whichever period happens to be active.
+  // whichever period happens to be active. Wait for hydration first: a reload
+  // with a persisted edit intent finds its report only after IndexedDB loads.
   useEffect(() => {
-    if (route !== TOOL_ROUTES.editor) return
+    if (route !== TOOL_ROUTES.editor || hydrating) return
     if (allowEditorLeaveRef.current) return
     if (editorState && (editorState.mode === 'create' || editorReport)) return
     allowEditorLeaveRef.current = true
     setEditorState(null)
     setEditorDirty(false)
     navigate(TOOL_ROUTES.gestion)
-  }, [route, editorState, editorReport, navigate])
+  }, [route, hydrating, editorState, editorReport, navigate])
 
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
@@ -1190,6 +1194,7 @@ export default function App() {
         {route === TOOL_ROUTES.editor ? (
           editorState ? (
             <PeriodEditor
+              key={editorKey}
               mode={editorState.mode}
               initial={editorInitial}
               maxScore={maxScore}

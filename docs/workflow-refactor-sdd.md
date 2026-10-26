@@ -1,8 +1,8 @@
 # Refactor del flujo de trabajo — SDD
 
-**Estado:** borrador para aprobación. No implementado.
+**Estado:** F1–F3 fusionadas. F4 y su cierre de auditoría (F4.0) están implementados en la rama `feat/period-editor`, pendientes de PR y merge. F4.1 (matriz de desempeños por período) está aprobada y pendiente de implementación. F5–F7 pendientes.
 **Alcance de este documento:** plan de trabajo estricto; no autoriza ejecutar código ni levantar agentes.
-**Base verificada:** aplicación React/Vite, IndexedDB, landing, menú de entrada, boletines y editor manual actuales.
+**Base verificada:** aplicación React/Vite, IndexedDB, landing, menú de gestión, editor de períodos, boletines y matriz de desempeños actuales.
 
 ---
 
@@ -43,6 +43,7 @@ El docente debe poder limpiar un grado terminado, iniciar otro, precargar desemp
 | D6 | La precarga de desempeños será visible en la landing y en el menú de gestión mediante un componente compartido. |
 | D7 | Después de limpiar, el usuario volverá al menú de gestión con su configuración intacta. |
 | D8 | El contraste editable será sutil: fondo apenas azulado, borde visible y foco reforzado; no se usarán fondos fuertes ni iconos repetitivos. |
+| D9 | Una matriz de desempeños es una operación de importación con alcance explícito: un período concreto, el informe final o el próximo período desde la landing. No será una cola global que se aplica al primer informe que se abra. |
 
 Si alguna decisión no se aprueba, se ajusta el SDD antes de crear issues.
 
@@ -166,21 +167,71 @@ Al guardar:
 - Las capas de captura PDF seguirán siendo estáticas.
 - Las pruebas actuales que dependan del flujo anterior se migrarán al nuevo editor, no se eliminarán sin reemplazo.
 
+#### R4.4 Matriz de desempeños por período
+
+Los desempeños varían de un período a otro: no son un atributo del año ni del
+informe final. La matriz es un catálogo de textos por asignatura y banda; lo
+que se persiste es el **desempeño resultante** de cada estudiante en cada
+período, nunca el archivo de matriz.
+
+Conceptos:
+
+- **Matriz**: hoja `Asignatura × Bajo/Básico/Alto/Superior` con textos.
+- **Alcance**: período concreto (`reportId`), informe final o próximo período
+  (solo landing, antes de que exista trabajo).
+- **Aplicación**: completar únicamente casilleros de desempeño vacíos usando
+  la nota numérica y la banda institucional.
+
+Invariantes:
+
+- Una matriz de período se carga dentro del editor de ese período y solo
+  modifica su borrador. No se aplica a otro período ni al informe final.
+- El texto ya escrito por el docente nunca se reemplaza.
+- Sin notas numéricas no hay banda: la matriz puede quedar cargada en el
+  editor, pero no completa celdas hasta que existan notas.
+- La matriz no se guarda en IndexedDB ni en el backup. Al guardar el período
+  solo persisten los textos resultantes.
+- En solo lectura, la carga y la aplicación están deshabilitadas.
+
+UX propuesta dentro de **Editar período** (y también al crear):
+
+1. Sección **Matriz de desempeños del período**.
+2. **Cargar matriz (.xlsx)** valida el archivo y muestra: asignaturas
+   detectadas, celdas que se completarían, celdas con texto propio y celdas
+   sin nota.
+3. **Aplicar a este período** completa solo celdas vacías del borrador. Si no
+   hay notas, explica el motivo y mantiene la matriz cargada para reintentar.
+4. **Quitar matriz** descarta la carga local sin tocar el borrador.
+5. Al salir sin guardar, la matriz y los textos aplicados se descartan con el
+   resto del borrador.
+
+El menú **Desempeños** deja de prometer una aplicación al «primer informe con
+notas». Conserva plantilla, ejemplo y la matriz del informe final. La carga de
+un período se hace desde su editor, que ya es el único lugar donde se editan
+notas y desempeños.
+
+La matriz del informe final se cargará en `#/editor-final` (F5), con el mismo
+componente de importación y un alcance distinto.
+
 ### R5 — Desempeños visibles desde la landing
 
 Se agregará una sección discreta «Desempeños antes de empezar» en la landing, antes del cierre o del bloque de privacidad:
 
-- «Cargar desempeños (.xlsx)».
+- «Cargar desempeños del próximo período (.xlsx)».
 - «Descargar plantilla de desempeños».
 - «Descargar ejemplo de desempeños».
-- Texto breve: explica que la matriz queda guardada y se aplica solo a celdas vacías cuando el informe tenga notas.
+- Texto breve: explica que la matriz se aplicará una sola vez al primer
+  período que se cree o importe, solo a celdas vacías y cuando existan notas.
 - Estado posterior a la carga:
   - cantidad de asignaturas detectadas;
-  - «Se aplicará al primer informe con notas»;
+  - «Se aplicará al primer período que crees»;
   - acciones «Reemplazar archivo» y «Quitar matriz».
-- Se usará la misma lógica `pendingMatrix`, validación y aplicación ya implementada.
+- Se usará la misma validación y lógica de aplicación, pero con alcance
+  `nextPeriod`; se consume al crear o importar el primer período y nunca se
+  aplica a un período posterior.
 - El componente de acciones será compartido con el menú de gestión para evitar divergencias.
-- No habrá textos que prometan aplicación inmediata sin notas.
+- No habrá textos que prometan aplicación inmediata sin notas ni una cola
+  global reutilizable.
 
 ### R6 — Campos editables reconocibles
 
@@ -225,11 +276,12 @@ Solo dentro de los editores:
 1. Antes de entrar a la herramienta, el usuario ve las tres acciones.
 2. Descarga plantilla y ejemplo.
 3. Carga el ejemplo.
-4. La landing informa cuántas asignaturas contiene y que se aplicará al primer informe con notas.
-5. Entra, crea un informe y escribe una nota.
-6. Solo la celda vacía correspondiente se completa.
+4. La landing informa cuántas asignaturas contiene y que se aplicará solo al primer período que se cree.
+5. Entra, crea un período y escribe una nota.
+6. Solo la celda vacía correspondiente se completa; la matriz se consume.
 7. Un texto escrito previamente no se reemplaza.
 8. Una matriz vacía se rechaza con mensaje claro.
+9. Al crear un segundo período, la matriz de la landing ya no se aplica.
 
 ### Escenario C — Volver a editar
 
@@ -263,6 +315,17 @@ Solo dentro de los editores:
 3. Puede ver boletines y exportar.
 4. Al promoverse, vuelve a leer IndexedDB y habilita el editor.
 
+### Escenario G — Matrices distintas por período
+
+1. En el período 1, abre el editor y carga la matriz A.
+2. La app informa cuántas celdas completará y aplica solo las vacías.
+3. Guarda: los desempeños del período 1 quedan persistidos.
+4. En el período 2, carga la matriz B y aplica.
+5. Cada período conserva sus propios textos; B no toca el período 1.
+6. Un texto escrito a mano en cualquiera de los dos no se reemplaza.
+7. Una matriz cargada sin notas no completa celdas hasta que existan notas.
+8. Recargar y exportar/reimportar el backup conserva solo los desempeños resultantes, no el archivo de matriz.
+
 ---
 
 ## 7. Estrategia técnica
@@ -281,12 +344,15 @@ Solo dentro de los editores:
 - Limpieza mediante operaciones sobre las claves afectadas, no `deleteDatabase`.
 - No crear una segunda fuente de verdad para los informes.
 - Los borradores del editor serán locales; al guardar se actualizará el estado canónico.
+- La matriz aplicada a un período también será local al borrador: no se agregará a IndexedDB ni al backup. Solo se persisten los textos resultantes.
+- El alcance de cada matriz será explícito: `period(reportId)`, `final` o `nextPeriod` (landing). No habrá una cola global de período.
 - El nombre normalizado del estudiante seguirá siendo la clave de desempeños finales; se documentará el efecto de renombrar.
 
 ### 7.3 Componentes previstos
 
 - `ManagementMenu`: secciones del menú.
 - `PerformanceMatrixActions`: acciones y estado compartido de matrices.
+- `PeriodMatrixImport` (o equivalente): importación local de la matriz dentro del editor de período, reutilizable por el editor final con otro alcance.
 - `ClearReportsDialog`: confirmación destructiva.
 - `UnsavedChangesDialog`: confirmación de borrador.
 - `ReportEditor`: extensión de `ManualEntryForm`.
@@ -343,7 +409,7 @@ Solo dentro de los editores:
 
 ### Fase 4 — Editor de períodos y boletines de solo lectura
 
-**Archivos:** `ManualEntryForm`/nuevo editor, `ReportSheet`, `ReportDashboard`, `PeriodBar`, App.
+**Archivos:** `PeriodEditor`, `ReportSheet`, `ReportDashboard`, `PeriodBar`, `App`.
 
 - Editor compartido en modo crear/editar.
 - Creación en blanco abre directamente el editor.
@@ -356,26 +422,68 @@ Solo dentro de los editores:
 
 **Dependencia:** fase 3.
 
+### Fase 4.0 — Cierre de auditoría del editor
+
+**Estado:** completada en `feat/period-editor`.
+**Dependencia:** fase 4.
+
+- Corregir la pérdida de datos al renombrar asignaturas y al reutilizar
+  nombres con espacios.
+- Evitar que una actualización remota de `reports` reinicie el borrador del
+  editor abierto.
+- Resolver la recarga de `#/editor` con intención de edición antes de la
+  hidratación.
+- Verificar la ruta `#/editor-final` o retirarla hasta F5.
+
+**Aceptación:** los hallazgos de auditoría de F4 quedan cerrados con pruebas
+de regresión; suite completa verde.
+
+### Fase 4.1 — Matriz de desempeños por período
+
+**Estado:** aprobada; pendiente de implementación.
+**Archivos:** `PeriodEditor`, `PerformanceMatrixActions` o componente de
+importación compartido, helpers de matriz, App, pruebas, manual.
+
+- Carga local de matriz dentro del editor de período.
+- Aplicación solo al borrador del período y solo a celdas vacías.
+- Conteo previo de celdas a completar, con texto propio y sin nota.
+- Retirar la aplicación automática de matrices de período desde la cola
+  global del menú.
+- Mantener la matriz del próximo período para la landing (F6) y la matriz del
+  informe final para F5.
+- Sin cambios de esquema en IndexedDB ni en el backup.
+
+**Aceptación:** dos períodos pueden usar matrices distintas sin
+contaminarse; cancelar no persiste textos; el texto propio se conserva; una
+matriz sin notas no completa nada; el backup conserva solo los desempeños
+resultantes.
+
+**Dependencia:** fases 4.0 y 4.
+
 ### Fase 5 — Editor del informe final
 
 **Archivos:** editor final, `FinalReportSheet`, App, pruebas de backup.
 
 - Edición de anotaciones finales fuera del boletín final.
+- Carga de la matriz del informe final dentro de `#/editor-final`, con el
+  mismo componente de importación que F4.1 y alcance `final`.
 - Vista final de solo lectura.
 - Round-trip del backup con anotaciones.
 
-**Aceptación:** escenario E; no se editan promedios ni resultados calculados.
+**Aceptación:** escenario E; no se editan promedios ni resultados calculados;
+la matriz final no modifica desempeños de período.
 
-**Dependencia:** fase 4.
+**Dependencia:** fases 4.0 y 4.1.
 
-### Fase 6 — Precarga visible de desempeños
+### Fase 6 — Precarga visible de desempeños del próximo período
 
-**Archivos:** `Landing.jsx`, `DataInputMode`, nuevo componente compartido, App, manual.
+**Archivos:** `Landing.jsx`, componente compartido de matriz, App, manual.
 
-- Sección en landing.
-- Componente compartido con el menú.
+- Sección en landing con alcance `nextPeriod`.
 - Estado cargado/reemplazar/quitar.
-- Pruebas de plantilla, ejemplo y aplicación pendiente.
+- Consumo único al crear o importar el primer período.
+- Prohibido aplicar esa matriz a un período posterior.
+- Pruebas de plantilla, ejemplo, consumo único y celdas vacías.
 
 **Aceptación:** escenario B; no hay promesas falsas; no se duplica lógica.
 
@@ -459,7 +567,7 @@ Solo dentro de los editores:
 
 ## 11. Definition of Done global
 
-- [ ] Los escenarios A–F funcionan.
+- [ ] Los escenarios A–G funcionan.
 - [ ] Limpiar exige confirmación y conserva configuración.
 - [ ] El menú está agrupado y es accesible con informes existentes.
 - [ ] Desempeños se puede cargar desde landing y menú; plantilla y ejemplo se descargan en ambos lugares.

@@ -1,9 +1,50 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { makeId } from '../utils/parser'
 import { parseScoreInput } from '../utils/scoreInput'
 import { Button, Field, TextInput } from './ui'
 
 const normalizeSubject = (value) => value.trim().toLocaleLowerCase('es')
+
+const emptyStudent = () => ({
+  id: makeId(),
+  name: '',
+  scores: {},
+  performances: {},
+})
+
+/**
+ * Builds the editor's local draft once. Subjects get stable local ids so
+ * renaming never has to move scores or performances between keys, even while
+ * two subject names are temporarily duplicated.
+ */
+const buildBase = (initial) => {
+  const subjectNames = initial?.subjects?.length ? initial.subjects : ['Matemáticas']
+  const subjects = subjectNames.map((name, index) => ({
+    id: `subject-${index}`,
+    name,
+    teacher: initial?.teachers?.[name] ?? '',
+  }))
+  const sourceStudents =
+    initial?.students?.length > 0
+      ? initial.students
+      : [emptyStudent(), emptyStudent()]
+
+  return {
+    grade: initial?.grade ?? '',
+    teacher: initial?.teacher ?? '',
+    subjects,
+    students: sourceStudents.map((student) => ({
+      id: student.id ?? makeId(),
+      name: student.name ?? '',
+      scores: Object.fromEntries(
+        subjects.map((subject) => [subject.id, student.scores?.[subject.name] ?? null]),
+      ),
+      performances: Object.fromEntries(
+        subjects.map((subject) => [subject.id, student.performances?.[subject.name] ?? '']),
+      ),
+    })),
+  }
+}
 
 /**
  * Shared period editor (R4.1): create or edit a period with its subjects,
@@ -20,42 +61,18 @@ export default function PeriodEditor({
   onCancel,
   onDirtyChange,
 }) {
-  const base = useMemo(
-    () => ({
-      grade: initial?.grade ?? '',
-      teacher: initial?.teacher ?? '',
-      subjects: initial?.subjects?.length ? initial.subjects : ['Matemáticas'],
-      teachers: initial?.teachers ?? {},
-      students:
-        initial?.students?.length > 0
-          ? initial.students
-          : [
-              { id: makeId(), name: '', scores: {}, performances: {} },
-              { id: makeId(), name: '', scores: {}, performances: {} },
-            ],
-    }),
-    [initial],
-  )
+  // Freeze the opening snapshot: a remote resync may replace `reports`, but it
+  // must never replace this draft or mark it clean behind the teacher's back.
+  const [base] = useState(() => buildBase(initial))
 
   const [grade, setGrade] = useState(base.grade)
   const [teacher, setTeacher] = useState(base.teacher)
   const [subjects, setSubjects] = useState(base.subjects)
-  const [teachers, setTeachers] = useState(base.teachers)
   const [students, setStudents] = useState(base.students)
   const [scoreDrafts, setScoreDrafts] = useState({})
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    setGrade(base.grade)
-    setTeacher(base.teacher)
-    setSubjects(base.subjects)
-    setTeachers(base.teachers)
-    setStudents(base.students)
-    setScoreDrafts({})
-    setError('')
-  }, [base])
-
-  const snapshot = JSON.stringify({ grade, teacher, subjects, teachers, students })
+  const snapshot = JSON.stringify({ grade, teacher, subjects, students })
   const baseSnapshot = JSON.stringify(base)
   const dirty = snapshot !== baseSnapshot || Object.keys(scoreDrafts).length > 0
 
@@ -74,67 +91,39 @@ export default function PeriodEditor({
   }, [dirty])
 
   const addSubject = () => {
-    const name = `Asignatura ${subjects.length + 1}`
-    setSubjects((current) => [...current, name])
+    setSubjects((current) => [
+      ...current,
+      { id: makeId(), name: `Asignatura ${current.length + 1}`, teacher: '' },
+    ])
   }
 
-  const renameSubject = (index, value) => {
-    const previous = subjects[index]
-    setSubjects((current) => current.map((subject, i) => (i === index ? value : subject)))
-    setStudents((current) =>
-      current.map((student) => {
-        const { [previous]: score, ...scoreRest } = student.scores ?? {}
-        const { [previous]: performance, ...performanceRest } = student.performances ?? {}
-        return {
-          ...student,
-          scores: { ...scoreRest, [value]: score ?? null },
-          performances: { ...performanceRest, [value]: performance ?? '' },
-        }
-      }),
+  const renameSubject = (id, value) =>
+    setSubjects((current) =>
+      current.map((subject) => (subject.id === id ? { ...subject, name: value } : subject)),
     )
-    setTeachers((current) => {
-      const { [previous]: moved, ...rest } = current
-      return { ...rest, [value]: moved ?? '' }
-    })
-    setScoreDrafts((current) =>
-      Object.fromEntries(
-        Object.entries(current).map(([key, draft]) => {
-          const [studentId, subject] = key.split(':')
-          return [subject === previous ? `${studentId}:${value}` : key, draft]
-        }),
-      ),
-    )
-  }
 
-  const removeSubject = (index) => {
-    const removed = subjects[index]
-    setSubjects((current) => current.filter((_, i) => i !== index))
+  const removeSubject = (id) => {
+    setSubjects((current) => current.filter((subject) => subject.id !== id))
     setStudents((current) =>
       current.map((student) => {
-        const { [removed]: _score, ...scores } = student.scores ?? {}
-        const { [removed]: _performance, ...performances } = student.performances ?? {}
+        const { [id]: _score, ...scores } = student.scores ?? {}
+        const { [id]: _performance, ...performances } = student.performances ?? {}
         return { ...student, scores, performances }
       }),
     )
-    setTeachers((current) => {
-      const { [removed]: _drop, ...rest } = current
-      return rest
-    })
     setScoreDrafts((current) =>
       Object.fromEntries(
-        Object.entries(current).filter(([key]) => key.split(':')[1] !== removed),
+        Object.entries(current).filter(([key]) => key.split(':')[1] !== id),
       ),
     )
   }
 
-  const setSubjectTeacher = (index, value) =>
-    setTeachers((current) => ({ ...current, [subjects[index]]: value }))
+  const setSubjectTeacher = (id, value) =>
+    setSubjects((current) =>
+      current.map((subject) => (subject.id === id ? { ...subject, teacher: value } : subject)),
+    )
 
-  const addStudent = () =>
-    setStudents((current) => [
-      ...current,
-      { id: makeId(), name: '', scores: {}, performances: {} },
-    ])
+  const addStudent = () => setStudents((current) => [...current, emptyStudent()])
 
   const removeStudent = (id) =>
     setStudents((current) => current.filter((student) => student.id !== id))
@@ -144,20 +133,20 @@ export default function PeriodEditor({
       current.map((student) => (student.id === id ? { ...student, name } : student)),
     )
 
-  const setPerformance = (id, subject, text) =>
+  const setPerformance = (id, subjectId, text) =>
     setStudents((current) =>
       current.map((student) =>
         student.id === id
           ? {
               ...student,
-              performances: { ...(student.performances ?? {}), [subject]: text },
+              performances: { ...(student.performances ?? {}), [subjectId]: text },
             }
           : student,
       ),
     )
 
-  const commitScore = (id, subject, raw) => {
-    const key = `${id}:${subject}`
+  const commitScore = (id, subjectId, raw) => {
+    const key = `${id}:${subjectId}`
     const clearDraft = () =>
       setScoreDrafts((current) => {
         if (!(key in current)) return current
@@ -170,7 +159,7 @@ export default function PeriodEditor({
       setStudents((current) =>
         current.map((student) =>
           student.id === id
-            ? { ...student, scores: { ...student.scores, [subject]: null } }
+            ? { ...student, scores: { ...student.scores, [subjectId]: null } }
             : student,
         ),
       )
@@ -186,7 +175,7 @@ export default function PeriodEditor({
     setStudents((current) =>
       current.map((student) =>
         student.id === id
-          ? { ...student, scores: { ...student.scores, [subject]: value } }
+          ? { ...student, scores: { ...student.scores, [subjectId]: value } }
           : student,
       ),
     )
@@ -197,9 +186,10 @@ export default function PeriodEditor({
     const next = students.map((student) => {
       const scores = { ...(student.scores ?? {}) }
       for (const subject of subjects) {
-        const draft = scoreDrafts[`${student.id}:${subject}`]
+        const draft = scoreDrafts[`${student.id}:${subject.id}`]
         if (draft === undefined) continue
-        scores[subject] = draft.trim() === '' ? null : parseScoreInput(draft, maxScore)
+        scores[subject.id] =
+          draft.trim() === '' ? null : parseScoreInput(draft, maxScore)
       }
       return { ...student, scores }
     })
@@ -211,12 +201,14 @@ export default function PeriodEditor({
   const handleSave = () => {
     if (readOnly) return
     const currentStudents = flushDrafts()
-    const validSubjects = subjects.map((subject) => subject.trim()).filter(Boolean)
+    const validSubjects = subjects
+      .map((subject) => ({ ...subject, name: subject.name.trim() }))
+      .filter((subject) => subject.name !== '')
     if (validSubjects.length === 0) {
       setError('Agrega al menos una asignatura.')
       return
     }
-    const normalized = validSubjects.map(normalizeSubject)
+    const normalized = validSubjects.map((subject) => normalizeSubject(subject.name))
     if (new Set(normalized).size !== normalized.length) {
       setError('No repitas el nombre de una asignatura.')
       return
@@ -227,10 +219,13 @@ export default function PeriodEditor({
         id: student.id,
         name: student.name.trim(),
         scores: Object.fromEntries(
-          validSubjects.map((subject) => [subject, student.scores?.[subject] ?? null]),
+          validSubjects.map((subject) => [subject.name, student.scores?.[subject.id] ?? null]),
         ),
         performances: Object.fromEntries(
-          validSubjects.map((subject) => [subject, student.performances?.[subject] ?? '']),
+          validSubjects.map((subject) => [
+            subject.name,
+            student.performances?.[subject.id] ?? '',
+          ]),
         ),
       }))
     if (validStudents.length === 0) {
@@ -240,10 +235,10 @@ export default function PeriodEditor({
     onSave?.({
       grade: grade.trim(),
       teacher: teacher.trim(),
-      subjects: validSubjects,
+      subjects: validSubjects.map((subject) => subject.name),
       teachers: Object.fromEntries(
         validSubjects
-          .map((subject) => [subject, (teachers[subject] ?? '').trim()])
+          .map((subject) => [subject.name, subject.teacher.trim()])
           .filter(([, value]) => value !== ''),
       ),
       students: validStudents,
@@ -298,30 +293,30 @@ export default function PeriodEditor({
           <div className="flex flex-wrap gap-2">
             {subjects.map((subject, index) => (
               <div
-                key={index}
+                key={subject.id}
                 className="flex items-center gap-1 rounded-lg bg-slate-100 p-1.5"
               >
                 <div className="flex flex-col gap-1">
                   <TextInput
                     className="w-44 border-transparent bg-transparent shadow-none"
-                    value={subject}
-                    onChange={(event) => renameSubject(index, event.target.value)}
+                    value={subject.name}
+                    onChange={(event) => renameSubject(subject.id, event.target.value)}
                     placeholder="Asignatura"
                     aria-label={`Nombre de asignatura ${index + 1}`}
                   />
                   <TextInput
                     className="w-44 border-transparent bg-transparent shadow-none"
-                    value={teachers[subject] ?? ''}
-                    onChange={(event) => setSubjectTeacher(index, event.target.value)}
+                    value={subject.teacher}
+                    onChange={(event) => setSubjectTeacher(subject.id, event.target.value)}
                     placeholder="Docente (opcional)"
-                    aria-label={`Docente de ${subject || 'asignatura'}`}
+                    aria-label={`Docente de ${subject.name || 'asignatura'}`}
                   />
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => removeSubject(index)}
-                  aria-label={`Quitar ${subject}`}
+                  onClick={() => removeSubject(subject.id)}
+                  aria-label={`Quitar ${subject.name}`}
                 >
                   ×
                 </Button>
@@ -335,9 +330,9 @@ export default function PeriodEditor({
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2">Estudiante</th>
-                {subjects.map((subject, index) => (
-                  <th key={index} className="min-w-56 px-3 py-2">
-                    {subject || '—'}
+                {subjects.map((subject) => (
+                  <th key={subject.id} className="min-w-56 px-3 py-2">
+                    {subject.name || '—'}
                   </th>
                 ))}
                 <th className="px-3 py-2" />
@@ -354,22 +349,17 @@ export default function PeriodEditor({
                       placeholder="Nombre del estudiante"
                     />
                   </td>
-                  {subjects.map((subject, index) => {
-                    const draftKey = `${student.id}:${subject}`
+                  {subjects.map((subject) => {
+                    const draftKey = `${student.id}:${subject.id}`
                     const draft = scoreDrafts[draftKey]
+                    const score = student.scores?.[subject.id]
                     return (
-                      <td key={index} className="px-3 py-2">
+                      <td key={subject.id} className="px-3 py-2">
                         <div className="space-y-1.5">
                           <TextInput
                             className="w-24"
                             inputMode="decimal"
-                            value={
-                              draft ??
-                              (student.scores?.[subject] === null ||
-                              student.scores?.[subject] === undefined
-                                ? ''
-                                : String(student.scores[subject]))
-                            }
+                            value={draft ?? (score === null || score === undefined ? '' : String(score))}
                             onChange={(event) =>
                               setScoreDrafts((current) => ({
                                 ...current,
@@ -377,7 +367,7 @@ export default function PeriodEditor({
                               }))
                             }
                             onBlur={(event) =>
-                              commitScore(student.id, subject, event.target.value)
+                              commitScore(student.id, subject.id, event.target.value)
                             }
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') {
@@ -385,16 +375,16 @@ export default function PeriodEditor({
                                 event.currentTarget.blur()
                               }
                             }}
-                            aria-label={`Nota de ${student.name || 'estudiante'} en ${subject || 'asignatura'}`}
+                            aria-label={`Nota de ${student.name || 'estudiante'} en ${subject.name || 'asignatura'}`}
                           />
                           <textarea
                             className="min-h-[56px] w-full resize-y rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                             placeholder="Desempeño…"
-                            value={student.performances?.[subject] ?? ''}
+                            value={student.performances?.[subject.id] ?? ''}
                             onChange={(event) =>
-                              setPerformance(student.id, subject, event.target.value)
+                              setPerformance(student.id, subject.id, event.target.value)
                             }
-                            aria-label={`Desempeño de ${student.name || 'estudiante'} en ${subject || 'asignatura'}`}
+                            aria-label={`Desempeño de ${student.name || 'estudiante'} en ${subject.name || 'asignatura'}`}
                           />
                         </div>
                       </td>

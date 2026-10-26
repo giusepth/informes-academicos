@@ -1,7 +1,6 @@
 export const TOOL_ROUTES = Object.freeze({
   gestion: 'gestion',
   editor: 'editor',
-  editorFinal: 'editor-final',
   boletin: 'boletin',
   final: 'final',
   contacto: 'contacto',

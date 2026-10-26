@@ -126,6 +126,109 @@ test('removing a subject drops its scores and performances from that period only
   expect(after[1].students[0].scores).toEqual({ Matemáticas: 2, Ciencias: 2.5 })
 })
 
+test('renaming a subject keeps its scores and performances', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  const firstSubject = page.getByLabel('Nombre de asignatura 1')
+  // A transient duplicate must be blocked, but never discard the row data.
+  await firstSubject.fill('Ciencias')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page.getByRole('alert')).toContainText('No repitas el nombre')
+
+  // Saving trims surrounding spaces instead of orphaning the stored keys.
+  await firstSubject.fill('  Matemática  ')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+
+  await waitForPersisted(
+    page,
+    'informes.reports',
+    (value) => value?.[0]?.subjects?.[0] === 'Matemática',
+  )
+  const after = await readDataKey(page, 'informes.reports')
+  expect(after[0].subjects).toEqual(['Matemática', 'Ciencias'])
+  expect(after[0].students[0].scores).toEqual({ Matemática: 4.5, Ciencias: 3.8 })
+  expect(after[0].students[0].performances).toEqual({ Matemática: 'Juicio original', Ciencias: '' })
+})
+
+test('a direct editor route without intent redirects to management', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await page.goto('/#/editor')
+
+  await expect(page).toHaveURL(/#\/gestion$/)
+  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
+})
+
+test('reloading the editor restores the edit intent but starts a fresh draft', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('1.0')
+  await page.reload()
+
+  await expect(page).toHaveURL(/#\/editor$/)
+  await expect(page.getByRole('heading', { name: 'Editar período' })).toBeVisible()
+  // Only the intent is persisted: the uncommitted draft is gone.
+  await expect(page.getByLabel('Nota de Ana en Matemáticas')).toHaveValue('4.5')
+
+  await page.getByRole('button', { name: 'Volver' }).click()
+  await expect(page).toHaveURL(/#\/gestion$/)
+  await expect(page.getByRole('dialog', { name: 'Cambios sin guardar' })).toHaveCount(0)
+})
+
+test('a remote report refresh keeps the open draft and its unsaved state', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await page.getByLabel('Grado / Curso').fill('5° B')
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('1.0')
+
+  // Simulate another tab committing and announcing the change while this
+  // editor is open. The local draft must survive the remote snapshot.
+  await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('informes', 1)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readwrite')
+        const store = tx.objectStore('kv')
+        const get = store.get('informes.reports')
+        get.onsuccess = () => {
+          const reports = get.result
+          reports[0].students[0].scores['Matemáticas'] = 1.0
+          reports[0].students[0].performances['Matemáticas'] = 'Cambio remoto'
+          store.put(reports, 'informes.reports')
+        }
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+    } finally {
+      db.close()
+    }
+
+    const channel = new BroadcastChannel('informes.tab-sync')
+    channel.postMessage({
+      type: 'informes:data-changed',
+      source: 'another-tab',
+      reason: 'data',
+    })
+    channel.close()
+  })
+  await page.waitForTimeout(500)
+
+  await expect(page.getByLabel('Grado / Curso')).toHaveValue('5° B')
+  await expect(page.getByLabel('Nota de Ana en Matemáticas')).toHaveValue('1.0')
+
+  await page.getByRole('button', { name: 'Volver' }).click()
+  await expect(page.getByRole('dialog', { name: 'Cambios sin guardar' })).toBeVisible()
+})
+
 test('leaving with unsaved changes asks first and can keep editing', async ({ page }) => {
   await seed(page, { reports: [first] })
   await openManagementMenu(page)
