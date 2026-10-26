@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import * as XLSX from 'xlsx'
-import { report, seed } from './helpers'
+import { openManagementMenu, report, seed } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -34,14 +34,17 @@ const reports = [1, 2].map((n) =>
 
 test('the matrix pre-loads only empty period desempeños', async ({ page }) => {
   await seed(page, { reports })
+  await openManagementMenu(page)
 
-  await page.locator('input[type=file]').first().setInputFiles({
+  await page.locator('input[aria-label="Archivo de desempeños"]').setInputFiles({
     name: 'matriz.xlsx',
     mimeType: 'application/octet-stream',
     buffer: MATRIX,
   })
+  await expect(page.getByText('Matriz pendiente: 2 asignaturas detectadas.')).toBeVisible()
+  await page.getByRole('button', { name: 'Abrir boletín' }).click()
 
-  await expect(page.getByText('Matriz aplicada a Informe 1 (solo casilleros vacíos).')).toBeVisible()
+  await expect(page.getByText('Desempeños aplicados a Informe 1.')).toBeVisible()
 
   const box = (name) => page.locator('tr', { hasText: name }).first().locator('textarea')
   const select = (name) => page.getByRole('button', { name: name }).first()
@@ -67,11 +70,13 @@ test('the matrix applies to the final report and never rewrites saved judgments'
     finalPerformances: { ANA: { 'Matemáticas': 'Ya anotado final.' } },
   })
 
-  await page.locator('input[type=file]').first().setInputFiles({
+  await openManagementMenu(page)
+  await page.locator('input[aria-label="Archivo de desempeños"]').setInputFiles({
     name: 'matriz.xlsx',
     mimeType: 'application/octet-stream',
     buffer: MATRIX,
   })
+  await page.getByRole('button', { name: 'Aplicar al informe final' }).click()
 
   await expect(page.getByText('Matriz aplicada al informe final (solo casilleros vacíos).')).toBeVisible()
 

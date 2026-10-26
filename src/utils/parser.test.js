@@ -79,11 +79,15 @@ describe('backupSheets', () => {
     expect(firstRow[7]).toBe('Prof. Suárez')
     expect(firstRow[8]).toBe('Muy bue análisis')
 
-    // Luis row (second data row): mismo layout SIN prefijo de metadata.
+    // Luis row (second data row): same columns, metadata blank.
     expect(sheets[0].aoa[2][0]).toBe('Luis Pérez')
-    expect(sheets[0].aoa[2][1]).toBe(3.2) // Matemáticas
-    expect(sheets[0].aoa[2][4]).toBe('') // Ciencias ausente → ''
-    expect(sheets[0].aoa[2][6]).toBe('Aún en proceso P1')
+    expect(sheets[0].aoa[2][1]).toBe('') // Grado blank, but column present
+    expect(sheets[0].aoa[2][2]).toBe('')
+    expect(sheets[0].aoa[2][3]).toBe(3.2) // Matemáticas
+    expect(sheets[0].aoa[2][4]).toBe('')
+    expect(sheets[0].aoa[2][5]).toBe('')
+    expect(sheets[0].aoa[2][6]).toBe('') // Ciencias ausente
+    expect(sheets[0].aoa[2][8]).toBe('Aún en proceso P1')
   })
 
   it('adds a final desempeños sheet with normalized names when annotations exist', () => {
@@ -127,7 +131,11 @@ describe('parseBackupWorkbook', () => {
       'Matemáticas': 'Excelente P2',
       'Ciencias': 'Muy bue análisis',
     })
-    expect(restored.students[1].scores['Ciencias']).toBeNull()
+    expect(restored.students[1].scores).toEqual({ 'Matemáticas': 3.2, 'Ciencias': null })
+    expect(restored.students[1].performances).toEqual({
+      'Matemáticas': '',
+      'Ciencias': 'Aún en proceso P2',
+    })
   })
 
   it('round-trips final desempeño annotations without turning them into a period', async () => {

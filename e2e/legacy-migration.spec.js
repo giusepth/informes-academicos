@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { report, SCALE, seed, seedLegacy, waitForHydrated, waitForPersisted } from './helpers'
+import {
+  openManagementMenu,
+  report,
+  SCALE,
+  seed,
+  seedLegacy,
+  waitForHydrated,
+  waitForPersisted,
+} from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 const MIGRATION_TOAST = 'Trabajo anterior importado a este navegador.'
@@ -108,6 +116,7 @@ test('reset after migration is not resurrected from legacy keys on reload', asyn
   await seedLegacy(page, { config, reports, finalPerformances })
   await expect(page.getByText(MIGRATION_TOAST)).toBeVisible()
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await page.getByRole('dialog', { name: 'Limpiar informes' })
     .getByRole('button', { name: 'Limpiar informes' })
@@ -142,6 +151,7 @@ test('cleared legacy keys cannot resurrect when IndexedDB becomes unavailable', 
   await waitForHydrated(page)
   await expect(page.getByRole('button', { name: 'Informe 1', exact: true })).toBeVisible()
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await page
     .getByRole('dialog', { name: 'Limpiar informes' })

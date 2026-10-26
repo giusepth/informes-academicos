@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
   heldWriterLocks,
+  openManagementMenu,
   readDataKey,
   report,
   seed,
@@ -57,10 +58,6 @@ test('a second tab opens read-only with a banner and no editing affordances', as
   await expect(banner(second)).toBeVisible()
   await expect(second.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
   await expect(second.locator('input[aria-label^="Nota de"]')).toHaveCount(0)
-  await expect(second.getByRole('button', { name: 'Nuevo periodo en blanco' })).toBeDisabled()
-  await expect(second.getByRole('button', { name: 'Importar Excel (periodo)' })).toBeDisabled()
-  await expect(second.getByRole('button', { name: 'Cargar desempeños (excel)' })).toBeDisabled()
-  await expect(second.getByRole('button', { name: 'Limpiar informes' })).toBeDisabled()
 
   const performances = second.locator('.report-sheet textarea')
   await expect(performances.first()).toBeVisible()
@@ -71,8 +68,16 @@ test('a second tab opens read-only with a banner and no editing affordances', as
   await expect(second.getByRole('button', { name: 'Imprimir' })).toBeEnabled()
   await expect(second.getByRole('button', { name: 'Vista previa' })).toBeEnabled()
   await expect(second.getByRole('button', { name: 'Generar ZIP (todos)' })).toBeEnabled()
-  await expect(second.getByRole('button', { name: 'Exportar backup (.xlsx)' })).toBeEnabled()
   await expect(second.getByRole('button', { name: 'Informe 1', exact: true })).toBeEnabled()
+
+  // Mutation actions live in the menu; there they stay disabled for a reader.
+  await openManagementMenu(second)
+  await expect(second.getByRole('button', { name: 'Nuevo periodo en blanco' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Elegir archivo' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Crear manualmente' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Cargar desempeños (excel)' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Limpiar informes' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Exportar backup (.xlsx)' })).toBeEnabled()
 
   // The writer keeps editing and never sees the banner.
   await expect(banner(page)).toHaveCount(0)
@@ -129,6 +134,7 @@ test('clearing reports drops the pending matrix in another tab', async ({ page, 
     ),
   )
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await page
     .getByRole('dialog', { name: 'Limpiar informes' })
@@ -243,6 +249,7 @@ test('a read-only tab can still export the backup', async ({ page, context }) =>
   const second = await openTool(context)
   await expect(banner(second)).toBeVisible()
 
+  await openManagementMenu(second)
   const downloadPromise = second.waitForEvent('download')
   await second.getByRole('button', { name: 'Exportar backup (.xlsx)' }).click()
   const download = await downloadPromise

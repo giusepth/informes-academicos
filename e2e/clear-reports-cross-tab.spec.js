@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { SCALE, report, seed, waitForHydrated, waitForPersisted } from './helpers'
+import {
+  SCALE,
+  openManagementMenu,
+  report,
+  seed,
+  waitForHydrated,
+  waitForPersisted,
+} from './helpers'
 
 const config = {
   institution: 'Colegio Probe',
@@ -38,6 +45,7 @@ test('a clear removes legacy session copies from another tab', async ({ page, co
     { config, reports },
   )
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await page
     .getByRole('dialog', { name: 'Limpiar informes' })
@@ -86,6 +94,7 @@ test('without BroadcastChannel a cleared matrix never applies after promotion', 
   await waitForHydrated(second)
   await expect(second.getByRole('status').filter({ hasText: 'Solo lectura' })).toBeVisible()
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await page
     .getByRole('dialog', { name: 'Limpiar informes' })

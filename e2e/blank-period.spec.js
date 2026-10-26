@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { report, seed, waitForHydrated, waitForPersisted } from './helpers'
+import {
+  openManagementMenu,
+  report,
+  seed,
+  waitForHydrated,
+  waitForPersisted,
+} from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -19,7 +25,7 @@ const reports = [
 
 test('a blank period opens manual score entry and keeps each period isolated', async ({ page }) => {
   await seed(page, { reports })
-
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
 
   await expect(page.getByRole('button', { name: 'Terminar edición' })).toBeVisible()
@@ -41,6 +47,7 @@ test('a blank period opens manual score entry and keeps each period isolated', a
 
 test('a student can be added by hand in the blank period', async ({ page }) => {
   await seed(page, { reports })
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
 
   const nameInput = page.getByPlaceholder('Nombre del estudiante')
@@ -54,6 +61,7 @@ test('a student can be added by hand in the blank period', async ({ page }) => {
 
 test('a blank period keeps a manual score across period switches (AC3)', async ({ page }) => {
   await seed(page, { reports })
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
 
   await page.getByPlaceholder('Nombre del estudiante').fill('Bruno')
@@ -73,6 +81,7 @@ test('a blank period keeps a manual score across period switches (AC3)', async (
 
 test('manual scores survive a reload', async ({ page }) => {
   await seed(page, { reports })
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
   await page.locator('input[aria-label^="Nota de Matemáticas"]').fill('3.5')
   await page.keyboard.press('Enter')
