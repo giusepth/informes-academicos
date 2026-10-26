@@ -197,8 +197,8 @@ UX propuesta dentro de **Editar período** (y también al crear):
 
 1. Sección **Matriz de desempeños del período**.
 2. **Cargar matriz (.xlsx)** valida el archivo y muestra: asignaturas
-   detectadas, celdas que se completarían, celdas con texto propio y celdas
-   sin nota.
+   detectadas, celdas que se completarían, celdas con texto propio, celdas
+   sin nota y celdas sin coincidencia.
 3. **Aplicar a este período** completa solo celdas vacías del borrador. Si no
    hay notas, explica el motivo y mantiene la matriz cargada para reintentar.
 4. **Quitar matriz** descarta la carga local sin tocar el borrador.
@@ -445,7 +445,7 @@ de regresión; suite completa verde.
 
 - Carga local de matriz dentro del editor de período.
 - Aplicación solo al borrador del período y solo a celdas vacías.
-- Conteo previo de celdas a completar, con texto propio y sin nota.
+- Conteo previo de celdas a completar, con texto propio, sin nota y sin coincidencia.
 - Retirar la aplicación automática de matrices de período desde la cola
   global del menú.
 - Mantener la matriz del próximo período para la landing (F6) y la matriz del

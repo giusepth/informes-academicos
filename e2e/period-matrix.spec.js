@@ -209,9 +209,26 @@ test('live counts and apply include an uncommitted score draft', async ({ page }
   await expect(status).toContainText('1 casillero a completar')
   await expect(status).toContainText('1 sin nota')
 
-  await page.getByRole('button', { name: 'Aplicar a este período' }).click()
+  // Dispatch without a real click so the score input never blurs: the test
+  // only passes if Apply reads the draft score itself.
+  await page.getByRole('button', { name: 'Aplicar a este período' }).dispatchEvent('click')
   await expect(page.getByLabel('Desempeño de Ana en Matemáticas')).toHaveValue('M-Alto')
   await expect(page.getByLabel('Desempeño de Ana en Ciencias')).toHaveValue('')
+})
+
+test('duplicate subject names hide the matrix summary and disable apply', async ({ page }) => {
+  await seed(page, { reports: [first] })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+
+  await loadPeriodMatrix(page, MATRIX_A)
+  await page.getByLabel('Nombre de asignatura 2').fill('Matemáticas')
+
+  await expect(
+    page.getByText('Corrige los nombres de las asignaturas para ver el resumen de la matriz.'),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Aplicar a este período' })).toBeDisabled()
+  await expect(page.getByRole('status').filter({ hasText: 'Matriz cargada' })).toHaveCount(0)
 })
 
 test('a matrix without grades stays loaded and explains why it cannot fill', async ({ page }) => {

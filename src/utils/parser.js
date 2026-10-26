@@ -481,6 +481,7 @@ export function matrixApplicationStats(
 ) {
   const students = report?.students ?? []
   const subjects = report?.subjects ?? []
+  const coverage = subjects.filter((subject) => matrix?.[subject] !== undefined).length
   let ownText = 0
   let missingScore = 0
   let unmatched = 0
@@ -515,6 +516,7 @@ export function matrixApplicationStats(
     ownText,
     missingScore,
     unmatched,
+    coverage,
   }
 }
 

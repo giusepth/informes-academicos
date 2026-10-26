@@ -20,6 +20,7 @@ export default function PeriodMatrixImport({
   stats = null,
   readOnly = false,
   notice = '',
+  applyDisabled = false,
   onLoadMatrix,
   onClearMatrix,
   onApply,
@@ -111,7 +112,7 @@ export default function PeriodMatrixImport({
       <div className="mt-3 flex flex-wrap gap-2">
         {matrix ? (
           <>
-            <Button onClick={onApply} disabled={busy || readOnly}>
+            <Button onClick={onApply} disabled={busy || readOnly || applyDisabled}>
               Aplicar a este período
             </Button>
             <Button

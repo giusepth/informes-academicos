@@ -342,6 +342,7 @@ describe('matrixApplicationStats', () => {
       ownText: 1,
       missingScore: 1,
       unmatched: 1,
+      coverage: 2,
     })
   })
 
@@ -355,6 +356,46 @@ describe('matrixApplicationStats', () => {
       ownText: 0,
       missingScore: 1,
       unmatched: 0,
+      coverage: 1,
+    })
+  })
+
+  it('counts covered cells without grades and uncovered cells separately', () => {
+    const report = {
+      subjects: ['Matemáticas', 'Historia'],
+      students: [
+        {
+          id: 's1',
+          name: 'Ana',
+          scores: { 'Matemáticas': null, Historia: null },
+          performances: {},
+        },
+      ],
+    }
+    const covered = { 'Matemáticas': { Bajo: 'm-bajo', 'Básico': '', Alto: '', Superior: '' } }
+
+    expect(matrixApplicationStats(report, covered, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 1,
+      unmatched: 0,
+      coverage: 1,
+    })
+  })
+
+  it('reports zero coverage when the matrix shares no subject', () => {
+    const report = {
+      subjects: ['Matemáticas'],
+      students: [{ id: 's1', name: 'Ana', scores: { 'Matemáticas': null }, performances: {} }],
+    }
+    const elsewhere = { Historia: { Bajo: 'h', 'Básico': '', Alto: '', Superior: '' } }
+
+    expect(matrixApplicationStats(report, elsewhere, DEFAULT_SCALE, 'decimal')).toEqual({
+      fillable: 0,
+      ownText: 0,
+      missingScore: 0,
+      unmatched: 0,
+      coverage: 0,
     })
   })
 
@@ -377,6 +418,7 @@ describe('matrixApplicationStats', () => {
       ownText: 0,
       missingScore: 0,
       unmatched: 2,
+      coverage: 1,
     })
   })
 })

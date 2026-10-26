@@ -285,11 +285,13 @@ export default function PeriodEditor({
     const stats = matrixApplicationStats(report, matrix, scale, scaleType)
     if (stats.fillable === 0) {
       setMatrixNotice(
-        stats.missingScore > 0
-          ? 'Todavía no hay notas para aplicar la matriz. Carga las notas y vuelve a intentar.'
-          : stats.unmatched > 0
-            ? 'La matriz no coincide con las asignaturas o bandas de este período.'
-            : 'No hay casilleros vacíos para completar en este período.',
+        stats.missingScore > 0 && stats.unmatched > 0
+          ? 'Faltan notas en algunas celdas y la matriz no coincide con otras. Revisa ambas cosas.'
+          : stats.missingScore > 0
+            ? 'Todavía no hay notas para aplicar la matriz. Carga las notas y vuelve a intentar.'
+            : stats.unmatched > 0 || stats.coverage === 0
+              ? 'La matriz no coincide con las asignaturas o bandas de este período.'
+              : 'No hay casilleros vacíos para completar en este período.',
       )
       return
     }
@@ -550,6 +552,7 @@ export default function PeriodEditor({
           stats={matrixStats}
           readOnly={readOnly}
           notice={matrixPanelNotice}
+          applyDisabled={matrix && !matrixNamesValid}
           onLoadMatrix={handleLoadMatrix}
           onClearMatrix={handleClearMatrix}
           onApply={handleApplyMatrix}

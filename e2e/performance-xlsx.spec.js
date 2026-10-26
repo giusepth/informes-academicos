@@ -72,6 +72,28 @@ test('loading the unedited template warns and arms no final matrix', async ({ pa
   await expect(finalStatus(page)).toHaveCount(0)
 })
 
+test('loading the blank template clears a staged final matrix', async ({ page }) => {
+  await completeFirstRun(page)
+
+  const sample = await download(page, ACTIONS.sample)
+  const samplePath = await sample.path()
+  await page
+    .locator('input[aria-label="Archivo de matriz del informe final"]')
+    .setInputFiles(samplePath)
+  await expect(finalStatus(page)).toBeVisible()
+
+  const template = await download(page, ACTIONS.template)
+  const templatePath = await template.path()
+  await page
+    .locator('input[aria-label="Archivo de matriz del informe final"]')
+    .setInputFiles(templatePath)
+
+  await expect(page.getByText(EMPTY_MATRIX_MESSAGE, { exact: true })).toBeVisible()
+  await expect(finalStatus(page)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: ACTIONS.load, exact: true })).toBeVisible()
+  await expect.poll(() => pendingRaw(page)).toBeNull()
+})
+
 test('a final matrix stays staged across a reload and can be removed', async ({ page }) => {
   await completeFirstRun(page)
 

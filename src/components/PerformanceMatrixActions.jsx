@@ -34,6 +34,12 @@ export default function PerformanceMatrixActions({
   const pendingCount = subjectCount(pendingMatrix)
   const hasPending = pendingCount > 0
 
+  const clearPending = () => {
+    setError('')
+    setNotice('')
+    onClearMatrix?.()
+  }
+
   const readMatrixFile = async (file) => {
     if (!file) return
     setBusy(true)
@@ -45,6 +51,7 @@ export default function PerformanceMatrixActions({
       // A blank matrix (the template loaded unedited) has nothing to apply:
       // say so instead of arming a pending payload that would never fill.
       if (!matrixHasText(matrix)) {
+        onClearMatrix?.()
         setNotice(EMPTY_MATRIX_MESSAGE)
         return
       }
@@ -95,7 +102,7 @@ export default function PerformanceMatrixActions({
           {busy ? 'Leyendo…' : hasPending ? 'Reemplazar archivo' : 'Cargar matriz del informe final (excel)'}
         </Button>
         {hasPending && onClearMatrix ? (
-          <Button variant="secondary" onClick={onClearMatrix} disabled={busy || readOnly}>
+          <Button variant="secondary" onClick={clearPending} disabled={busy || readOnly}>
             Quitar matriz
           </Button>
         ) : null}
