@@ -91,3 +91,22 @@ test('opening hash routes does not rewrite stored reports', async ({ page }) => 
 
   expect(after).toBe(before)
 })
+
+test('the management menu never exposes a dead edit-notes control', async ({ page }) => {
+  await seed(page, { reports })
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await expect(page).toHaveURL(/#\/gestion$/)
+
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
+  await expect(page.getByPlaceholder('Nombre del estudiante')).toHaveCount(0)
+})
+
+test('a blank period created from the management menu opens score entry', async ({ page }) => {
+  await seed(page, { reports })
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
+
+  await expect(page).toHaveURL(/#\/boletin$/)
+  await expect(page.getByRole('button', { name: 'Terminar edición' })).toBeVisible()
+  await expect(page.locator('input[aria-label^="Nota de"]').first()).toBeVisible()
+})

@@ -31,6 +31,7 @@ export default function PeriodBar({
   onImportReport,
   onDuplicate,
   onApplyMatrix,
+  canEdit = true,
   scoreEntry = false,
   onToggleScoreEntry,
   onAddStudent,
@@ -140,7 +141,7 @@ export default function PeriodBar({
       >
         Nuevo periodo en blanco
       </Button>
-      {activeTab !== 'final' && !readOnly ? (
+      {canEdit && activeTab !== 'final' && !readOnly ? (
         <Button variant="secondary" size="sm" onClick={onToggleScoreEntry}>
           {scoreEntry ? 'Terminar edición' : 'Editar notas'}
         </Button>
@@ -207,7 +208,7 @@ export default function PeriodBar({
         onChange={(e) => readFile(e.target.files?.[0])}
       />
 
-      {scoreEntry && activeTab !== 'final' && !readOnly ? (
+      {canEdit && scoreEntry && activeTab !== 'final' && !readOnly ? (
         <form
           className="flex w-full flex-wrap items-center gap-2 border-t border-slate-100 pt-3"
           onSubmit={handleAddStudent}

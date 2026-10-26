@@ -599,7 +599,14 @@ export default function App() {
   // except the blank-period flow that enters it on purpose.
   useEffect(() => {
     if (keepScoreEntryRef.current) {
-      keepScoreEntryRef.current = false
+      // The blank-period handler switches the report and the route in the
+      // same batch. Wait for the boletin route before consuming the flag;
+      // consuming it on the report change alone would let the route effect
+      // close the editor immediately afterwards.
+      if (route === TOOL_ROUTES.boletin) {
+        keepScoreEntryRef.current = false
+        setScoreEntry(true)
+      }
       return
     }
     setScoreEntry(false)
@@ -1098,7 +1105,8 @@ export default function App() {
               onImportReport={handleImportPeriod}
               onDuplicate={handleDuplicatePeriod}
               onApplyMatrix={handleApplyMatrix}
-              scoreEntry={scoreEntry}
+              scoreEntry={route === TOOL_ROUTES.boletin && scoreEntry}
+              canEdit={route === TOOL_ROUTES.boletin}
               onToggleScoreEntry={() => setScoreEntry((current) => !current)}
               onAddStudent={handleAddStudent}
               readOnly={readOnly}
