@@ -65,4 +65,11 @@ test('full backup round trip: export, wipe session, import again', async ({ page
   await expect(
     page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
   ).toHaveValue('Anotación final del año')
+
+  // Every student row survives, not just the first one.
+  await page.getByRole('button', { name: 'Informe 2' }).click()
+  await page.getByRole('button', { name: /Luis Pérez/ }).click()
+  await expect(
+    page.locator('tr', { hasText: 'Matemáticas' }).first(),
+  ).toContainText('3.5')
 })

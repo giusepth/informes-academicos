@@ -578,25 +578,22 @@ export function backupSheets(reports, finalPerformances = {}) {
     ]
 
     const rows = (report.students ?? []).map((student, rowIndex) => {
-      const row = [String(student.name ?? '').trim()]
+      // Grado and Docente are fixed columns: leaving them out of later rows
+      // would shift every subject cell left. The template convention keeps the
+      // metadata on the first data row only, but the columns stay aligned.
+      const row = [
+        String(student.name ?? '').trim(),
+        rowIndex === 0 ? (report.grade ?? '') : '',
+        rowIndex === 0 ? (report.teacher ?? '') : '',
+      ]
       subjects.forEach((subject) => {
         row.push(student.scores?.[subject] ?? '')
-        // Template convention: metadata lives on the first data row only.
         row.push(rowIndex === 0 ? (report.teachers?.[subject] ?? '') : '')
         const text = String(student.performances?.[subject] ?? '')
         row.push(text)
       })
       return row
     })
-
-    if (rows.length > 0) {
-      rows[0] = [
-        rows[0][0],
-        report.grade ?? '',
-        report.teacher ?? '',
-        ...rows[0].slice(1),
-      ]
-    }
 
     const fallback = `Informe ${index + 1}`
     const label = report.label ?? fallback
