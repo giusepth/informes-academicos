@@ -102,16 +102,19 @@ página.
 
 - **Lista de estudiantes** (izquierda): cursor para elegir el estudiante;
   muestra posición y promedio.
-- **Boletín editable** (derecha): en cada asignatura edita la nota y el
-  **desempeño** (juicio valorativo). Se guarda en este navegador al instante:
-  las escrituras ya confirmadas se conservan al cerrar la pestaña; una edición
-  hecha justo antes de cerrar puede no alcanzar a guardarse.
-- **Carga manual de notas**: **Editar notas** abre la escritura directa de las
-  notas del período activo. Para crear un período nuevo en blanco, abre
-  **Menú → Nuevo trabajo → Nuevo periodo en blanco**: entra directo en ese
-  modo. Mientras está activo también puedes agregar un estudiante a mano con su
-  nombre y el botón **Agregar**. **Terminar edición** vuelve a la vista de solo
-  lectura.
+- **Boletín de período** (derecha): es una vista de **solo lectura** con la
+  nota, la valoración y el **desempeño** (juicio valorativo) de cada
+  asignatura. Toda la edición del período ocurre en el editor.
+- **Editar un período**: **Menú → Trabajo actual → Editar período** abre el
+  editor con los datos de ese período: grado, docente, asignaturas, docentes
+  por asignatura, estudiantes, notas y desempeños. **Guardar cambios** aplica
+  solo ese período; **Volver** no modifica nada. Si hay cambios sin guardar,
+  la app pregunta antes de salir (o al cerrar o recargar la pestaña).
+- **Crear un período en blanco**: **Menú → Nuevo trabajo → Nuevo periodo en
+  blanco** abre el editor con la estructura del período activo y las notas y
+  desempeños vacíos. **Crear período** guarda el período nuevo.
+- La columna **Desempeño** del informe final sí se edita directamente en el
+  boletín final; el resto de los datos se corrige desde el editor del período.
 - **Períodos**: en la barra del boletín aparece una pestaña por informe,
   además del botón del informe final. Las importaciones, el respaldo y las
   matrices viven en **Menú**.
@@ -140,9 +143,10 @@ Sin IndexedDB (modo privado o navegador bloqueado), el trabajo vive por pestaña
 
 1. Importa `informe-1.xlsx` → aparece la barra de gestión con **Informe 1**.
 2. Para el siguiente periodo: **Menú → Nuevo trabajo → Importar Excel
-   (.xlsx)** con un archivo nuevo, o **Nuevo periodo en blanco** para dejar la
-   estructura lista y escribir a mano (los ids de estudiantes se regeneran: las
-   observaciones quedan separadas por periodo, como corresponde).
+   (.xlsx)** con un archivo nuevo, o **Nuevo periodo en blanco** para abrir el
+   editor con la estructura lista y escribir a mano (los ids de estudiantes se
+   regeneran: las observaciones quedan separadas por periodo, como
+   corresponde).
 3. El botón **"Informe N (final)"** (se numera según la cantidad cargada)
    abre el boletín que promedia cada asignatura entre los periodos: una
    columna por informe + **Promedio** + **Valoración** + **Desempeño**.

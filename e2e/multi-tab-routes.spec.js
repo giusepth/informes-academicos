@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { heldWriterLocks, report, seed, waitForHydrated, waitForPersisted } from './helpers'
+import {
+  heldWriterLocks,
+  openManagementMenu,
+  report,
+  seed,
+  waitForHydrated,
+  waitForPersisted,
+} from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -31,8 +38,7 @@ const banner = (page) => page.getByRole('status').filter({ hasText: READ_ONLY_BA
 const landingHeading = (page) =>
   page.getByRole('heading', { level: 1, name: LANDING_HEADING })
 
-const mathPerformance = (page) =>
-  page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea')
+const editPeriod = (page) => page.getByRole('button', { name: 'Editar período' })
 
 test('contact first never takes the writer lock from the tool tab', async ({ context }) => {
   const setup = await context.newPage()
@@ -47,14 +53,15 @@ test('contact first never takes the writer lock from the tool tab', async ({ con
   const tool = await context.newPage()
   await tool.goto('/')
   await waitForHydrated(tool)
-  await expect(tool.getByRole('button', { name: 'Editar notas' })).toBeVisible()
   await expect(banner(tool)).toHaveCount(0)
+  await openManagementMenu(tool)
+  await expect(editPeriod(tool)).toBeEnabled()
   await expect.poll(() => heldWriterLocks(tool)).toBe(1)
 
   // Closing the contact tab must not affect the tool's lock.
   await contact.close()
   await expect(banner(tool)).toHaveCount(0)
-  await expect(tool.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await expect(editPeriod(tool)).toBeEnabled()
   expect(await heldWriterLocks(tool)).toBe(1)
 
   await tool.close()
@@ -108,12 +115,14 @@ test('without Web Locks both tabs edit and a remote change shows the advisory', 
   await second.goto('/')
   await waitForHydrated(second)
 
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
-  await expect(second.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await openManagementMenu(page)
+  await expect(editPeriod(page)).toBeEnabled()
   await expect(banner(page)).toHaveCount(0)
   await expect(banner(second)).toHaveCount(0)
 
-  await mathPerformance(page).fill('Cambio remoto sin bloqueo')
+  await editPeriod(page).click()
+  await page.getByLabel('Desempeño de Ana en Matemáticas').fill('Cambio remoto sin bloqueo')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
   await waitForPersisted(
     page,
     'informes.reports',
@@ -124,7 +133,8 @@ test('without Web Locks both tabs edit and a remote change shows the advisory', 
   // Both tabs stay editable; the only notice is the advisory toast.
   await expect(second.getByText(MULTI_TAB_ADVISORY_TOAST)).toBeVisible()
   await expect(banner(second)).toHaveCount(0)
-  await expect(second.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await openManagementMenu(second)
+  await expect(editPeriod(second)).toBeEnabled()
 
   await second.close()
 })

@@ -107,12 +107,12 @@ test('without BroadcastChannel a cleared matrix never applies after promotion', 
   })
 
   await second.getByRole('button', { name: 'Crear manualmente' }).click()
+  await expect(second).toHaveURL(/#\/editor$/)
   await second.getByPlaceholder('5° A').fill('6° A')
   await second.getByPlaceholder('Nombre del estudiante').first().fill('Ana')
   await second.getByLabel('Nota de Ana en Matemáticas').fill('4,5')
-  await second.getByLabel('Nota de Ana en Matemáticas').press('Enter')
-  await second.getByRole('button', { name: 'Generar informe' }).click()
+  await second.getByRole('button', { name: 'Crear período' }).click()
 
-  await expect(second.locator('.report-sheet textarea').first()).toBeVisible({ timeout: 15_000 })
-  await expect(second.locator('.report-sheet textarea').first()).toHaveValue('')
+  await expect(second.locator('.report-sheet').first()).toBeVisible({ timeout: 15_000 })
+  await expect(second.locator('.report-sheet').first()).not.toContainText('Pendiente ajeno.')
 })

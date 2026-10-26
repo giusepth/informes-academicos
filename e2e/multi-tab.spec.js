@@ -38,14 +38,14 @@ const openTool = async (context) => {
 
 const banner = (page) => page.getByRole('status').filter({ hasText: READ_ONLY_BANNER })
 
-const mathPerformance = (page) =>
-  page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea')
+const editPeriod = (page) => page.getByRole('button', { name: 'Editar período' })
 
 test('the first tab is always the writer and shows no banner', async ({ page }) => {
   await seed(page, { reports })
 
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
   await expect(banner(page)).toHaveCount(0)
+  await openManagementMenu(page)
+  await expect(editPeriod(page)).toBeEnabled()
 })
 
 test('a second tab opens read-only with a banner and no editing affordances', async ({
@@ -56,13 +56,8 @@ test('a second tab opens read-only with a banner and no editing affordances', as
   const second = await openTool(context)
 
   await expect(banner(second)).toBeVisible()
-  await expect(second.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
   await expect(second.locator('input[aria-label^="Nota de"]')).toHaveCount(0)
-
-  const performances = second.locator('.report-sheet textarea')
-  await expect(performances.first()).toBeVisible()
-  await expect(performances.first()).toHaveAttribute('readonly', '')
-  await expect(performances.first()).not.toBeEditable()
+  await expect(second.locator('.report-sheet textarea')).toHaveCount(0)
 
   // Exports and read-only navigation stay available.
   await expect(second.getByRole('button', { name: 'Imprimir' })).toBeEnabled()
@@ -72,6 +67,7 @@ test('a second tab opens read-only with a banner and no editing affordances', as
 
   // Mutation actions live in the menu; there they stay disabled for a reader.
   await openManagementMenu(second)
+  await expect(editPeriod(second)).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Nuevo periodo en blanco' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Elegir archivo' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Crear manualmente' })).toBeDisabled()
@@ -89,33 +85,16 @@ test('keyboard and scripted edits are rejected in the read-only tab', async ({ p
   const second = await openTool(context)
   await expect(banner(second)).toBeVisible()
 
-  const textarea = mathPerformance(second)
-  await expect(textarea).toHaveAttribute('readonly', '')
-  const before = await textarea.inputValue()
   const idbBefore = await readDataKey(second, 'informes.reports')
-  await textarea.click()
+  await openManagementMenu(second)
+  await expect(editPeriod(second)).toBeDisabled()
+
+  // No editable field exists anywhere in the reader, so a stray keystroke
+  // cannot produce a queued write.
+  await expect(second.locator('input:not([type="file"]), textarea')).toHaveCount(0)
   await second.keyboard.type('INTENTO')
-  expect(await textarea.inputValue()).toBe(before)
-  // Let any accidental queued write settle before comparing the committed
-  // snapshot: a read-only tab must produce no new write at all.
   await second.waitForTimeout(250)
   expect(await readDataKey(second, 'informes.reports')).toEqual(idbBefore)
-
-  await second.evaluate(() => {
-    const target = document.querySelector('.report-sheet textarea')
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLTextAreaElement.prototype,
-      'value',
-    ).set
-    setter.call(target, 'Intento por JS')
-    target.dispatchEvent(new Event('input', { bubbles: true }))
-  })
-
-  await waitForPersisted(
-    second,
-    'informes.reports',
-    (value) => value[0].students[0].performances?.['Matemáticas'] === 'Inicial',
-  )
 
   const stored = await readDataKey(second, 'informes.reports')
   expect(stored).toHaveLength(1)
@@ -154,7 +133,11 @@ test('closing the writer promotes the read-only tab with fresh data', async ({ p
 
   // The writer edits right before closing: promotion must re-read IndexedDB,
   // not keep the stale snapshot the reader hydrated with.
-  await mathPerformance(page).fill('Editado en la pestaña A')
+  await openManagementMenu(page)
+  await editPeriod(page).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('4.7')
+  await page.getByLabel('Desempeño de Ana en Matemáticas').fill('Editado en la pestaña A')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
   await waitForPersisted(
     page,
     'informes.reports',
@@ -165,22 +148,21 @@ test('closing the writer promotes the read-only tab with fresh data', async ({ p
   await page.close()
 
   await expect(banner(second)).toHaveCount(0, { timeout: 3000 })
-  await expect(second.getByRole('button', { name: 'Editar notas' })).toBeVisible()
-
-  const promoted = mathPerformance(second)
-  await expect(promoted).toHaveValue('Editado en la pestaña A')
-  await expect(promoted).not.toHaveAttribute('readonly', '')
+  await openManagementMenu(second)
+  await expect(editPeriod(second)).toBeEnabled()
+  await editPeriod(second).click()
+  await expect(second.getByLabel('Desempeño de Ana en Matemáticas')).toHaveValue(
+    'Editado en la pestaña A',
+  )
+  await expect(second.getByLabel('Nota de Ana en Matemáticas')).toHaveValue('4.7')
 
   // Editing is fully available after promotion.
-  await second.getByRole('button', { name: 'Editar notas' }).click()
-  const scoreInput = second.locator('input[aria-label="Nota de Matemáticas para Ana"]')
-  await expect(scoreInput).toBeVisible()
-  await scoreInput.fill('4.7')
-  await second.keyboard.press('Enter')
+  await second.getByLabel('Nota de Ana en Matemáticas').fill('4.8')
+  await second.getByRole('button', { name: 'Guardar cambios' }).click()
   await waitForPersisted(
     second,
     'informes.reports',
-    (value) => value[0].students[0].scores?.['Matemáticas'] === 4.7,
+    (value) => value[0].students[0].scores?.['Matemáticas'] === 4.8,
   )
 
   await second.close()
@@ -200,7 +182,10 @@ test('promotion re-reads IndexedDB even without BroadcastChannel', async ({ page
   await waitForHydrated(second)
   await expect(banner(second)).toBeVisible()
 
-  await mathPerformance(page).fill('Editado sin canal')
+  await openManagementMenu(page)
+  await editPeriod(page).click()
+  await page.getByLabel('Desempeño de Ana en Matemáticas').fill('Editado sin canal')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
   await waitForPersisted(
     page,
     'informes.reports',
@@ -212,7 +197,11 @@ test('promotion re-reads IndexedDB even without BroadcastChannel', async ({ page
   // No channel announcement can reach the reader: only promotion's own
   // re-read can bring the writer's fresh value into this tab.
   await expect(banner(second)).toHaveCount(0, { timeout: 3000 })
-  await expect(mathPerformance(second)).toHaveValue('Editado sin canal')
+  await openManagementMenu(second)
+  await editPeriod(second).click()
+  await expect(second.getByLabel('Desempeño de Ana en Matemáticas')).toHaveValue(
+    'Editado sin canal',
+  )
 
   await second.close()
 })
@@ -232,13 +221,14 @@ test('exactly one writer: a third tab stays read-only until the promoted tab clo
 
   const third = await openTool(context)
   await expect(banner(third)).toBeVisible()
-  await expect(third.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
+  await openManagementMenu(third)
+  await expect(editPeriod(third)).toBeDisabled()
   await expect(banner(second)).toHaveCount(0)
   expect(await heldWriterLocks(third)).toBe(1)
 
   await second.close()
   await expect(banner(third)).toHaveCount(0, { timeout: 3000 })
-  await expect(third.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await expect(editPeriod(third)).toBeEnabled()
   expect(await heldWriterLocks(third)).toBe(1)
 
   await third.close()

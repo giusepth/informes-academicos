@@ -45,27 +45,32 @@ test('an unknown hash falls back to a safe screen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
 })
 
-test('browser back from the final report returns to the editable period view', async ({ page }) => {
+test('browser back from the final report returns to the read-only period view', async ({
+  page,
+}) => {
   await seed(page, { reports })
   await page.goto('/#/boletin')
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
+  await expect(page.locator('input, textarea')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Informe 2 (final)' }).click()
   await expect(page).toHaveURL(/#\/final$/)
 
   await page.goBack()
   await expect(page).toHaveURL(/#\/boletin$/)
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
-  await page.getByRole('button', { name: 'Editar notas' }).click()
-  await expect(page.locator('input[aria-label^="Nota de"]').first()).toBeVisible()
+  await expect(page.locator('input, textarea')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
 })
 
-test('a direct boletín route is editable even when the stored tab is final', async ({ page }) => {
+test('a direct boletín route stays read-only even when the stored tab is final', async ({
+  page,
+}) => {
   await seed(page, { reports, tab: 'final' })
   await page.goto('/#/boletin')
 
   await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await expect(page.locator('input, textarea')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Informe 2 (final)' })).not.toHaveClass(
     /bg-slate-900/,
   )
@@ -101,12 +106,12 @@ test('the management menu never exposes a dead edit-notes control', async ({ pag
   await expect(page.getByPlaceholder('Nombre del estudiante')).toHaveCount(0)
 })
 
-test('a blank period created from the management menu opens score entry', async ({ page }) => {
+test('a blank period created from the management menu opens the editor', async ({ page }) => {
   await seed(page, { reports })
   await page.getByRole('button', { name: 'Menú', exact: true }).click()
   await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
 
-  await expect(page).toHaveURL(/#\/boletin$/)
-  await expect(page.getByRole('button', { name: 'Terminar edición' })).toBeVisible()
-  await expect(page.locator('input[aria-label^="Nota de"]').first()).toBeVisible()
+  await expect(page).toHaveURL(/#\/editor$/)
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
+  await expect(page.getByLabel('Nota de Ana en Matemáticas')).toBeVisible()
 })

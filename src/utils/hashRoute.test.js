@@ -50,6 +50,7 @@ describe('resolveToolRoute', () => {
   it('honours explicit report routes and unknown hashes', () => {
     expect(resolveToolRoute('#/final', { hasReports: true })).toBe(TOOL_ROUTES.final)
     expect(resolveToolRoute('#/editor', { hasReports: true })).toBe(TOOL_ROUTES.editor)
+    expect(resolveToolRoute('#/editor', { hasReports: false })).toBe(TOOL_ROUTES.editor)
     expect(resolveToolRoute('#/nope', { hasReports: true, activeTab: 'final' })).toBe(
       TOOL_ROUTES.final,
     )

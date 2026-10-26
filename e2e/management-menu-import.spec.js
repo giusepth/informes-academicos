@@ -73,10 +73,10 @@ test('a period imported from the menu keeps student ids and isolated scores', as
     stored[1].students.every((student) => typeof student.id === 'string' && student.id.length > 0),
   ).toBe(true)
 
-  await page.getByRole('button', { name: 'Editar notas' }).click()
-  await page.getByRole('button', { name: /Marta/ }).click()
-  await page.locator('input[aria-label="Nota de Matemáticas para Marta"]').fill('1.0')
-  await page.getByRole('button', { name: 'Terminar edición' }).click()
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Marta en Matemáticas').fill('1.0')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
 
   await waitForPersisted(
     page,

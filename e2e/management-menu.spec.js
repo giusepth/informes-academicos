@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import * as XLSX from 'xlsx'
-import { readDataKey, report, seed } from './helpers'
+import { readDataKey, report, seed, waitForPersisted } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -88,15 +88,15 @@ test('the menu keeps the section order as the logical tab order', async ({ page 
   expect(headings).toEqual(['Nuevo trabajo', 'Trabajo actual', 'Desempeños', 'Respaldo y datos'])
 })
 
-test('editing the active period from the menu opens score entry on it', async ({ page }) => {
+test('editing the active period from the menu opens the period editor', async ({ page }) => {
   await seed(page, { reports })
   await openMenu(page)
 
   await page.getByRole('button', { name: 'Editar período' }).click()
 
-  await expect(page).toHaveURL(/#\/boletin$/)
-  await expect(page.getByRole('button', { name: 'Terminar edición' })).toBeVisible()
-  await expect(page.locator('input[aria-label^="Nota de"]').first()).toBeVisible()
+  await expect(page).toHaveURL(/#\/editor$/)
+  await expect(page.getByRole('heading', { name: 'Editar período' })).toBeVisible()
+  await expect(page.getByLabel('Nota de Ana en Matemáticas')).toBeVisible()
 })
 
 test('a pending matrix shows its status and can be replaced or removed', async ({ page }) => {
@@ -146,8 +146,12 @@ test('the pending matrix waits in the menu and fills the first report on open', 
   await page.getByRole('button', { name: 'Abrir boletín' }).click()
 
   await expect(page.getByText('Desempeños aplicados a Informe 1.')).toBeVisible()
-  const math = page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea')
-  await expect(math).toHaveValue('Alto.')
+  await waitForPersisted(
+    page,
+    'informes.reports',
+    (value) => value?.[0]?.students?.[0]?.performances?.['Matemáticas'] === 'Alto.',
+  )
+  await expect(page.getByText('Alto.').first()).toBeVisible()
   expect(
     await page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')),
   ).toBeNull()
