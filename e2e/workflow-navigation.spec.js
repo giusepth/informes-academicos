@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { report, seed } from './helpers'
+import { readDataKey, report, seed, waitForHydrated } from './helpers'
 
 const reports = [
   report({
@@ -43,4 +43,51 @@ test('an unknown hash falls back to a safe screen', async ({ page }) => {
   await page.goto('/#/no-existe')
 
   await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
+})
+
+test('browser back from the final report returns to the editable period view', async ({ page }) => {
+  await seed(page, { reports })
+  await page.goto('/#/boletin')
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Informe 2 (final)' }).click()
+  await expect(page).toHaveURL(/#\/final$/)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/#\/boletin$/)
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await page.getByRole('button', { name: 'Editar notas' }).click()
+  await expect(page.locator('input[aria-label^="Nota de"]').first()).toBeVisible()
+})
+
+test('a direct boletín route is editable even when the stored tab is final', async ({ page }) => {
+  await seed(page, { reports, tab: 'final' })
+  await page.goto('/#/boletin')
+
+  await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Informe 2 (final)' })).not.toHaveClass(
+    /bg-slate-900/,
+  )
+})
+
+test('the final route never offers period-editing actions', async ({ page }) => {
+  await seed(page, { reports })
+  await page.goto('/#/final')
+
+  await expect(page.getByRole('button', { name: 'Informe 2 (final)' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Nuevo periodo en blanco' })).not.toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
+})
+
+test('opening hash routes does not rewrite stored reports', async ({ page }) => {
+  await seed(page, { reports })
+  await waitForHydrated(page)
+
+  const before = JSON.stringify(await readDataKey(page, 'informes.reports'))
+  await page.goto('/#/gestion')
+  await page.goto('/#/final')
+  const after = JSON.stringify(await readDataKey(page, 'informes.reports'))
+
+  expect(after).toBe(before)
 })

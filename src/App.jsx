@@ -175,7 +175,11 @@ export default function App() {
   const [activeReportId, setActiveReportId] = useState(() =>
     readStorage(STORAGE_KEYS.activeReport),
   )
-  const [tab, setTab] = useState(() => (readStorage(STORAGE_KEYS.tab) === 'final' ? 'final' : 'period'))
+  // Read once for backward compatibility: sessions stored by the previous
+  // build kept their last tab here. The route is the source of truth now.
+  const [initialTab] = useState(() =>
+    readStorage(STORAGE_KEYS.tab) === 'final' ? 'final' : 'period',
+  )
   const [selectedStudentId, setSelectedStudentId] = useState(() =>
     readStorage(STORAGE_KEYS.selected),
   )
@@ -506,7 +510,7 @@ export default function App() {
 
   const route = resolveToolRoute(hash, {
     hasReports: reports.length > 0,
-    activeTab: tab,
+    activeTab: initialTab,
   })
 
   const configured = config !== null
@@ -591,7 +595,6 @@ export default function App() {
   }, [reports, dataQueue, readOnly])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
-  useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
   // Score entry belongs to one period: navigation always leaves edit mode,
   // except the blank-period flow that enters it on purpose.
   useEffect(() => {
@@ -669,6 +672,7 @@ export default function App() {
     [reports, config, finalPerformances, scaleType],
   )
 
+  const tab = route === TOOL_ROUTES.final ? 'final' : 'period'
   const isFinal = route === TOOL_ROUTES.final && finalReport !== null
   const displayReport = isFinal ? finalReport : activeReport
 
@@ -726,7 +730,6 @@ export default function App() {
     }
     setReports([first])
     setActiveReportId(first.id)
-    setTab('period')
     setSelectedStudentId(first.students[0]?.id ?? null)
     navigate(TOOL_ROUTES.boletin)
     setToast(`Informe 1 cargado con ${first.students.length} estudiantes.`)
@@ -749,7 +752,6 @@ export default function App() {
     setReports(restored)
     setActiveReportId(restored[0]?.id ?? null)
     setSelectedStudentId(restored[0]?.students[0]?.id ?? null)
-    setTab('period')
     navigate(TOOL_ROUTES.boletin)
     // An old backup has no final sheet: absence means "keep what this browser
     // already has", never "clear it". A present sheet merges by normalized
@@ -771,7 +773,6 @@ export default function App() {
     if (hasNumericScore(next)) setPendingHold(false)
     setReports((current) => [...current, next])
     setActiveReportId(next.id)
-    setTab('period')
     setSelectedStudentId(next.students[0]?.id ?? null)
     navigate(TOOL_ROUTES.boletin)
     setToast(`${next.label} importado con ${next.students.length} estudiantes.`)
@@ -796,7 +797,6 @@ export default function App() {
     keepScoreEntryRef.current = true
     setReports((current) => [...current, copy])
     setActiveReportId(copy.id)
-    setTab('period')
     setSelectedStudentId(copy.students[0]?.id ?? null)
     setScoreEntry(true)
     navigate(TOOL_ROUTES.boletin)
@@ -805,7 +805,6 @@ export default function App() {
 
   const handleSelectReport = (id) => {
     setActiveReportId(id)
-    setTab('period')
     setScoreEntry(false)
     navigate(TOOL_ROUTES.boletin)
   }
@@ -824,7 +823,6 @@ export default function App() {
 
   const handleSelectFinal = () => {
     setScoreEntry(false)
-    setTab('final')
     navigate(TOOL_ROUTES.final)
   }
 
@@ -909,7 +907,6 @@ export default function App() {
     setPendingHold(false)
     setReports([])
     setActiveReportId(null)
-    setTab('period')
     setSelectedStudentId(null)
     setFinalPerformances({})
     setToast('Datos de los informes reiniciados.')
