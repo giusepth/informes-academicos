@@ -108,7 +108,10 @@ test('reset after migration is not resurrected from legacy keys on reload', asyn
   await seedLegacy(page, { config, reports, finalPerformances })
   await expect(page.getByText(MIGRATION_TOAST)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Nuevo informe' }).click()
+  await page.getByRole('button', { name: 'Limpiar informes' }).click()
+  await page.getByRole('dialog', { name: 'Limpiar informes' })
+    .getByRole('button', { name: 'Limpiar informes' })
+    .click()
   await waitForPersisted(
     page,
     'informes.reports',

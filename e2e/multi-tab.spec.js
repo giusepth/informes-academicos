@@ -60,7 +60,7 @@ test('a second tab opens read-only with a banner and no editing affordances', as
   await expect(second.getByRole('button', { name: 'Nuevo periodo en blanco' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Importar Excel (periodo)' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Cargar desempeños (excel)' })).toBeDisabled()
-  await expect(second.getByRole('button', { name: 'Nuevo informe' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Limpiar informes' })).toBeDisabled()
 
   const performances = second.locator('.report-sheet textarea')
   await expect(performances.first()).toBeVisible()
