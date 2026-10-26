@@ -6,7 +6,6 @@ import {
   parseBackupWorkbook,
   parseWorkbook,
 } from '../utils/parser'
-import ManualEntryForm from './ManualEntryForm'
 import PerformanceMatrixActions from './PerformanceMatrixActions'
 import { Button } from './ui'
 
@@ -21,12 +20,12 @@ export default function ManagementMenu({
   finalPerformances = {},
   activeReport = null,
   config = null,
-  maxScore = 5,
   pendingMatrix = null,
   readOnly = false,
   onNewReport,
   onLoadedBackup,
-  onDuplicate,
+  onCreateManual,
+  onNewBlank,
   onOpenReport,
   onEditReport,
   onOpenFinal,
@@ -36,7 +35,6 @@ export default function ManagementMenu({
   onApplyMatrixToFinal,
   onOpenClear,
 }) {
-  const [mode, setMode] = useState('menu')
   const [busy, setBusy] = useState(false)
   const [backupBusy, setBackupBusy] = useState(false)
   const [error, setError] = useState('')
@@ -104,16 +102,6 @@ export default function ManagementMenu({
     setDragging(false)
     if (readOnly) return
     void readWorkbook(event.dataTransfer.files?.[0])
-  }
-
-  if (mode === 'manual') {
-    return (
-      <ManualEntryForm
-        onCancel={() => setMode('menu')}
-        onLoaded={onNewReport}
-        maxScore={maxScore}
-      />
-    )
   }
 
   const hasReports = reports.length > 0
@@ -185,13 +173,13 @@ export default function ManagementMenu({
               Carga grado, docente, asignaturas y estudiantes a mano.
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              <Button variant="secondary" onClick={() => setMode('manual')} disabled={readOnly}>
+              <Button variant="secondary" onClick={onCreateManual} disabled={readOnly}>
                 Crear manualmente
               </Button>
               {hasReports ? (
                 <Button
                   variant="secondary"
-                  onClick={onDuplicate}
+                  onClick={onNewBlank}
                   disabled={readOnly || !activeReport}
                   title="Copia el informe activo con las notas en blanco"
                 >

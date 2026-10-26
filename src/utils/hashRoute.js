@@ -1,7 +1,6 @@
 export const TOOL_ROUTES = Object.freeze({
   gestion: 'gestion',
   editor: 'editor',
-  editorFinal: 'editor-final',
   boletin: 'boletin',
   final: 'final',
   contacto: 'contacto',
@@ -32,6 +31,9 @@ export function resolveToolRoute(hash, { hasReports = false, activeTab = 'period
 
   if (parsed === TOOL_ROUTES.contacto) return TOOL_ROUTES.contacto
   if (parsed === TOOL_ROUTES.gestion) return TOOL_ROUTES.gestion
+  // The period editor can create the first report, so it is valid with an
+  // empty session. App still redirects a direct hash without editor intent.
+  if (parsed === TOOL_ROUTES.editor) return TOOL_ROUTES.editor
 
   if (!hasReports) return DEFAULT_TOOL_ROUTE
   if (parsed) return parsed

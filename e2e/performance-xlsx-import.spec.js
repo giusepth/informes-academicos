@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import * as XLSX from 'xlsx'
-import { completeFirstRun } from './helpers'
+import { completeFirstRun, waitForPersisted } from './helpers'
 
 /**
  * Regression for the import routing: a single-sheet file is a normal report,
@@ -72,9 +72,14 @@ test('a pending matrix applies to a single-sheet import with grades', async ({ p
   // Normal report path, not a restore: the pending matrix applies at once.
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toBeVisible()
   await expect(page.getByText(/Backup restaurado/)).toHaveCount(0)
+  await waitForPersisted(
+    page,
+    'informes.reports',
+    (value) => value?.[0]?.students?.[0]?.performances?.['Matemáticas'] === matrix['Matemáticas'].Alto,
+  )
   await expect(
-    page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
-  ).toHaveValue(matrix['Matemáticas'].Alto)
+    page.locator('tr', { hasText: 'Matemáticas' }).first(),
+  ).toContainText(matrix['Matemáticas'].Alto)
   await expect
     .poll(() => page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
     .toBeNull()

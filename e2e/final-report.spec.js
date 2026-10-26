@@ -67,8 +67,10 @@ test('switching back to a period tab keeps the period layout intact', async ({ p
   await page.getByRole('button', { name: 'Informe 2' }).click()
 
   await expect(page.getByText('Informe académico', { exact: false }).first()).toBeVisible()
-  await expect(page.getByText('Desempeño').first()).toBeVisible() // editable desempeño column
-  await expect(page.locator('textarea').first()).toBeVisible() // editable desempeños (RF-06)
+  await expect(page.getByText('Desempeño').first()).toBeVisible()
+  // Period sheets are read-only: editing lives in the period editor.
+  await expect(page.locator('textarea')).toHaveCount(0)
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('4.8')
 })
 
 test('final-sheet performances are saved by student name and survive a reload', async ({ page }) => {
@@ -99,8 +101,8 @@ test('final-sheet performances are saved by student name and survive a reload', 
   // period sheet: different storage slice.
   await page.getByRole('button', { name: 'Informe 1' }).click()
   await expect(
-    page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
-  ).toHaveValue('')
+    page.locator('tr', { hasText: 'Matemáticas' }).first(),
+  ).not.toContainText('Alto desempeño sostenido en el año')
   await page.getByRole('button', { name: 'Informe 5 (final)' }).click()
   await expect(
     page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),

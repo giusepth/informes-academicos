@@ -5,6 +5,8 @@ import ExportToolbar from './components/ExportToolbar'
 import Landing from './components/Landing'
 import ManagementMenu from './components/ManagementMenu'
 import PeriodBar from './components/PeriodBar'
+import PeriodEditor from './components/PeriodEditor'
+import UnsavedChangesDialog from './components/UnsavedChangesDialog'
 import ReportDashboard from './components/ReportDashboard'
 import ReportPreview from './components/ReportPreview'
 import SetupModal from './components/SetupModal'
@@ -69,6 +71,8 @@ const STORAGE_KEYS = {
   pendingMatrix: 'informes.pendingMatrix',
   // Restore hold (see RESTORED_HOLD): survives a reload until a score edit.
   pendingHold: 'informes.pendingHold',
+  // Local editor intent (create/edit); the draft itself lives in the editor.
+  editor: 'informes.editor',
   // Legacy single-report key; read only, kept for one-shot migration.
   legacyReport: 'informes.report',
 }
@@ -189,7 +193,10 @@ export default function App() {
   const [pendingMatrix, setPendingMatrix] = useState(() =>
     readStorage(STORAGE_KEYS.pendingMatrix),
   )
-  const [scoreEntry, setScoreEntry] = useState(false)
+  const [editorState, setEditorState] = useState(() => readStorage(STORAGE_KEYS.editor))
+  const [editorDirty, setEditorDirty] = useState(false)
+  const [editorEpoch, setEditorEpoch] = useState(0)
+  const [leaveTarget, setLeaveTarget] = useState(null)
   const [hydrating, setHydrating] = useState(true)
   const [activated, setActivated] = useState(false)
   const [readOnly, setReadOnly] = useState(false)
@@ -202,10 +209,19 @@ export default function App() {
   const [persistenceStatus, setPersistenceStatus] = useState()
   const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
   const [hash, setHash] = useState(() => window.location.hash)
-  const navigate = useCallback((route) => {
-    const nextHash = hashForRoute(route)
-    if (window.location.hash !== nextHash) window.location.hash = nextHash
-  }, [])
+  const navigate = useCallback(
+    (route, { replace = false } = {}) => {
+      const nextHash = hashForRoute(route)
+      if (window.location.hash === nextHash) return
+      if (replace) {
+        window.history.replaceState(null, '', nextHash)
+        setHash(nextHash)
+        return
+      }
+      window.location.hash = nextHash
+    },
+    [],
+  )
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
@@ -219,7 +235,7 @@ export default function App() {
   const tabSyncRef = useRef(null)
   // A duplicated blank period switches the report and enters score entry in
   // the same render: skip the navigation reset exactly once.
-  const keepScoreEntryRef = useRef(false)
+  const editorDirtyRef = useRef(false)
   // A restored backup must not consume a pending matrix while it shows its own
   // restore summary. The hold is persisted so a reload keeps waiting until the
   // teacher edits or scores again.
@@ -416,6 +432,10 @@ export default function App() {
     lockModeRef.current = 'writer'
     setReadOnly(false)
     setLockState('writer')
+    // The editor only had a read-only snapshot while this tab was waiting:
+    // remount it from the fresh reports so saving cannot overwrite the
+    // writer's newer data.
+    setEditorEpoch((current) => current + 1)
     setToast(PROMOTED_TOAST)
   }, [dataQueue, resyncFromIdb])
 
@@ -517,6 +537,35 @@ export default function App() {
     activeTab: initialTab,
   })
 
+  const editorReport = useMemo(
+    () =>
+      editorState?.mode === 'edit'
+        ? reports.find((report) => report.id === editorState.reportId) ?? null
+        : null,
+    [editorState, reports],
+  )
+  const editorInitial = editorState?.mode === 'edit' ? editorReport : editorState?.initial ?? null
+  const editorKey = editorState
+    ? `${editorState.mode}:${editorState.reportId ?? editorState.source ?? 'new'}:${editorEpoch}`
+    : ''
+
+  // A direct editor hash without a valid intent must not fall back to editing
+  // whichever period happens to be active. Wait for hydration first: a reload
+  // with a persisted edit intent finds its report only after IndexedDB loads.
+  useEffect(() => {
+    if (route !== TOOL_ROUTES.editor || hydrating) return
+    if (editorState?.mode === 'create' || editorReport) return
+    if (editorState && editorDirtyRef.current) {
+      // The resync removed the period under an open draft. Ask before
+      // discarding it instead of clearing the editor silently.
+      setLeaveTarget(TOOL_ROUTES.gestion)
+      return
+    }
+    setEditorState(null)
+    setEditorDirty(false)
+    navigate(TOOL_ROUTES.gestion, { replace: true })
+  }, [route, hydrating, editorState, editorReport, navigate])
+
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
   // included) go straight to the tool.
@@ -615,22 +664,21 @@ export default function App() {
   }, [reports, dataQueue, readOnly])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
-  // Score entry belongs to one period: navigation always leaves edit mode,
-  // except the blank-period flow that enters it on purpose.
   useEffect(() => {
-    if (keepScoreEntryRef.current) {
-      // The blank-period handler switches the report and the route in the
-      // same batch. Wait for the boletin route before consuming the flag;
-      // consuming it on the report change alone would let the route effect
-      // close the editor immediately afterwards.
-      if (route === TOOL_ROUTES.boletin) {
-        keepScoreEntryRef.current = false
-        setScoreEntry(true)
-      }
-      return
-    }
-    setScoreEntry(false)
-  }, [activeReportId, route])
+    editorDirtyRef.current = editorDirty
+  }, [editorDirty])
+  useEffect(() => {
+    // Persist only the intent (what the editor is for), never the draft: a
+    // reload after the beforeunload warning starts a fresh draft.
+    const intent = editorState
+      ? {
+          mode: editorState.mode,
+          ...(editorState.reportId ? { reportId: editorState.reportId } : {}),
+          ...(editorState.source ? { source: editorState.source } : {}),
+        }
+      : null
+    persist(STORAGE_KEYS.editor, intent)
+  }, [editorState])
   useEffect(() => {
     if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
@@ -649,10 +697,31 @@ export default function App() {
   // The contact page is hash-routed so it is reachable directly and from the
   // landing footer, before the visitor enters the tool or configures anything.
   useEffect(() => {
-    const onHashChange = () => setHash(window.location.hash)
+    const onHashChange = () => {
+      const nextHash = window.location.hash
+      const nextRoute = resolveToolRoute(nextHash, {
+        hasReports: reports.length > 0,
+        activeTab: initialTab,
+      })
+      // A dirty editor owns the route: keep the hash on #/editor and ask
+      // before discarding. Programmatic exits use replaceState and never
+      // reach this handler.
+      if (route === TOOL_ROUTES.editor && nextRoute !== TOOL_ROUTES.editor) {
+        if (editorDirtyRef.current) {
+          window.history.replaceState(null, '', hashForRoute(TOOL_ROUTES.editor))
+          setLeaveTarget(nextRoute)
+          return
+        }
+        // A clean editor left through history must not keep a stale intent:
+        // a later #/editor would reopen the old report.
+        setEditorState(null)
+        setEditorDirty(false)
+      }
+      setHash(nextHash)
+    }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
+  }, [route, reports.length, initialTab])
 
   const activeReport = useMemo(
     () => reports.find((report) => report.id === activeReportId) ?? reports[0] ?? null,
@@ -678,6 +747,7 @@ export default function App() {
       !pendingMatrix ||
       readOnly ||
       route === TOOL_ROUTES.gestion ||
+      route === TOOL_ROUTES.editor ||
       route === TOOL_ROUTES.final
     ) return
     // A restored backup keeps the pending matrix until the teacher edits/scores.
@@ -820,42 +890,112 @@ export default function App() {
     else handleImportPeriod(data)
   }
 
-  const handleEditReport = (id) => {
+  const openEditor = (state) => {
     if (readOnlyRef.current) return
-    keepScoreEntryRef.current = true
-    setActiveReportId(id)
-    setScoreEntry(true)
-    navigate(TOOL_ROUTES.boletin)
+    setEditorDirty(false)
+    setEditorState(state)
+    navigate(TOOL_ROUTES.editor)
   }
 
-  const handleDuplicatePeriod = () => {
+  const handleCreateManual = () => {
+    openEditor({ mode: 'create', source: 'manual' })
+  }
+
+  const handleEditReport = (id) => {
+    if (readOnlyRef.current || !reports.some((report) => report.id === id)) return
+    openEditor({ mode: 'edit', reportId: id })
+  }
+
+  // A blank period keeps the active period's structure but starts with empty
+  // scores and performances. It is a draft until the teacher saves it.
+  const handleNewBlank = () => {
     if (readOnlyRef.current || !activeReport || route === TOOL_ROUTES.final) return
     const subjects = activeReport.subjects ?? []
-    const copy = {
-      ...activeReport,
-      id: makeId(),
-      label: `Informe ${reports.length + 1}`,
-      // Fresh ids: performances are per period, so a shared id would leak
-      // edits across every period at once.
-      students: activeReport.students.map((student) => ({
-        id: makeId(),
-        name: student.name,
-        scores: Object.fromEntries(Object.keys(student.scores ?? {}).map((subject) => [subject, null])),
-        performances: Object.fromEntries(subjects.map((subject) => [subject, ''])),
-      })),
+    openEditor({
+      mode: 'create',
+      source: 'blank',
+      initial: {
+        grade: activeReport.grade ?? '',
+        teacher: activeReport.teacher ?? '',
+        subjects,
+        teachers: activeReport.teachers ?? {},
+        // Fresh ids: a shared id would leak edits across every period.
+        students: (activeReport.students ?? []).map((student) => ({
+          id: makeId(),
+          name: student.name,
+          scores: Object.fromEntries(subjects.map((subject) => [subject, null])),
+          performances: Object.fromEntries(subjects.map((subject) => [subject, ''])),
+        })),
+      },
+    })
+  }
+
+  const leaveEditor = (target) => {
+    setLeaveTarget(null)
+    setEditorState(null)
+    setEditorDirty(false)
+    // Replace the editor entry so Back returns to the screen before it,
+    // never to a dead #/editor state that redirects forward again.
+    navigate(target ?? TOOL_ROUTES.gestion, { replace: true })
+  }
+
+  const handleEditorCancel = () => {
+    if (editorDirtyRef.current) {
+      setLeaveTarget(TOOL_ROUTES.gestion)
+      return
     }
-    keepScoreEntryRef.current = true
-    setReports((current) => [...current, copy])
-    setActiveReportId(copy.id)
-    setSelectedStudentId(copy.students[0]?.id ?? null)
-    setScoreEntry(true)
-    navigate(TOOL_ROUTES.boletin)
-    setToast(`${copy.label} creado: asignaturas y estudiantes copiados, notas en blanco.`)
+    leaveEditor(TOOL_ROUTES.gestion)
+  }
+
+  const handleEditorSave = (data) => {
+    if (readOnlyRef.current || !editorState) return
+    let saved
+    if (editorState.mode === 'edit') {
+      const current = reports.find((report) => report.id === editorState.reportId)
+      // A remote clear may have removed the original period while this draft
+      // was open. Preserve the teacher's work as a new period.
+      saved = current
+        ? { ...current, ...data, id: current.id, label: current.label }
+        : {
+            ...data,
+            id: makeId(),
+            label: `Informe ${reports.length + 1}`,
+            students: data.students.map((student) => ({ ...student, id: makeId() })),
+          }
+      setReports((currentReports) =>
+        current
+          ? currentReports.map((report) => (report.id === saved.id ? saved : report))
+          : [...currentReports, saved],
+      )
+      setActiveReportId(saved.id)
+      setSelectedStudentId((selected) =>
+        saved.students.some((student) => student.id === selected)
+          ? selected
+          : saved.students[0]?.id ?? null,
+      )
+      setToast(
+        current
+          ? `${saved.label ?? 'Período'} guardado.`
+          : 'El período original ya no estaba disponible; se guardó como uno nuevo.',
+      )
+    } else {
+      saved = {
+        ...data,
+        id: makeId(),
+        label: `Informe ${reports.length + 1}`,
+        students: data.students.map((student) => ({ ...student, id: makeId() })),
+      }
+      setReports((currentReports) => [...currentReports, saved])
+      setActiveReportId(saved.id)
+      setSelectedStudentId(saved.students[0]?.id ?? null)
+      setToast(`${saved.label} creado con ${saved.students.length} estudiantes.`)
+    }
+    if (hasNumericScore(saved)) setPendingHold(false)
+    leaveEditor(TOOL_ROUTES.boletin)
   }
 
   const handleSelectReport = (id) => {
     setActiveReportId(id)
-    setScoreEntry(false)
     navigate(TOOL_ROUTES.boletin)
   }
 
@@ -879,7 +1019,6 @@ export default function App() {
   }
 
   const handleSelectFinal = () => {
-    setScoreEntry(false)
     navigate(TOOL_ROUTES.final)
   }
 
@@ -918,47 +1057,6 @@ export default function App() {
     )
   }
 
-  const handleScoreChange = (studentId, subject, value) => {
-    if (readOnlyRef.current || !activeReport) return
-    setPendingHold(false)
-    setReports((current) =>
-      current.map((reportEntry) =>
-        reportEntry.id === activeReport.id
-          ? {
-              ...reportEntry,
-              students: reportEntry.students.map((student) =>
-                student.id === studentId
-                  ? { ...student, scores: { ...student.scores, [subject]: value } }
-                  : student,
-              ),
-            }
-          : reportEntry,
-      ),
-    )
-  }
-
-  const handleAddStudent = (rawName) => {
-    if (readOnlyRef.current) return
-    const name = rawName.trim()
-    if (!name || !activeReport || route === TOOL_ROUTES.final) return
-    const subjects = activeReport.subjects ?? []
-    const student = {
-      id: makeId(),
-      name,
-      scores: Object.fromEntries(subjects.map((subject) => [subject, null])),
-      performances: Object.fromEntries(subjects.map((subject) => [subject, ''])),
-    }
-    setReports((current) =>
-      current.map((reportEntry) =>
-        reportEntry.id === activeReport.id
-          ? { ...reportEntry, students: [...reportEntry.students, student] }
-          : reportEntry,
-      ),
-    )
-    setSelectedStudentId(student.id)
-    setToast(`Se agregó a ${name} en ${activeReport.label}.`)
-  }
-
   const handleClearReports = async () => {
     if (readOnlyRef.current || clearing) return
     setClearing(true)
@@ -981,7 +1079,9 @@ export default function App() {
       setFinalPerformances({})
       setActiveReportId(null)
       setSelectedStudentId(null)
-      setScoreEntry(false)
+      setEditorState(null)
+      setEditorDirty(false)
+      setLeaveTarget(null)
       setPreviewOpen(false)
       setClearOpen(false)
       setToast('Informes eliminados. La configuración se conservó.')
@@ -1020,7 +1120,6 @@ export default function App() {
     setPendingHold(false)
     setPendingMatrix(null)
     setFinalPerformances(next)
-    setScoreEntry(false)
     setToast('Matriz aplicada al informe final (solo casilleros vacíos).')
     navigate(TOOL_ROUTES.final)
   }
@@ -1092,10 +1191,11 @@ export default function App() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setScoreEntry(false)
-                navigate(TOOL_ROUTES.gestion)
-              }}
+              onClick={() =>
+                route === TOOL_ROUTES.editor
+                  ? handleEditorCancel()
+                  : navigate(TOOL_ROUTES.gestion)
+              }
             >
               Menú
             </Button>
@@ -1124,18 +1224,31 @@ export default function App() {
       ) : null}
 
       <main className="mx-auto max-w-7xl px-4 py-6">
-        {route === TOOL_ROUTES.gestion || reports.length === 0 ? (
+        {route === TOOL_ROUTES.editor ? (
+          editorState ? (
+            <PeriodEditor
+              key={editorKey}
+              mode={editorState.mode}
+              initial={editorInitial}
+              maxScore={maxScore}
+              readOnly={readOnly}
+              onSave={handleEditorSave}
+              onCancel={handleEditorCancel}
+              onDirtyChange={setEditorDirty}
+            />
+          ) : null
+        ) : route === TOOL_ROUTES.gestion || reports.length === 0 ? (
           <ManagementMenu
             reports={reports}
             finalPerformances={finalPerformances}
             activeReport={activeReport}
             config={config}
-            maxScore={maxScore}
             pendingMatrix={pendingMatrix}
             readOnly={readOnly}
             onNewReport={handleNewReport}
             onLoadedBackup={handleLoadedBackup}
-            onDuplicate={handleDuplicatePeriod}
+            onCreateManual={handleCreateManual}
+            onNewBlank={handleNewBlank}
             onOpenReport={handleSelectReport}
             onEditReport={handleEditReport}
             onOpenFinal={handleSelectFinal}
@@ -1153,11 +1266,6 @@ export default function App() {
               activeTab={tab}
               onSelectReport={handleSelectReport}
               onSelectFinal={handleSelectFinal}
-              scoreEntry={route === TOOL_ROUTES.boletin && scoreEntry}
-              canEdit={route === TOOL_ROUTES.boletin}
-              onToggleScoreEntry={() => setScoreEntry((current) => !current)}
-              onAddStudent={handleAddStudent}
-              readOnly={readOnly}
             />
             <ExportToolbar
               report={displayReport}
@@ -1174,9 +1282,7 @@ export default function App() {
               rankedStudents={rankedStudents}
               selectedStudentId={activeStudentId}
               onSelectStudent={setSelectedStudentId}
-              onPerformanceChange={handlePerformanceChange}
-              onScoreChange={handleScoreChange}
-              editableScores={route === TOOL_ROUTES.boletin && scoreEntry}
+              onPerformanceChange={isFinal ? handlePerformanceChange : undefined}
               printSheetRef={printSheetRef}
               variant={isFinal ? 'final' : 'period'}
               readOnly={readOnly}
@@ -1191,6 +1297,12 @@ export default function App() {
         onCancel={() => setClearOpen(false)}
         onConfirm={handleClearReports}
         readOnly={readOnly}
+      />
+
+      <UnsavedChangesDialog
+        open={leaveTarget !== null}
+        onKeepEditing={() => setLeaveTarget(null)}
+        onDiscard={() => leaveEditor(leaveTarget)}
       />
 
       {previewOpen && activeStudent ? (

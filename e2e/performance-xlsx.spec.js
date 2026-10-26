@@ -1,7 +1,13 @@
 import fs from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import * as XLSX from 'xlsx'
-import { completeFirstRun, waitForHydrated, waitForPersisted } from './helpers'
+import {
+  completeFirstRun,
+  openManagementMenu,
+  readDataKey,
+  waitForHydrated,
+  waitForPersisted,
+} from './helpers'
 
 /**
  * Issue #23: the main menu exposes the desempeño workbook actions and a
@@ -46,20 +52,23 @@ const pendingRaw = (page) =>
 const holdRaw = (page) =>
   page.evaluate(() => JSON.parse(sessionStorage.getItem('informes.pendingHold')))
 
-const mathBox = (page) =>
-  page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea')
+const mathRow = (page) => page.locator('tr', { hasText: 'Matemáticas' }).first()
+
+const storedPerformance = async (page) => {
+  const value = await readDataKey(page, 'informes.reports')
+  return value?.[0]?.students?.[0]?.performances?.['Matemáticas'] ?? ''
+}
 
 async function createManualReport(page, { score } = {}) {
   await page.getByRole('button', { name: 'Crear manualmente', exact: true }).click()
+  await expect(page).toHaveURL(/#\/editor$/)
   await page.getByPlaceholder('5° A').fill('5° A')
   await page.getByPlaceholder('Prof. Rivera').fill('Prof. Rivera')
-  await page.locator('tbody tr').first().locator('input').first().fill('Ana')
+  await page.getByPlaceholder('Nombre del estudiante').first().fill('Ana')
   if (score !== undefined) {
-    const scoreInput = page.locator('tbody tr').first().locator('input').nth(1)
-    await scoreInput.fill(String(score))
-    await page.keyboard.press('Enter')
+    await page.getByLabel('Nota de Ana en Matemáticas').fill(String(score))
   }
-  await page.getByRole('button', { name: 'Generar informe', exact: true }).click()
+  await page.getByRole('button', { name: 'Crear período', exact: true }).click()
 }
 
 /** Genuine backup (two report sheets): Ana has a grade and an empty cell. */
@@ -122,7 +131,7 @@ test('loading the unedited template warns and arms no pending matrix', async ({ 
   await createManualReport(page, { score: 4.5 })
 
   // Nothing pending: no applied toast, an empty cell, no placeholder text.
-  await expect(mathBox(page)).toHaveValue('')
+  await expect.poll(() => storedPerformance(page)).toBe('')
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toHaveCount(0)
   await expect(page.getByText(/Describe aquí/i)).toHaveCount(0)
   await expect.poll(() => pendingRaw(page)).toBeNull()
@@ -140,17 +149,18 @@ test('a roster without grades does not consume the pending matrix', async ({ pag
 
   // Manual report with a student but no grade: nothing can be banded yet.
   await createManualReport(page)
-  await expect(mathBox(page)).toHaveValue('')
+  await expect.poll(() => storedPerformance(page)).toBe('')
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toHaveCount(0)
   await expect.poll(() => pendingRaw(page)).not.toBeNull()
 
   // The score appears later: now the pending matrix applies exactly once.
-  await page.getByRole('button', { name: 'Editar notas', exact: true }).click()
-  await page.getByLabel('Nota de Matemáticas para Ana').fill('4.5')
-  await page.keyboard.press('Enter')
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('4.5')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
 
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toBeVisible()
-  await expect(mathBox(page)).toHaveValue(matrix['Matemáticas'].Alto)
+  await expect(mathRow(page)).toContainText(matrix['Matemáticas'].Alto)
   await expect.poll(() => pendingRaw(page)).toBeNull()
 })
 
@@ -176,17 +186,18 @@ test('restoring a backup keeps its summary and leaves the pending matrix waiting
   // The restore summary wins: no applied toast and the cell stays empty.
   await expect(page.getByText(RESTORE_TOAST, { exact: true })).toBeVisible()
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toHaveCount(0)
-  await expect(mathBox(page)).toHaveValue('')
+  await expect.poll(() => storedPerformance(page)).toBe('')
   await expect.poll(() => pendingRaw(page)).not.toBeNull()
   await expect.poll(() => holdRaw(page)).toBe('restored')
 
   // A later score edit releases the hold: the matrix applies then.
-  await page.getByRole('button', { name: 'Editar notas', exact: true }).click()
-  await page.getByLabel('Nota de Matemáticas para Ana').fill('4.6')
-  await page.keyboard.press('Enter')
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('4.6')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
 
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toBeVisible()
-  await expect(mathBox(page)).toHaveValue(matrix['Matemáticas'].Superior)
+  await expect(mathRow(page)).toContainText(matrix['Matemáticas'].Superior)
   await expect.poll(() => holdRaw(page)).toBeNull()
 })
 
@@ -215,17 +226,18 @@ test('a restored backup keeps the hold across reload until a score edit', async 
 
   // Nothing applies by itself: no toast, empty cell, pending payload intact.
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toHaveCount(0)
-  await expect(mathBox(page)).toHaveValue('')
+  await expect.poll(() => storedPerformance(page)).toBe('')
   await expect.poll(() => pendingRaw(page)).not.toBeNull()
   await expect.poll(() => holdRaw(page)).toBe('restored')
 
   // Scoring releases the hold and the matrix fills the empty cell.
-  await page.getByRole('button', { name: 'Editar notas', exact: true }).click()
-  await page.getByLabel('Nota de Matemáticas para Ana').fill('4.6')
-  await page.keyboard.press('Enter')
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('4.6')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
 
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toBeVisible()
-  await expect(mathBox(page)).toHaveValue(matrix['Matemáticas'].Superior)
+  await expect(mathRow(page)).toContainText(matrix['Matemáticas'].Superior)
   await expect.poll(() => pendingRaw(page)).toBeNull()
   await expect.poll(() => holdRaw(page)).toBeNull()
 })
@@ -267,8 +279,7 @@ test('a pending matrix survives reload, fills the first report and never overwri
 
   // 4.5 falls in Alto: the sample text is pre-loaded automatically.
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toBeVisible()
-  const box = mathBox(page)
-  await expect(box).toHaveValue(expectedAlto)
+  await expect(mathRow(page)).toContainText(expectedAlto)
 
   // The payload is consumed exactly once and cleared from sessionStorage.
   await expect.poll(() => pendingRaw(page)).toBeNull()
@@ -282,11 +293,14 @@ test('a pending matrix survives reload, fills the first report and never overwri
   await page.reload()
   await waitForHydrated(page)
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toHaveCount(0)
-  await expect(box).toHaveValue(expectedAlto)
+  await expect(mathRow(page)).toContainText(expectedAlto)
 
   // A teacher-written judgment survives later matrix payloads untouched.
   const ownText = 'Texto propio de la docente.'
-  await box.fill(ownText)
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Desempeño de Ana en Matemáticas').fill(ownText)
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
   await waitForPersisted(
     page,
     'informes.reports',
@@ -312,6 +326,6 @@ test('a pending matrix survives reload, fills the first report and never overwri
   await waitForHydrated(page)
 
   await expect(page.getByText(APPLIED_TOAST, { exact: true })).toHaveCount(0)
-  await expect(box).toHaveValue(ownText)
+  await expect(mathRow(page)).toContainText(ownText)
   await expect.poll(() => pendingRaw(page)).not.toBeNull()
 })

@@ -64,9 +64,9 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
 src/
 ├── components/
 │   ├── SetupModal.jsx          # Configuración inicial de escala y escudo PNG
-│   ├── DataInputMode.jsx       # Selector entre Cargar Excel (.xlsx) o Modo Manual (Vanilla)
-│   ├── ManualEntryForm.jsx     # Formulario dinámico para agregar N asignaturas y estudiantes a mano
-│   ├── ReportDashboard.jsx     # Vista de gestión, previsualización y edición de desempeños
+│   ├── ManagementMenu.jsx       # Menú de gestión: nuevo trabajo, período actual, desempeños y respaldo
+│   ├── PeriodEditor.jsx         # Editor compartido para crear o editar un período completo
+│   ├── ReportDashboard.jsx      # Vista de solo lectura del período y edición de desempeños finales
 │   └── ExportToolbar.jsx       # Panel de acciones (Imprimir, Descargar PDF individual, Generar ZIP)
 ├── utils/
 │   ├── parser.js               # Lectura SheetJS y generador de estructura de datos manual

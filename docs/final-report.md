@@ -22,16 +22,23 @@ aparte, para que reimportar periodos no los pise.
 ## 2. Flujo del docente
 
 1. **Informe 1**: al abrir la app por primera vez, importa `informe-1.xlsx`
-   (o crea todo a mano con "Crear manualmente"). Queda como el único informe.
+   (o crea todo a mano con "Crear manualmente", que abre el editor de
+   período). Queda como el único informe.
 2. **Informe 2..4**: en **Menú → Nuevo trabajo** usa **Importar Excel
-   (.xlsx)** para cada archivo nuevo, o **Nuevo periodo en blanco** que clona
-   el informe activo (mismos estudiantes/asignaturas/docentes, notas vacías)
-   para llenarlo a mano. Cada informe aparece como pestaña en la barra del
-   boletín y se numera automáticamente.
-3. **Informe final**: el botón **"Informe 5 (final)"** (el número crece según
+   (.xlsx)** para cada archivo nuevo, o **Nuevo periodo en blanco** que abre
+   el editor con la estructura del informe activo (mismos
+   estudiantes/asignaturas/docentes, notas vacías) para llenarlo a mano. Cada
+   informe aparece como pestaña en la barra del boletín y se numera
+   automáticamente.
+3. **Editar un período**: **Menú → Trabajo actual → Editar período** abre el
+   editor y es el único lugar donde se modifican grado, docente, asignaturas,
+   estudiantes, notas y desempeños de período. Los boletines de período son de
+   solo lectura; al guardar solo cambia el período editado.
+4. **Informe final**: el botón **"Informe 5 (final)"** (el número crece según
    la cantidad de informes) abre el boletín computado. Desde ahí funcionan la
    vista previa, la impresión (`Ctrl+P`) y el ZIP masivo igual que en los
-   informes de periodo.
+   informes de periodo. La columna **Desempeño** del informe final sigue siendo
+   editable directamente en ese boletín.
 
 Cada importación de período acepta **un archivo con una hoja activa**; un
 periodo = un archivo (o un periodo manual a mano). Si ya hay informes, la
@@ -67,7 +74,7 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 | Puesto | `rankStudents`: orden por promedio crudo, empates comparten puesto y la numeración es **densa** (sin saltos) — RF-05. |
 | Docente por asignatura | **Gana el informe más reciente**: si el docente cambió a mitad de año, el final refleja el último cargado. |
 | Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. Se muestran solo en la pestaña del informe final; los informes de periodo no ven estas anotaciones. |
-| Matriz descriptiva | `Cargar desempeños (excel)` (en **Menú → Desempeños**) importa una hoja `Asignatura × Bajo/Básico/Alto/Superior` con textos. Queda pendiente y **precarga solo casilleros vacíos** al abrir un boletín de período, usando la banda del redondeo institucional (`roundUpTenth` antes de `qualitativeFor`). **Aplicar al informe final** hace lo mismo sobre las anotaciones finales (claves por nombre). Los juicios ya escritos por el docente no se pisan. |
+| Matriz descriptiva | `Cargar desempeños (excel)` (en **Menú → Desempeños**) importa una hoja `Asignatura × Bajo/Básico/Alto/Superior` con textos. Queda pendiente y **precarga solo casilleros vacíos** al abrir o crear un boletín de período con notas, usando la banda del redondeo institucional (`roundUpTenth` antes de `qualitativeFor`). **Aplicar al informe final** hace lo mismo sobre las anotaciones finales (claves por nombre). Los juicios ya escritos por el docente no se pisan. |
 
 ## 5. Modelo y persistencia (RNF-01)
 
@@ -93,8 +100,9 @@ backup (.xlsx)** y se re-importa al abrir la app en el otro navegador.
 
 Claves de estado de vista (`sessionStorage`, por pestaña): `informes.activeReport`
 (informe activo), `informes.tab` (`period` o `final`), `informes.selected`
-(estudiante seleccionado) e `informes.entered` (si la pestaña ya entró a la
-herramienta).
+(estudiante seleccionado), `informes.entered` (si la pestaña ya entró a la
+herramienta) e `informes.editor` (intención del editor: modo, período y origen;
+nunca el borrador).
 
 Notas del modelo:
 

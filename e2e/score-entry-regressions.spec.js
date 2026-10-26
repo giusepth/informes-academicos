@@ -17,117 +17,102 @@ const reports = [
   }),
 ]
 
-const mathCell = (page) =>
-  page.locator('tr', { hasText: 'Matemáticas' }).first().locator('td').nth(1)
-
-const mathInput = (page, student = 'Ana') =>
-  page.locator(`input[aria-label="Nota de Matemáticas para ${student}"]`)
-
 const storedScore = (value, label, student, subject) =>
   value
     ?.find((entry) => entry.label === label)
     ?.students?.find((entry) => entry.name === student)?.scores?.[subject]
 
-async function openBlankPeriod(page) {
+async function openEditor(page) {
   await seed(page, { reports })
   await openManagementMenu(page)
-  await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await expect(page).toHaveURL(/#\/editor$/)
 }
 
 test('a decimal comma typed by keyboard is committed and stored as 0.5', async ({ page }) => {
-  await openBlankPeriod(page)
+  await openEditor(page)
 
-  const input = mathInput(page)
+  const input = page.getByLabel('Nota de Ana en Matemáticas')
+  await input.fill('')
   await input.click()
   await page.keyboard.type('0,5')
   await expect(input).toHaveValue('0,5')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
 
-  await page.getByRole('button', { name: 'Terminar edición' }).click()
-
-  await expect(mathCell(page)).toHaveText('0.5')
+  await expect(page).toHaveURL(/#\/boletin$/)
   await waitForPersisted(
     page,
     'informes.reports',
-    (value) => storedScore(value, 'Informe 2', 'Ana', 'Matemáticas') === 0.5,
+    (value) => storedScore(value, 'Informe 1', 'Ana', 'Matemáticas') === 0.5,
   )
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('0.5')
 })
 
 test('manual score entry clamps to the configured range', async ({ page }) => {
-  await openBlankPeriod(page)
+  await openEditor(page)
+  const input = page.getByLabel('Nota de Ana en Matemáticas')
+  const save = () => page.getByRole('button', { name: 'Guardar cambios' }).click()
 
-  const enter = () => page.getByRole('button', { name: 'Editar notas' }).click()
-  const exit = () => page.getByRole('button', { name: 'Terminar edición' }).click()
+  await input.fill('6')
+  await save()
+  await waitForPersisted(page, 'informes.reports', (value) =>
+    storedScore(value, 'Informe 1', 'Ana', 'Matemáticas') === 5,
+  )
 
-  await mathInput(page).fill('6')
-  await exit()
-  await expect(mathCell(page)).toHaveText('5.0')
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('-1')
+  await save()
+  await waitForPersisted(page, 'informes.reports', (value) =>
+    storedScore(value, 'Informe 1', 'Ana', 'Matemáticas') === 0,
+  )
 
-  await enter()
-  await mathInput(page).fill('-1')
-  await exit()
-  await expect(mathCell(page)).toHaveText('0.0')
-
-  await enter()
-  await mathInput(page).fill('')
-  await exit()
-  await expect(mathCell(page)).toHaveText('—')
-
-  await enter()
-  await mathInput(page).fill('0')
-  await exit()
-  await expect(mathCell(page)).toHaveText('0.0')
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('')
+  await save()
+  await waitForPersisted(page, 'informes.reports', (value) =>
+    storedScore(value, 'Informe 1', 'Ana', 'Matemáticas') === null,
+  )
 })
 
-test('a manual score survives switching periods and edit mode closes on navigation', async ({
+test('period and final views never render editor inputs in capture or preview', async ({
   page,
 }) => {
-  await openBlankPeriod(page)
-
-  await page.getByPlaceholder('Nombre del estudiante').fill('Bruno')
-  await page.getByRole('button', { name: 'Agregar', exact: true }).click()
-  await mathInput(page, 'Bruno').fill('3.5')
-  await page.keyboard.press('Enter')
-
-  await page.getByRole('button', { name: 'Informe 1', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
-  await expect(page.locator('input[aria-label^="Nota de"]')).toHaveCount(0)
-  await expect(mathCell(page)).toHaveText('4.5')
-
-  await page.getByRole('button', { name: 'Informe 2', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toBeVisible()
-  await expect(page.locator('input[aria-label^="Nota de"]')).toHaveCount(0)
-  await expect(mathCell(page)).toHaveText('3.5')
-})
-
-test('capture, final report and preview never render score inputs', async ({ page }) => {
   await seed(page, { reports })
-  await page.getByRole('button', { name: 'Editar notas' }).click()
+  await expect(page.locator('input, textarea')).toHaveCount(0)
 
-  await expect(page.locator('input[aria-label^="Nota de"]')).toHaveCount(2)
-  await expect(page.locator('.capture-layer input')).toHaveCount(0)
-
-  await page.getByRole('button', { name: 'Informe 2 (final)' }).click()
-  await expect(page.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Terminar edición' })).toHaveCount(0)
-  await expect(page.locator('input[aria-label^="Nota de"]')).toHaveCount(0)
-
-  await page.getByRole('button', { name: 'Informe 1', exact: true }).click()
   await page.getByRole('button', { name: 'Vista previa' }).click()
-
-  const preview = page.locator('div.fixed.inset-0.z-40')
   await expect(page.getByRole('heading', { name: 'Vista previa del informe' })).toBeVisible()
-  await expect(preview.locator('input')).toHaveCount(0)
-  await expect(page.locator('.capture-layer input')).toHaveCount(0)
+  await expect(page.locator('div.fixed.inset-0.z-40 input, div.fixed.inset-0.z-40 textarea')).toHaveCount(0)
+  await expect(page.locator('.capture-layer input, .capture-layer textarea')).toHaveCount(0)
 })
 
-test('the add-student draft does not leak across periods', async ({ page }) => {
-  await openBlankPeriod(page)
-
-  const nameInput = page.getByPlaceholder('Nombre del estudiante')
-  await nameInput.fill('Car')
+test('a manual score survives switching periods', async ({ page }) => {
+  await seed(page, { reports })
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
+  await page.getByLabel('Nota de Ana en Matemáticas').fill('3.5')
+  await page.getByRole('button', { name: 'Crear período' }).click()
 
   await page.getByRole('button', { name: 'Informe 1', exact: true }).click()
-  await page.getByRole('button', { name: 'Editar notas' }).click()
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('4.5')
+  await page.getByRole('button', { name: 'Informe 2', exact: true }).click()
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('3.5')
+})
 
-  await expect(page.getByPlaceholder('Nombre del estudiante')).toHaveValue('')
+test('an unsaved new student is discarded when leaving the editor', async ({ page }) => {
+  await openEditor(page)
+  await page.getByRole('button', { name: 'Agregar estudiante' }).click()
+  await page.getByPlaceholder('Nombre del estudiante').last().fill('Car')
+
+  await page.getByRole('button', { name: 'Volver' }).click()
+  await page
+    .getByRole('dialog', { name: 'Cambios sin guardar' })
+    .getByRole('button', { name: 'Volver sin guardar' })
+    .click()
+
+  await expect(page).toHaveURL(/#\/gestion$/)
+  await page.getByRole('button', { name: 'Editar período' }).click()
+  await expect(page.getByPlaceholder('Nombre del estudiante')).toHaveCount(1)
 })

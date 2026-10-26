@@ -20,8 +20,6 @@ export default function ReportDashboard({
   selectedStudentId,
   onSelectStudent,
   onPerformanceChange,
-  onScoreChange,
-  editableScores = false,
   printSheetRef,
   variant = 'period',
   readOnly = false,
@@ -109,11 +107,8 @@ export default function ReportDashboard({
                 config={config}
                 report={report}
                 student={selected}
-                editable
+                editable={false}
                 readOnly={readOnly}
-                editableScores={editableScores && !readOnly}
-                onPerformanceChange={onPerformanceChange}
-                onScoreChange={onScoreChange}
               />
             )
           ) : (

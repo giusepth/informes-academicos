@@ -16,6 +16,8 @@ describe('parseToolRoute', () => {
   it('ignores landing anchors and unknown hashes', () => {
     expect(parseToolRoute('#pasos')).toBeNull()
     expect(parseToolRoute('#/desconocido')).toBeNull()
+    // The final editor route belongs to F5; until then it is not exposed.
+    expect(parseToolRoute('#/editor-final')).toBeNull()
     expect(parseToolRoute('')).toBeNull()
     expect(parseToolRoute(undefined)).toBeNull()
   })
@@ -50,6 +52,7 @@ describe('resolveToolRoute', () => {
   it('honours explicit report routes and unknown hashes', () => {
     expect(resolveToolRoute('#/final', { hasReports: true })).toBe(TOOL_ROUTES.final)
     expect(resolveToolRoute('#/editor', { hasReports: true })).toBe(TOOL_ROUTES.editor)
+    expect(resolveToolRoute('#/editor', { hasReports: false })).toBe(TOOL_ROUTES.editor)
     expect(resolveToolRoute('#/nope', { hasReports: true, activeTab: 'final' })).toBe(
       TOOL_ROUTES.final,
     )
