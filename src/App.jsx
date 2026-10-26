@@ -527,7 +527,10 @@ export default function App() {
       onRemoteChange: (origin, message) => {
         // A clear in another tab must also drop this tab's session-local
         // matrix, otherwise it could be applied after promotion.
-        if (message?.reason === TAB_SYNC_REASONS.clearReports) {
+        if (
+          message?.reason === TAB_SYNC_REASONS.clearReports &&
+          storageModeRef.current === 'idb'
+        ) {
           try {
             clearSessionReportCopies()
           } catch {
@@ -936,7 +939,11 @@ export default function App() {
       await clearReportData({ storageMode: storageModeRef.current, idb })
       dataQueue.prime(STORAGE_KEYS.reports, [])
       dataQueue.prime(STORAGE_KEYS.finalPerformances, {})
-      tabSyncRef.current?.notify(TAB_SYNC_REASONS.clearReports)
+      // Session-only tabs are independent per the persistence contract:
+      // never broadcast a clear that would wipe another tab's session copy.
+      if (storageModeRef.current === 'idb') {
+        tabSyncRef.current?.notify(TAB_SYNC_REASONS.clearReports)
+      }
 
       setPendingHold(false)
       setPendingMatrix(null)
