@@ -188,12 +188,12 @@ cerrar puede no alcanzar a guardarse. Se pierde si:
 3. usas el modo privado;
 4. el navegador puede liberar espacio automáticamente bajo presión de cuota
    (por ejemplo, si el equipo tiene poco espacio disponible);
-5. usas **Nuevo informe**: borra los informes y los desempeños finales
-   guardados en este navegador (hoy no hay confirmación), así que exporta el
-   backup antes.
+5. usas **Limpiar informes**: borra los informes y los desempeños finales
+   guardados en este navegador (pide confirmación y conserva la configuración), así que exporta
+   el backup antes.
 
 El **backup .xlsx** es el puente entre equipos y navegadores, y el resguardo
-recomendado antes de borrar los datos del sitio o de usar **Nuevo informe**.
+recomendado antes de borrar los datos del sitio o de usar **Limpiar informes**.
 
 En un **equipo compartido**, cualquier persona que abra este navegador puede
 ver los informes guardados. **Una sola pestaña edita a la vez**: las demás
@@ -207,7 +207,7 @@ pestaña se importa una sola vez a IndexedDB (migración automática).
 ## 7. Consejos y límites actuales
 
 - Exporta el backup .xlsx si vas a trabajar en otro equipo, si vas a usar
-  **Nuevo informe** o antes de borrar los datos del sitio: es la copia segura
+  **Limpiar informes** o antes de borrar los datos del sitio: es la copia segura
   del trabajo (periodos, notas, desempeños de período y desempeños finales; no
   incluye la configuración ni el escudo).
 - Exportar e imprimir sigue disponible en la pestaña de solo lectura, igual
