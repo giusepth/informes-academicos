@@ -15,7 +15,7 @@ import {
   DEFAULT_SCALES,
   rankStudents,
 } from './utils/calculations'
-import { clearReportData } from './utils/clearReports'
+import { clearReportData, clearSessionReportCopies } from './utils/clearReports'
 import { hashForRoute, resolveToolRoute, TOOL_ROUTES } from './utils/hashRoute'
 import { idb } from './utils/idbStorage'
 import {
@@ -528,6 +528,11 @@ export default function App() {
         // A clear in another tab must also drop this tab's session-local
         // matrix, otherwise it could be applied after promotion.
         if (message?.reason === TAB_SYNC_REASONS.clearReports) {
+          try {
+            clearSessionReportCopies()
+          } catch {
+            /* A blocked sessionStorage does not block the pending cleanup. */
+          }
           pendingHoldRef.current = false
           writeStorage(STORAGE_KEYS.pendingHold, null)
           writeStorage(STORAGE_KEYS.pendingMatrix, null)

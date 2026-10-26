@@ -56,6 +56,24 @@ describe('createTabSync', () => {
     sync.close()
   })
 
+  it('publishes a clear signal through storage when BroadcastChannel is absent', () => {
+    vi.stubGlobal('BroadcastChannel', undefined)
+    const writes = []
+    vi.stubGlobal('localStorage', {
+      setItem: (key, value) => writes.push([key, JSON.parse(value)]),
+    })
+    const sync = track(createTabSync({ onRemoteChange: vi.fn() }))
+
+    sync.notify(TAB_SYNC_REASONS.clearReports)
+
+    expect(writes).toHaveLength(1)
+    expect(writes[0][0]).toBe('informes.tab-sync-signal')
+    expect(writes[0][1]).toMatchObject({
+      type: 'informes:data-changed',
+      reason: TAB_SYNC_REASONS.clearReports,
+    })
+  })
+
   it('re-syncs when the document becomes visible again', () => {
     let listener
     vi.stubGlobal('document', {
