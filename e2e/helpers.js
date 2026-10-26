@@ -205,6 +205,22 @@ export async function clearAllStorage(page) {
 /** Completes the first-run setup modal so real-usage flows can proceed.
  * From the landing (first visit) the CTA opens the tool, which then shows
  * the initial setup; already-entered tabs go straight to the modal. */
+/** Opens #/gestion from the current report view. */
+export async function openManagementMenu(page) {
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
+}
+
+/** Opens the management menu and confirms the destructive clear dialog. */
+export async function clearAllReports(page) {
+  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Limpiar informes' }).click()
+  await page
+    .getByRole('dialog', { name: 'Limpiar informes' })
+    .getByRole('button', { name: 'Limpiar informes' })
+    .click()
+}
+
 export async function completeFirstRun(page, institution = 'Colegio de Prueba') {
   await page.goto('/')
   await waitForHydrated(page)

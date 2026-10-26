@@ -76,7 +76,7 @@ test('the final route never offers period-editing actions', async ({ page }) => 
   await page.goto('/#/final')
 
   await expect(page.getByRole('button', { name: 'Informe 2 (final)' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Nuevo periodo en blanco' })).not.toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Nuevo periodo en blanco' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
 })
 

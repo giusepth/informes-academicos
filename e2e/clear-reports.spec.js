@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { SCALE, readDataKey, report, seed, waitForHydrated, waitForPersisted } from './helpers'
+import {
+  SCALE,
+  openManagementMenu,
+  readDataKey,
+  report,
+  seed,
+  waitForHydrated,
+  waitForPersisted,
+} from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -29,6 +37,7 @@ const clearDialog = (page) => page.getByRole('dialog', { name: 'Limpiar informes
 
 test('the dialog traps focus and returns it to the trigger', async ({ page }) => {
   await seed(page, { config, reports })
+  await openManagementMenu(page)
   const trigger = page.getByRole('button', { name: 'Limpiar informes' })
 
   await trigger.click()
@@ -53,13 +62,14 @@ test('cancelling the clear dialog changes nothing', async ({ page }) => {
   const beforeReports = await readDataKey(page, 'informes.reports')
   const beforeFinals = await readDataKey(page, 'informes.finalPerformances')
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await expect(clearDialog(page)).toBeVisible()
   await expect(clearDialog(page)).toContainText('Se conservan la institución, el período lectivo, la escala y el escudo.')
   await clearDialog(page).getByRole('button', { name: 'Cancelar' }).click()
 
   await expect(clearDialog(page)).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: 'Estudiantes' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
   expect(await readDataKey(page, 'informes.reports')).toEqual(beforeReports)
   expect(await readDataKey(page, 'informes.finalPerformances')).toEqual(beforeFinals)
 })
@@ -79,6 +89,7 @@ test('confirming clears reports and finals but keeps the configuration', async (
   await page.reload()
   await waitForHydrated(page)
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await clearDialog(page).getByRole('button', { name: 'Limpiar informes' }).click()
 
@@ -104,6 +115,7 @@ test('confirming clears reports and finals but keeps the configuration', async (
 test('cleared data stays cleared after a reload and the configuration survives', async ({ page }) => {
   await seed(page, { config, reports, finalPerformances: { ANA: { Ciencias: 'Final.' } } })
 
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
   await clearDialog(page).getByRole('button', { name: 'Limpiar informes' }).click()
   await waitForPersisted(page, 'informes.reports', (value) => Array.isArray(value) && value.length === 0)

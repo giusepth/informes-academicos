@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { SCALE, report, waitForHydrated } from './helpers'
+import { SCALE, openManagementMenu, report, waitForHydrated } from './helpers'
 
 const config = {
   institution: 'Colegio Session',
@@ -43,6 +43,7 @@ test('clearing in one session-mode tab keeps the other tab data', async ({ conte
   const b = await openSessionTab(context, reportB)
   await expect(b.getByRole('button', { name: 'Informe B', exact: true })).toBeVisible()
 
+  await openManagementMenu(a)
   await a.getByRole('button', { name: 'Limpiar informes' }).click()
   await a
     .getByRole('dialog', { name: 'Limpiar informes' })

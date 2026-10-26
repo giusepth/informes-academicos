@@ -256,7 +256,7 @@ test('a pending matrix survives reload, fills the first report and never overwri
   await page.reload()
   await waitForHydrated(page)
 
-  await expect(page.getByRole('button', { name: ACTIONS.load, exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reemplazar archivo', exact: true })).toBeVisible()
   const pending = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem('informes.pendingMatrix')),
   )

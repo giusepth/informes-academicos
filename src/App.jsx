@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ClearReportsDialog from './components/ClearReportsDialog'
 import ContactPage from './components/ContactPage'
-import DataInputMode from './components/DataInputMode'
 import ExportToolbar from './components/ExportToolbar'
 import Landing from './components/Landing'
+import ManagementMenu from './components/ManagementMenu'
 import PeriodBar from './components/PeriodBar'
 import ReportDashboard from './components/ReportDashboard'
 import ReportPreview from './components/ReportPreview'
@@ -671,7 +671,15 @@ export default function App() {
   useEffect(() => {
     // Activation lands the real lock mode/readOnly flag; before it, a reader
     // must never consume the pending payload.
-    if (!activated || !pendingMatrix || readOnly || route === TOOL_ROUTES.final) return
+    // The menu is where a matrix is staged: leave it pending there and apply
+    // only when the teacher opens a report with grades.
+    if (
+      !activated ||
+      !pendingMatrix ||
+      readOnly ||
+      route === TOOL_ROUTES.gestion ||
+      route === TOOL_ROUTES.final
+    ) return
     // A restored backup keeps the pending matrix until the teacher edits/scores.
     if (pendingHoldRef.current) return
     if (!activeReport || (activeReport.students ?? []).length === 0) return
@@ -805,6 +813,21 @@ export default function App() {
     setToast(`${next.label} importado con ${next.students.length} estudiantes.`)
   }
 
+  // With existing work, "new" means an additional period; with none, it is
+  // the first one. Both paths navigate to the new report's boletín.
+  const handleNewReport = (data) => {
+    if (reports.length === 0) handleLoaded(data)
+    else handleImportPeriod(data)
+  }
+
+  const handleEditReport = (id) => {
+    if (readOnlyRef.current) return
+    keepScoreEntryRef.current = true
+    setActiveReportId(id)
+    setScoreEntry(true)
+    navigate(TOOL_ROUTES.boletin)
+  }
+
   const handleDuplicatePeriod = () => {
     if (readOnlyRef.current || !activeReport || route === TOOL_ROUTES.final) return
     const subjects = activeReport.subjects ?? []
@@ -846,6 +869,13 @@ export default function App() {
     setPendingHold(false)
     setPendingMatrix(matrix)
     setToast(PENDING_MATRIX_TOAST)
+  }
+
+  const handleClearPendingMatrix = () => {
+    if (readOnlyRef.current) return
+    setPendingHold(false)
+    setPendingMatrix(null)
+    setToast('Matriz de desempeños quitada.')
   }
 
   const handleSelectFinal = () => {
@@ -964,49 +994,35 @@ export default function App() {
   }
 
   /**
-   * Pre-loads desempeño texts from the descriptive matrix (Asignatura ×
-   * Banda). Applies to whatever is active: the final report (annotations
-   * keyed by student name) or the current period report — and only fills
-   * EMPTY cells, teacher-written judgments stay untouched.
+   * An explicit matrix application to the final report (annotations keyed by
+   * normalized student name). Only empty final cells are filled; the pending
+   * payload is consumed and the teacher lands on the final view.
    */
-  const handleApplyMatrix = (matrix) => {
-    if (readOnlyRef.current) return
+  const handleApplyMatrixToFinal = (matrix) => {
+    if (readOnlyRef.current || !finalReport || !matrix) return
     const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
-    // An explicit apply supersedes whatever was waiting from the menu, and the
-    // restore hold no longer has a pending payload to protect.
+    const scoresById = Object.fromEntries(
+      finalReport.students.map((student) => [student.id, student.scores ?? {}]),
+    )
+    const filled = fillPerformances(
+      finalReport.students,
+      finalReport.subjects,
+      scoresById,
+      scale,
+      matrix,
+      scaleType,
+    )
+    const next = { ...finalPerformances }
+    finalReport.students.forEach((student) => {
+      const key = finalPerformanceKey(student.name)
+      next[key] = filled[student.id]
+    })
     setPendingHold(false)
     setPendingMatrix(null)
-
-    if (route === TOOL_ROUTES.final && finalReport) {
-      const scoresById = Object.fromEntries(
-        finalReport.students.map((student) => [student.id, student.scores ?? {}]),
-      )
-      const filled = fillPerformances(
-        finalReport.students,
-        finalReport.subjects,
-        scoresById,
-        scale,
-        matrix,
-        scaleType,
-      )
-      const next = { ...finalPerformances }
-      finalReport.students.forEach((student) => {
-        const key = finalPerformanceKey(student.name)
-        next[key] = filled[student.id]
-      })
-      setFinalPerformances(next)
-      setToast('Matriz aplicada al informe final (solo casilleros vacíos).')
-      return
-    }
-
-    if (!activeReport) return
-    const students = applyMatrixToReport(activeReport, matrix, scale, scaleType)
-    setReports((current) =>
-      current.map((reportEntry) =>
-        reportEntry.id === activeReport.id ? { ...reportEntry, students } : reportEntry,
-      ),
-    )
-    setToast(`Matriz aplicada a ${activeReport.label} (solo casilleros vacíos).`)
+    setFinalPerformances(next)
+    setScoreEntry(false)
+    setToast('Matriz aplicada al informe final (solo casilleros vacíos).')
+    navigate(TOOL_ROUTES.final)
   }
 
   // The contact route is static: it must not mount the data boot at all (no
@@ -1086,16 +1102,6 @@ export default function App() {
             <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
               Configuración
             </Button>
-            {reports.length > 0 ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setClearOpen(true)}
-                disabled={readOnly || clearing}
-              >
-                Limpiar informes
-              </Button>
-            ) : null}
           </div>
         </div>
       </header>
@@ -1118,78 +1124,63 @@ export default function App() {
       ) : null}
 
       <main className="mx-auto max-w-7xl px-4 py-6">
-        {!configured ? (
-          <p className="text-sm text-slate-500">
-            Configura la escala y el escudo para comenzar.
-          </p>
-        ) : reports.length === 0 ? (
-          <DataInputMode
-            onLoaded={handleLoaded}
-            onLoadedBackup={handleLoadedBackup}
-            onLoadMatrix={handleLoadMatrix}
-            onOpenSettings={() => setSettingsOpen(true)}
-            hasConfig={configured}
+        {route === TOOL_ROUTES.gestion || reports.length === 0 ? (
+          <ManagementMenu
+            reports={reports}
+            finalPerformances={finalPerformances}
+            activeReport={activeReport}
+            config={config}
             maxScore={maxScore}
+            pendingMatrix={pendingMatrix}
             readOnly={readOnly}
+            onNewReport={handleNewReport}
+            onLoadedBackup={handleLoadedBackup}
+            onDuplicate={handleDuplicatePeriod}
+            onOpenReport={handleSelectReport}
+            onEditReport={handleEditReport}
+            onOpenFinal={handleSelectFinal}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onLoadMatrix={handleLoadMatrix}
+            onClearMatrix={handleClearPendingMatrix}
+            onApplyMatrixToFinal={handleApplyMatrixToFinal}
+            onOpenClear={() => setClearOpen(true)}
           />
         ) : (
           <div className="space-y-6">
-            {route === TOOL_ROUTES.gestion ? (
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">Gestión de informes</h2>
-                <p className="text-sm text-slate-500">
-                  Elige un período para abrir su boletín. La edición queda fuera de la vista de
-                  boletines.
-                </p>
-              </div>
-            ) : null}
             <PeriodBar
               reports={reports}
-              finalPerformances={finalPerformances}
               activeReportId={activeReport?.id}
               activeTab={tab}
               onSelectReport={handleSelectReport}
               onSelectFinal={handleSelectFinal}
-              onImportReport={handleImportPeriod}
-              onDuplicate={handleDuplicatePeriod}
-              onApplyMatrix={handleApplyMatrix}
               scoreEntry={route === TOOL_ROUTES.boletin && scoreEntry}
               canEdit={route === TOOL_ROUTES.boletin}
               onToggleScoreEntry={() => setScoreEntry((current) => !current)}
               onAddStudent={handleAddStudent}
               readOnly={readOnly}
             />
-            {route === TOOL_ROUTES.gestion ? (
-              <p className="text-sm text-slate-500">
-                Los boletines se abren en modo de solo lectura. Vuelve a este menú cuando
-                necesites cargar un período o exportar el respaldo.
-              </p>
-            ) : (
-              <>
-                <ExportToolbar
-                  report={displayReport}
-                  students={rankedStudents}
-                  selectedStudentId={activeStudentId}
-                  onSelectStudent={setSelectedStudentId}
-                  getPrintElement={() => printSheetRef.current}
-                  onPreview={() => setPreviewOpen(true)}
-                  onNotify={setToast}
-                />
-                <ReportDashboard
-                  config={config}
-                  report={displayReport}
-                  rankedStudents={rankedStudents}
-                  selectedStudentId={activeStudentId}
-                  onSelectStudent={setSelectedStudentId}
-                  onPerformanceChange={handlePerformanceChange}
-                  onScoreChange={handleScoreChange}
-                  editableScores={route === TOOL_ROUTES.boletin && scoreEntry}
-                  printSheetRef={printSheetRef}
-                  variant={isFinal ? 'final' : 'period'}
-                  readOnly={readOnly}
-                />
-              </>
-            )}
+            <ExportToolbar
+              report={displayReport}
+              students={rankedStudents}
+              selectedStudentId={activeStudentId}
+              onSelectStudent={setSelectedStudentId}
+              getPrintElement={() => printSheetRef.current}
+              onPreview={() => setPreviewOpen(true)}
+              onNotify={setToast}
+            />
+            <ReportDashboard
+              config={config}
+              report={displayReport}
+              rankedStudents={rankedStudents}
+              selectedStudentId={activeStudentId}
+              onSelectStudent={setSelectedStudentId}
+              onPerformanceChange={handlePerformanceChange}
+              onScoreChange={handleScoreChange}
+              editableScores={route === TOOL_ROUTES.boletin && scoreEntry}
+              printSheetRef={printSheetRef}
+              variant={isFinal ? 'final' : 'period'}
+              readOnly={readOnly}
+            />
           </div>
         )}
       </main>

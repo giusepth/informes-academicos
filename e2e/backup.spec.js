@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { clearAllStorage, completeFirstRun, report, seed } from './helpers'
+import {
+  clearAllStorage,
+  completeFirstRun,
+  openManagementMenu,
+  report,
+  seed,
+} from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -28,6 +34,7 @@ test('full backup round trip: export, wipe session, import again', async ({ page
 
   // Stand-in for the real "next day": the teacher downloads the backup and
   // the session dies. The file is the transfer medium.
+  await openManagementMenu(page)
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Exportar backup (.xlsx)' }).click()
   const backupPath = await (await download).path()

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { report, seed, waitForPersisted } from './helpers'
+import { openManagementMenu, report, seed, waitForPersisted } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -30,6 +30,7 @@ const storedScore = (value, label, student, subject) =>
 
 async function openBlankPeriod(page) {
   await seed(page, { reports })
+  await openManagementMenu(page)
   await page.getByRole('button', { name: 'Nuevo periodo en blanco' }).click()
 }
 
