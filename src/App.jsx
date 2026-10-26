@@ -14,6 +14,7 @@ import {
   DEFAULT_SCALES,
   rankStudents,
 } from './utils/calculations'
+import { hashForRoute, resolveToolRoute, TOOL_ROUTES } from './utils/hashRoute'
 import { idb } from './utils/idbStorage'
 import {
   createPersistQueue,
@@ -174,7 +175,11 @@ export default function App() {
   const [activeReportId, setActiveReportId] = useState(() =>
     readStorage(STORAGE_KEYS.activeReport),
   )
-  const [tab, setTab] = useState(() => (readStorage(STORAGE_KEYS.tab) === 'final' ? 'final' : 'period'))
+  // Read once for backward compatibility: sessions stored by the previous
+  // build kept their last tab here. The route is the source of truth now.
+  const [initialTab] = useState(() =>
+    readStorage(STORAGE_KEYS.tab) === 'final' ? 'final' : 'period',
+  )
   const [selectedStudentId, setSelectedStudentId] = useState(() =>
     readStorage(STORAGE_KEYS.selected),
   )
@@ -193,6 +198,10 @@ export default function App() {
   const [persistenceStatus, setPersistenceStatus] = useState()
   const [entered, setEntered] = useState(() => readStorage(STORAGE_KEYS.entered) === true)
   const [hash, setHash] = useState(() => window.location.hash)
+  const navigate = useCallback((route) => {
+    const nextHash = hashForRoute(route)
+    if (window.location.hash !== nextHash) window.location.hash = nextHash
+  }, [])
   const printSheetRef = useRef(null)
   const storageModeRef = useRef('idb')
   const hydratedRef = useRef(false)
@@ -499,6 +508,11 @@ export default function App() {
     replayPendingResync()
   }, [applyActivatedState, applyHydratedState, handlePromoted, replayPendingResync])
 
+  const route = resolveToolRoute(hash, {
+    hasReports: reports.length > 0,
+    activeTab: initialTab,
+  })
+
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
   // included) go straight to the tool.
@@ -581,16 +595,22 @@ export default function App() {
   }, [reports, dataQueue, readOnly])
   useEffect(() => persist(STORAGE_KEYS.activeReport, activeReportId), [activeReportId])
   useEffect(() => persist(STORAGE_KEYS.selected, selectedStudentId), [selectedStudentId])
-  useEffect(() => persist(STORAGE_KEYS.tab, tab), [tab])
   // Score entry belongs to one period: navigation always leaves edit mode,
   // except the blank-period flow that enters it on purpose.
   useEffect(() => {
     if (keepScoreEntryRef.current) {
-      keepScoreEntryRef.current = false
+      // The blank-period handler switches the report and the route in the
+      // same batch. Wait for the boletin route before consuming the flag;
+      // consuming it on the report change alone would let the route effect
+      // close the editor immediately afterwards.
+      if (route === TOOL_ROUTES.boletin) {
+        keepScoreEntryRef.current = false
+        setScoreEntry(true)
+      }
       return
     }
     setScoreEntry(false)
-  }, [activeReportId, tab])
+  }, [activeReportId, route])
   useEffect(() => {
     if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
@@ -631,7 +651,7 @@ export default function App() {
   useEffect(() => {
     // Activation lands the real lock mode/readOnly flag; before it, a reader
     // must never consume the pending payload.
-    if (!activated || !pendingMatrix || readOnly || tab === 'final') return
+    if (!activated || !pendingMatrix || readOnly || route === TOOL_ROUTES.final) return
     // A restored backup keeps the pending matrix until the teacher edits/scores.
     if (pendingHoldRef.current) return
     if (!activeReport || (activeReport.students ?? []).length === 0) return
@@ -645,7 +665,7 @@ export default function App() {
     )
     setPendingMatrix(null)
     setToast(`Desempeños aplicados a ${activeReport.label ?? 'el informe activo'}.`)
-  }, [activated, pendingMatrix, activeReport, readOnly, tab, config, scaleType])
+  }, [activated, pendingMatrix, activeReport, readOnly, route, config, scaleType])
 
   // The final report ("quinto informe") is always derived from every period:
   // per-subject means across periods, ranked with the institutional rules.
@@ -659,7 +679,8 @@ export default function App() {
     [reports, config, finalPerformances, scaleType],
   )
 
-  const isFinal = tab === 'final' && finalReport !== null
+  const tab = route === TOOL_ROUTES.final ? 'final' : 'period'
+  const isFinal = route === TOOL_ROUTES.final && finalReport !== null
   const displayReport = isFinal ? finalReport : activeReport
 
   const rankedStudents = useMemo(
@@ -716,8 +737,8 @@ export default function App() {
     }
     setReports([first])
     setActiveReportId(first.id)
-    setTab('period')
     setSelectedStudentId(first.students[0]?.id ?? null)
+    navigate(TOOL_ROUTES.boletin)
     setToast(`Informe 1 cargado con ${first.students.length} estudiantes.`)
   }
 
@@ -738,7 +759,7 @@ export default function App() {
     setReports(restored)
     setActiveReportId(restored[0]?.id ?? null)
     setSelectedStudentId(restored[0]?.students[0]?.id ?? null)
-    setTab('period')
+    navigate(TOOL_ROUTES.boletin)
     // An old backup has no final sheet: absence means "keep what this browser
     // already has", never "clear it". A present sheet merges by normalized
     // name so restoring the period data does not drop final annotations.
@@ -759,13 +780,13 @@ export default function App() {
     if (hasNumericScore(next)) setPendingHold(false)
     setReports((current) => [...current, next])
     setActiveReportId(next.id)
-    setTab('period')
     setSelectedStudentId(next.students[0]?.id ?? null)
+    navigate(TOOL_ROUTES.boletin)
     setToast(`${next.label} importado con ${next.students.length} estudiantes.`)
   }
 
   const handleDuplicatePeriod = () => {
-    if (readOnlyRef.current || !activeReport || tab !== 'period') return
+    if (readOnlyRef.current || !activeReport || route === TOOL_ROUTES.final) return
     const subjects = activeReport.subjects ?? []
     const copy = {
       ...activeReport,
@@ -783,15 +804,16 @@ export default function App() {
     keepScoreEntryRef.current = true
     setReports((current) => [...current, copy])
     setActiveReportId(copy.id)
-    setTab('period')
     setSelectedStudentId(copy.students[0]?.id ?? null)
     setScoreEntry(true)
+    navigate(TOOL_ROUTES.boletin)
     setToast(`${copy.label} creado: asignaturas y estudiantes copiados, notas en blanco.`)
   }
 
   const handleSelectReport = (id) => {
     setActiveReportId(id)
-    setTab('period')
+    setScoreEntry(false)
+    navigate(TOOL_ROUTES.boletin)
   }
 
   /**
@@ -806,7 +828,10 @@ export default function App() {
     setToast(PENDING_MATRIX_TOAST)
   }
 
-  const handleSelectFinal = () => setTab('final')
+  const handleSelectFinal = () => {
+    setScoreEntry(false)
+    navigate(TOOL_ROUTES.final)
+  }
 
   const handlePerformanceChange = (studentId, subject, text) => {
     if (readOnlyRef.current) return
@@ -865,7 +890,7 @@ export default function App() {
   const handleAddStudent = (rawName) => {
     if (readOnlyRef.current) return
     const name = rawName.trim()
-    if (!name || !activeReport || tab !== 'period') return
+    if (!name || !activeReport || route === TOOL_ROUTES.final) return
     const subjects = activeReport.subjects ?? []
     const student = {
       id: makeId(),
@@ -889,10 +914,10 @@ export default function App() {
     setPendingHold(false)
     setReports([])
     setActiveReportId(null)
-    setTab('period')
     setSelectedStudentId(null)
     setFinalPerformances({})
     setToast('Datos de los informes reiniciados.')
+    navigate(TOOL_ROUTES.gestion)
   }
 
   /**
@@ -909,7 +934,7 @@ export default function App() {
     setPendingHold(false)
     setPendingMatrix(null)
 
-    if (tab === 'final' && finalReport) {
+    if (route === TOOL_ROUTES.final && finalReport) {
       const scoresById = Object.fromEntries(
         finalReport.students.map((student) => [student.id, student.scores ?? {}]),
       )
@@ -982,7 +1007,12 @@ export default function App() {
   if (showLanding) {
     return (
       <>
-        <Landing onOpen={() => setEntered(true)} />
+        <Landing
+          onOpen={() => {
+            setEntered(true)
+            navigate(TOOL_ROUTES.gestion)
+          }}
+        />
         {notice}
       </>
     )
@@ -1000,6 +1030,16 @@ export default function App() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setScoreEntry(false)
+                navigate(TOOL_ROUTES.gestion)
+              }}
+            >
+              Menú
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
               Configuración
             </Button>
@@ -1034,8 +1074,27 @@ export default function App() {
           <p className="text-sm text-slate-500">
             Configura la escala y el escudo para comenzar.
           </p>
-        ) : reports.length > 0 ? (
+        ) : reports.length === 0 ? (
+          <DataInputMode
+            onLoaded={handleLoaded}
+            onLoadedBackup={handleLoadedBackup}
+            onLoadMatrix={handleLoadMatrix}
+            onOpenSettings={() => setSettingsOpen(true)}
+            hasConfig={configured}
+            maxScore={maxScore}
+            readOnly={readOnly}
+          />
+        ) : (
           <div className="space-y-6">
+            {route === TOOL_ROUTES.gestion ? (
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Gestión de informes</h2>
+                <p className="text-sm text-slate-500">
+                  Elige un período para abrir su boletín. La edición queda fuera de la vista de
+                  boletines.
+                </p>
+              </div>
+            ) : null}
             <PeriodBar
               reports={reports}
               finalPerformances={finalPerformances}
@@ -1046,44 +1105,44 @@ export default function App() {
               onImportReport={handleImportPeriod}
               onDuplicate={handleDuplicatePeriod}
               onApplyMatrix={handleApplyMatrix}
-              scoreEntry={scoreEntry}
+              scoreEntry={route === TOOL_ROUTES.boletin && scoreEntry}
+              canEdit={route === TOOL_ROUTES.boletin}
               onToggleScoreEntry={() => setScoreEntry((current) => !current)}
               onAddStudent={handleAddStudent}
               readOnly={readOnly}
             />
-            <ExportToolbar
-              report={displayReport}
-              students={rankedStudents}
-              selectedStudentId={activeStudentId}
-              onSelectStudent={setSelectedStudentId}
-              getPrintElement={() => printSheetRef.current}
-              onPreview={() => setPreviewOpen(true)}
-              onNotify={setToast}
-            />
-            <ReportDashboard
-              config={config}
-              report={displayReport}
-              rankedStudents={rankedStudents}
-              selectedStudentId={activeStudentId}
-              onSelectStudent={setSelectedStudentId}
-              onPerformanceChange={handlePerformanceChange}
-              onScoreChange={handleScoreChange}
-              editableScores={tab === 'period' && scoreEntry}
-              printSheetRef={printSheetRef}
-              variant={isFinal ? 'final' : 'period'}
-              readOnly={readOnly}
-            />
+            {route === TOOL_ROUTES.gestion ? (
+              <p className="text-sm text-slate-500">
+                Los boletines se abren en modo de solo lectura. Vuelve a este menú cuando
+                necesites cargar un período o exportar el respaldo.
+              </p>
+            ) : (
+              <>
+                <ExportToolbar
+                  report={displayReport}
+                  students={rankedStudents}
+                  selectedStudentId={activeStudentId}
+                  onSelectStudent={setSelectedStudentId}
+                  getPrintElement={() => printSheetRef.current}
+                  onPreview={() => setPreviewOpen(true)}
+                  onNotify={setToast}
+                />
+                <ReportDashboard
+                  config={config}
+                  report={displayReport}
+                  rankedStudents={rankedStudents}
+                  selectedStudentId={activeStudentId}
+                  onSelectStudent={setSelectedStudentId}
+                  onPerformanceChange={handlePerformanceChange}
+                  onScoreChange={handleScoreChange}
+                  editableScores={route === TOOL_ROUTES.boletin && scoreEntry}
+                  printSheetRef={printSheetRef}
+                  variant={isFinal ? 'final' : 'period'}
+                  readOnly={readOnly}
+                />
+              </>
+            )}
           </div>
-        ) : (
-          <DataInputMode
-            onLoaded={handleLoaded}
-            onLoadedBackup={handleLoadedBackup}
-            onLoadMatrix={handleLoadMatrix}
-            onOpenSettings={() => setSettingsOpen(true)}
-            hasConfig={configured}
-            maxScore={maxScore}
-            readOnly={readOnly}
-          />
         )}
       </main>
 
