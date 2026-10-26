@@ -5,7 +5,7 @@ import { DATA_STORAGE_KEYS, LEGACY_REPORT_KEY } from './idbState'
  * IndexedDB commits both keys in one transaction; a failure leaves both
  * untouched. Session fallback removes the same keys synchronously.
  */
-export async function clearReportData({ storageMode, idb, session = sessionStorage }) {
+export async function clearReportData({ storageMode, idb, session = globalThis.sessionStorage }) {
   if (storageMode === 'session') {
     try {
       clearSessionReportCopies(session)
@@ -32,7 +32,8 @@ export async function clearReportData({ storageMode, idb, session = sessionStora
  * Removes per-tab copies of report data without touching configuration or
  * view keys. Used locally and by tabs that receive another tab's clear.
  */
-export function clearSessionReportCopies(session = sessionStorage) {
+export function clearSessionReportCopies(session = globalThis.sessionStorage) {
+  if (!session) throw new Error('sessionStorage is not available')
   session.removeItem(DATA_STORAGE_KEYS.reports)
   session.removeItem(DATA_STORAGE_KEYS.finalPerformances)
   // Pre-IndexedDB builds kept a single report under this key. It must never
