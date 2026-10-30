@@ -9,18 +9,11 @@ import PerformanceMatrixImport from './PerformanceMatrixImport'
 import { Button } from './ui'
 
 /**
- * Builds the editor's local draft once: every current student gets a
- * name-keyed annotation object, and any stored annotation for a student no
- * longer present is preserved instead of being dropped on save.
+ * Builds the editor's local draft once from the stored annotations. Students
+ * without text need no entry, and annotations for a student no longer present
+ * are preserved instead of being dropped on save.
  */
-const buildBase = (report, initialPerformances) => {
-  const base = { ...(initialPerformances ?? {}) }
-  for (const student of report?.students ?? []) {
-    const key = finalPerformanceKey(student.name)
-    if (!base[key]) base[key] = { ...(student.performances ?? {}) }
-  }
-  return base
-}
+const buildBase = (initialPerformances) => ({ ...(initialPerformances ?? {}) })
 
 /** Report-shaped view of the draft, used by the shared matrix helpers. */
 const draftReport = (report, draft) => ({
@@ -51,7 +44,7 @@ export default function FinalEditor({
 }) {
   // Freeze the opening snapshot: a remote resync may replace the final report,
   // but it must never replace this draft behind the teacher's back.
-  const [base] = useState(() => buildBase(report, initialPerformances))
+  const [base] = useState(() => buildBase(initialPerformances))
   const [draft, setDraft] = useState(base)
   const [matrix, setMatrix] = useState(null)
   const [matrixNotice, setMatrixNotice] = useState('')

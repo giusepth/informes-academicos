@@ -112,7 +112,7 @@ export default function Landing({ onOpen }) {
       ['Promedios automáticos', 'El promedio de cada estudiante sale de la planilla, sin escribir una fórmula a mano.'],
       ['De Bajo a Superior', 'Escala decimal 1.0–5.0 o centesimal 1–100; cada nota cae en la valoración que le corresponde.'],
       ['Informe por estudiante', 'Una página A4 lista para imprimir o exportar a PDF, con el escudo del colegio como marca de agua.'],
-      ['Quinto informe consolidado', 'El consolidado final con el desempeño escrito y editable de cada asignatura, listo para el cierre del año.'],
+      ['Quinto informe consolidado', 'El consolidado final con el desempeño escrito de cada asignatura, editado aparte y listo para el cierre del año.'],
       ['Matriz de desempeños', 'Carga descripciones desde una matriz Asignatura×Banda, pero solo llena las celdas vacías: la última palabra es del docente.'],
       ['Sesiones por período', 'Cada periodo se guarda en este navegador: al volver, tus datos siguen aquí.'],
     ],

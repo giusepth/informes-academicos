@@ -89,6 +89,19 @@ test('saving final annotations updates the final report and survives a reload', 
   await expect(page.getByText('Alto desempeño sostenido en el año').first()).toBeVisible()
 })
 
+test('saving without edits does not invent empty annotations', async ({ page }) => {
+  await seed(page, { reports, tab: 'final' })
+  await openFinalEditor(page)
+
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page).toHaveURL(/#\/final$/)
+  await waitForPersisted(
+    page,
+    'informes.finalPerformances',
+    (value) => value && Object.keys(value).length === 0,
+  )
+})
+
 test('leaving the final editor with changes asks before discarding', async ({ page }) => {
   await seed(page, { reports, tab: 'final' })
   const before = await readDataKey(page, 'informes.finalPerformances')

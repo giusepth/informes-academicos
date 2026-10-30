@@ -62,7 +62,7 @@ Si alguna decisión no se aprueba, se ajusta el SDD antes de crear issues.
 - Acciones: «Cancelar» y «Limpiar informes». No se usará `window.confirm`.
 - Al confirmar:
   - se borrarán de IndexedDB `informes.reports` e `informes.finalPerformances`;
-  - se restablecerán la vista activa y `informes.pendingMatrix`;
+  - se restablecerá la vista activa; las matrices locales de cada editor no se persisten;
   - no se borrará `informes.config`;
   - se conservarán la pestaña y el estado `entered`;
   - se volverá a `#/gestion`;
@@ -440,7 +440,7 @@ de regresión; suite completa verde.
 ### Fase 4.1 — Matriz de desempeños por período
 
 **Estado:** completada y fusionada en el PR #48 (merge `1b1c08a`).
-**Archivos:** `PeriodEditor`, `PeriodMatrixImport`, helpers de matriz, App, pruebas, manual.
+**Archivos:** `PeriodEditor`, `PerformanceMatrixImport`, helpers de matriz, App, pruebas, manual.
 
 - Carga local de matriz dentro del editor de período.
 - Aplicación solo al borrador del período y solo a celdas vacías.
