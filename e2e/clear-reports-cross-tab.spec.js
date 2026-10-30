@@ -90,6 +90,10 @@ test('without BroadcastChannel a clear still drops session copies in another tab
       'informes.finalPerformances',
       JSON.stringify({ ANA: { 'Matemáticas': 'Final ajeno.' } }),
     )
+    sessionStorage.setItem(
+      'informes.nextPeriodMatrix',
+      JSON.stringify({ 'Matemáticas': { Alto: 'Pendiente ajeno.' } }),
+    )
   })
   await second.reload()
   await waitForHydrated(second)
@@ -111,6 +115,9 @@ test('without BroadcastChannel a clear still drops session copies in another tab
     .toBeNull()
   await expect
     .poll(() => second.evaluate(() => sessionStorage.getItem('informes.finalPerformances')))
+    .toBeNull()
+  await expect
+    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.nextPeriodMatrix')))
     .toBeNull()
   await expect(second.getByText('Importar Excel (.xlsx)')).toBeVisible()
   await second.close()

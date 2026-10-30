@@ -56,6 +56,9 @@ test('the management menu groups every action in the four semantic sections', as
     performances.getByRole('button', { name: 'Cargar matriz del informe final (excel)' }),
   ).toHaveCount(0)
   await expect(
+    performances.getByRole('button', { name: 'Cargar desempeños del próximo período (.xlsx)' }),
+  ).toBeVisible()
+  await expect(
     performances.getByRole('button', { name: 'Descargar plantilla de desempeños' }),
   ).toBeVisible()
   await expect(

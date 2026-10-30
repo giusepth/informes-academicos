@@ -80,6 +80,14 @@ test('confirming clears reports and finals but keeps the configuration', async (
     reports,
     finalPerformances: { ANA: { Matemáticas: 'Anotación final.' } },
   })
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      'informes.nextPeriodMatrix',
+      JSON.stringify({ Matemáticas: { Alto: 'Texto alto.' } }),
+    ),
+  )
+  await page.reload()
+  await waitForHydrated(page)
 
   await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
@@ -99,6 +107,9 @@ test('confirming clears reports and finals but keeps the configuration', async (
     institution: 'Colegio Conservado',
     period: '2026',
   })
+  await expect
+    .poll(() => page.evaluate(() => sessionStorage.getItem('informes.nextPeriodMatrix')))
+    .toBeNull()
 })
 
 test('cleared data stays cleared after a reload and the configuration survives', async ({ page }) => {
