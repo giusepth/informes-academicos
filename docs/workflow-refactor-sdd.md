@@ -460,7 +460,7 @@ resultantes.
 
 ### Fase 5 — Editor del informe final
 
-**Estado:** implementada en `feat/final-editor`; pendiente de PR y merge.
+**Estado:** completada y fusionada en el PR #49 (merge `f959aa3`).
 **Archivos:** `FinalEditor`, `PerformanceMatrixImport`, `FinalReportSheet`, App, pruebas de backup.
 
 - Edición de anotaciones finales fuera del boletín final.
@@ -476,7 +476,7 @@ la matriz final no modifica desempeños de período.
 
 ### Fase 6 — Precarga visible de desempeños del próximo período
 
-**Estado:** implementada en `feat/landing-next-matrix`; pendiente de PR y merge.
+**Estado:** completada y fusionada en el PR #50 (merge `7b5c362`).
 **Archivos:** `Landing.jsx`, `NextPeriodMatrixActions`, `ManagementMenu`, App, manual.
 
 - Sección en landing con alcance `nextPeriod`.

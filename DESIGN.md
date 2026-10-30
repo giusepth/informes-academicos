@@ -56,11 +56,11 @@ Solo dentro de los editores (período, informe final y configuración), los camp
 | Borde en reposo | `edit-border` | `#8da4c2` |
 | Fondo hover | `edit-hover` | `#edf4fb` |
 | Borde y anillo de foco | `form-blue` | `#3e6fa8` (anillo al 30 %) |
-| Texto | `ink-slate` | `#0f172a` sobre el fondo del campo |
-| Placeholder | `typed-ochre` | `slate-500` (#64748b), AA sobre `#f4f8fc` |
+| Texto | `slate-900` | `#0f172a` sobre el fondo del campo |
+| Placeholder | `slate-600` | `#475569`, AA 7.1:1 sobre `#f4f8fc` |
 
 - Aplica a `input`, `select` y `textarea`, desempeños incluidos, mediante `TextInput` y `TextArea` en `src/components/ui.jsx`.
-- El hover cambia solo el fondo, nunca el tamaño ni la posición.
+- El hover cambia solo el fondo, nunca el tamaño ni la posición. El borde en reposo `#8da4c2` es el hex fijado por R6; el foco `#3e6fa8` sí alcanza 3:1 contra el fondo del campo.
 - Los campos deshabilitados o de solo lectura vuelven al fondo blanco del boletín y a un borde neutro `#e2e8f0`; no muestran el tratamiento editable.
 - Los campos conservan `label` o `aria-label`; el nombre del estudiante en el editor usa `Nombre del estudiante N`.
 - El `fieldset` de los editores lleva `min-w-0` para que la tabla ancha scrollee dentro de su contenedor en pantallas de 360 px.
@@ -68,7 +68,7 @@ Solo dentro de los editores (período, informe final y configuración), los camp
 ## Verificación F7 (contraste y detector)
 
 - `impeccable detect src index.html`: 0 hallazgos, igual que el baseline F6.
-- Landing servida: 0 anti-patrones; 2 avisos `hard-offset-shadow` del CTA de papel (dirección documentada, no se eliminan).
+- Landing servida: 0 anti-patrones; los avisos de sombra dura del CTA de papel dependen de la versión del detector y son parte de la dirección documentada.
 - Menú de gestión servido: 3 `nested-cards` y 2 avisos, idénticos al baseline F6; F7 no introduce hallazgos nuevos.
 - Boletín de período y boletín final: 0 hallazgos tras subir los textos atenuados a `slate-600`.
 - Editor de período y editor final: 0 anti-patrones; quedan avisos de jerarquía tipográfica y de un texto auxiliar, preexistentes.

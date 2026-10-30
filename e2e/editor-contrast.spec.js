@@ -87,3 +87,81 @@ test('editor fields keep accessible names and no page overflow at 360px', async 
   await expect(page.getByRole('heading', { name: 'Editar informe final' })).toBeVisible()
   expect(await overflow()).toBeLessThanOrEqual(0)
 })
+
+test('read-only period editor fields keep the paper surface on hover', async ({
+  page,
+  context,
+}) => {
+  await seed(page, { reports })
+  const reader = await context.newPage()
+  await reader.addInitScript((id) => {
+    sessionStorage.setItem('informes.editor', JSON.stringify({ mode: 'edit', reportId: id }))
+  }, reports[0].id)
+  await reader.goto('/#/editor')
+  await waitForHydrated(reader)
+
+  await expect(reader.getByRole('heading', { name: 'Editar período' })).toBeVisible()
+  const name = reader.getByLabel('Nombre del estudiante 1')
+  await expect(name).toBeDisabled()
+  await expect(name).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await expect(name).toHaveCSS('border-top-color', MUTED_BORDER)
+
+  await name.hover({ force: true })
+  await expect(name).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+  await reader.close()
+})
+
+test('many subjects and students scroll inside the table without page overflow', async ({
+  page,
+}) => {
+  const wide = [
+    report({
+      label: 'Informe ancho',
+      subjects: [
+        'Matemáticas',
+        'Ciencias',
+        'Sociales',
+        'Inglés',
+        'Arte',
+        'Música',
+        'Ética',
+        'Religión',
+      ],
+      students: [
+        { name: 'Ana María de los Ángeles', scores: {} },
+        { name: 'Bruno', scores: {} },
+        { name: 'Carla', scores: {} },
+        { name: 'Damián', scores: {} },
+        { name: 'Elena', scores: {} },
+        { name: 'Facundo', scores: {} },
+      ],
+    }),
+  ]
+  await page.setViewportSize({ width: 360, height: 800 })
+  await seed(page, { reports: wide })
+  await openPeriodEditor(page)
+
+  const overflow = () =>
+    page.evaluate(() => ({
+      doc: document.documentElement.scrollWidth - window.innerWidth,
+      body: document.body.scrollWidth - window.innerWidth,
+    }))
+  expect(await overflow()).toEqual({ doc: 0, body: 0 })
+
+  await page.goto('/#/editor-final')
+  await expect(page.getByRole('heading', { name: 'Editar informe final' })).toBeVisible()
+  expect(await overflow()).toEqual({ doc: 0, body: 0 })
+})
+
+test('configuration fields share the editable treatment', async ({ page }) => {
+  await page.goto('/')
+  await waitForHydrated(page)
+  await page.getByRole('button', { name: 'Abrir la herramienta' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Configuración inicial' })).toBeVisible()
+
+  const input = page.getByPlaceholder('Colegio Ejemplo')
+  // The first-run modal autofocuses this field: blur it to read the resting state.
+  await input.evaluate((el) => el.blur())
+  await expect(input).toHaveCSS('background-color', BG)
+  await expect(input).toHaveCSS('border-top-color', BORDER)
+})
