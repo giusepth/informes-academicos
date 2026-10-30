@@ -200,7 +200,7 @@ export default function SetupModal({
                   onChange={(e) => updateBand(index, { min: e.target.value })}
                   aria-label={`Mínimo de ${band.label}`}
                 />
-                <span className="text-slate-400">a</span>
+                <span className="text-slate-600">a</span>
                 <TextInput
                   className="w-20"
                   type="number"
@@ -223,7 +223,7 @@ export default function SetupModal({
               {draft.logo ? (
                 <img src={draft.logo} alt="Escudo cargado" className="h-full w-full object-contain" />
               ) : (
-                <span className="text-xs text-slate-400">Sin escudo</span>
+                <span className="text-xs text-slate-600">Sin escudo</span>
               )}
             </div>
             <div className="flex flex-col gap-2">

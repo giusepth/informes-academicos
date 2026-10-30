@@ -1,6 +1,6 @@
 import { formatScore, qualitativeFor, roundForScale, toneFor } from '../utils/calculations'
 import { cx } from '../utils/cx'
-import { Info, SignatureField, ToneBadge } from './ui'
+import { Info, SignatureField, TextArea, ToneBadge } from './ui'
 
 /**
  * The printable report sheet for a single student (RF-05, RF-06, RF-07).
@@ -56,7 +56,7 @@ export default function ReportSheet({
             <h1 className="text-xl font-bold uppercase tracking-wide text-slate-900">
               {config.institution || 'Institución educativa'}
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-600">
               Informe académico{config.period ? ` · ${config.period}` : ''}
             </p>
           </div>
@@ -77,7 +77,7 @@ export default function ReportSheet({
 
         <table className="mt-6 w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
               <th className="border border-slate-200 px-3 py-2">Asignatura</th>
               <th className="w-16 border border-slate-200 px-3 py-2 text-center">Nota</th>
               <th className="w-28 border border-slate-200 px-3 py-2 text-center">Valoración</th>
@@ -112,8 +112,7 @@ export default function ReportSheet({
                   </td>
                   <td className="border border-slate-200 px-3 py-2 align-top">
                     {editable ? (
-                      <textarea
-                        className="min-h-[56px] w-full resize-y rounded-md border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400 read-only:bg-slate-50 read-only:text-slate-700"
+                      <TextArea
                         placeholder="Juicio valorativo del docente…"
                         value={student.performances?.[subject] ?? ''}
                         readOnly={readOnly}
@@ -145,7 +144,7 @@ export default function ReportSheet({
             {student.qualitative ? (
               <ToneBadge tone={student.tone}>{student.qualitative}</ToneBadge>
             ) : (
-              <span className="text-sm text-slate-400">—</span>
+              <span className="text-sm text-slate-600">—</span>
             )}
           </div>
         </footer>

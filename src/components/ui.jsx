@@ -52,11 +52,20 @@ export function Field({ label, hint, children, className }) {
   )
 }
 
+// R6: editable fields are recognizable inside the editors. The muted
+// disabled/read-only treatment keeps report surfaces free of form borders.
 const INPUT_CLASS =
-  'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200'
+  'rounded-lg border border-[#8da4c2] bg-[#f4f8fc] px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-600 hover:bg-[#edf4fb] focus:border-[#3e6fa8] focus:ring-2 focus:ring-[rgba(62,111,168,0.3)] disabled:border-[#e2e8f0] disabled:bg-white disabled:text-slate-700 disabled:shadow-none disabled:hover:bg-white read-only:border-[#e2e8f0] read-only:bg-white read-only:shadow-none read-only:hover:bg-white'
+
+const TEXTAREA_CLASS =
+  'min-h-[56px] w-full resize-y rounded-md border border-[#8da4c2] bg-[#f4f8fc] px-2 py-1 text-sm text-slate-900 outline-none transition placeholder:text-slate-600 hover:bg-[#edf4fb] focus:border-[#3e6fa8] focus:ring-2 focus:ring-[rgba(62,111,168,0.3)] disabled:border-[#e2e8f0] disabled:bg-white disabled:text-slate-700 disabled:shadow-none disabled:hover:bg-white read-only:border-[#e2e8f0] read-only:bg-white read-only:hover:bg-white'
 
 export function TextInput({ className, ...props }) {
   return <input className={cx(INPUT_CLASS, className)} {...props} />
+}
+
+export function TextArea({ className, ...props }) {
+  return <textarea className={cx(TEXTAREA_CLASS, className)} {...props} />
 }
 
 export function ToneBadge({ tone = 'slate', children }) {

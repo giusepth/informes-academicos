@@ -6,7 +6,7 @@ import {
   matrixApplicationStats,
 } from '../utils/parser'
 import PerformanceMatrixImport from './PerformanceMatrixImport'
-import { Button } from './ui'
+import { Button, TextArea } from './ui'
 
 /**
  * Builds the editor's local draft once from the stored annotations. Students
@@ -129,16 +129,16 @@ export default function FinalEditor({
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">Editar informe final</h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-600">
           Ajusta los desempeños finales de cada estudiante. Los promedios y resultados
           calculados se actualizan solo desde los períodos.
         </p>
       </div>
 
-      <fieldset disabled={readOnly} className="space-y-6 disabled:opacity-60">
+      <fieldset disabled={readOnly} className="min-w-0 space-y-6 disabled:opacity-60">
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr>
                 <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2">Estudiante</th>
                 {(report?.subjects ?? []).map((subject) => (
@@ -161,14 +161,13 @@ export default function FinalEditor({
                       return (
                         <td key={subject} className="px-3 py-2">
                           <div className="space-y-1.5">
-                            <span className="block text-xs text-slate-500">
+                            <span className="block text-xs text-slate-600">
                               Promedio:{' '}
                               {average === null || average === undefined
                                 ? '—'
                                 : formatScore(average, scaleType)}
                             </span>
-                            <textarea
-                              className="min-h-[56px] w-full resize-y rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                            <TextArea
                               placeholder="Desempeño final…"
                               value={draft[key]?.[subject] ?? ''}
                               onChange={(event) =>

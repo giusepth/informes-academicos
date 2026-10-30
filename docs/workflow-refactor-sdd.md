@@ -1,6 +1,6 @@
 # Refactor del flujo de trabajo — SDD
 
-**Estado:** F1–F5 fusionadas (PR #47, PR #48 y PR #49). F6 (precarga de desempeños del próximo período) está implementada en la rama `feat/landing-next-matrix`, pendiente de PR y merge. F7 pendiente.
+**Estado:** F1–F7 completadas. F7 (contraste editable, accesibilidad y cierre documental) se entrega en el PR #51.
 **Alcance de este documento:** plan de trabajo estricto; no autoriza ejecutar código ni levantar agentes.
 **Base verificada:** aplicación React/Vite, IndexedDB, landing, menú de gestión, editor de períodos, boletines y matriz de desempeños actuales.
 
@@ -460,7 +460,7 @@ resultantes.
 
 ### Fase 5 — Editor del informe final
 
-**Estado:** implementada en `feat/final-editor`; pendiente de PR y merge.
+**Estado:** completada y fusionada en el PR #49 (merge `f959aa3`).
 **Archivos:** `FinalEditor`, `PerformanceMatrixImport`, `FinalReportSheet`, App, pruebas de backup.
 
 - Edición de anotaciones finales fuera del boletín final.
@@ -476,7 +476,7 @@ la matriz final no modifica desempeños de período.
 
 ### Fase 6 — Precarga visible de desempeños del próximo período
 
-**Estado:** implementada en `feat/landing-next-matrix`; pendiente de PR y merge.
+**Estado:** completada y fusionada en el PR #50 (merge `7b5c362`).
 **Archivos:** `Landing.jsx`, `NextPeriodMatrixActions`, `ManagementMenu`, App, manual.
 
 - Sección en landing con alcance `nextPeriod`.
@@ -491,6 +491,7 @@ la matriz final no modifica desempeños de período.
 
 ### Fase 7 — Contraste editable, accesibilidad y cierre
 
+**Estado:** completada en el PR #51.
 **Archivos:** estilos de editor/UI, `DESIGN.md`, `docs/manual-de-uso.md`, `public/manual-de-uso.md`, `spec.md`, `PRODUCT.md`.
 
 - Aplicar R6.
