@@ -2,14 +2,15 @@ import FinalReportSheet from './FinalReportSheet'
 import ReportSheet from './ReportSheet'
 import { formatScore } from '../utils/calculations'
 import { cx } from '../utils/cx'
-import { ToneBadge } from './ui'
+import { Button, ToneBadge } from './ui'
 
 /**
  * Management + preview view (RF-06, RF-07).
  *
  * Left: the class list ordered by institutional position.
- * Right: the editable report sheet for the selected student (or the computed
- * final report when `variant` is "final").
+ * Right: the report sheet for the selected student (or the computed final
+ * report when `variant` is "final"). Both sheets are read-only; the final
+ * annotations are edited in the final editor (F5).
  * Off-screen: a non-editable copy of the same sheet, used as the capture
  * source for PDF/ZIP so the exported file never shows input boxes.
  */
@@ -19,7 +20,7 @@ export default function ReportDashboard({
   rankedStudents,
   selectedStudentId,
   onSelectStudent,
-  onPerformanceChange,
+  onEditFinal,
   printSheetRef,
   variant = 'period',
   readOnly = false,
@@ -91,17 +92,18 @@ export default function ReportDashboard({
       </aside>
 
       <div className="no-print min-w-0">
+        {variant === 'final' ? (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-600">
+              El informe final es de solo lectura: los desempeños se editan aparte.
+            </p>
+            <Button onClick={onEditFinal}>Editar desempeños finales</Button>
+          </div>
+        ) : null}
         <div className="overflow-x-auto pb-4">
           {selected ? (
             variant === 'final' ? (
-              <FinalReportSheet
-                config={config}
-                report={report}
-                student={selected}
-                editable
-                readOnly={readOnly}
-                onPerformanceChange={onPerformanceChange}
-              />
+              <FinalReportSheet config={config} report={report} student={selected} />
             ) : (
               <ReportSheet
                 config={config}

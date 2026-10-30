@@ -71,7 +71,7 @@ test('a second tab opens read-only with a banner and no editing affordances', as
   await expect(second.getByRole('button', { name: 'Nuevo periodo en blanco' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Elegir archivo' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Crear manualmente' })).toBeDisabled()
-  await expect(second.getByRole('button', { name: 'Cargar matriz del informe final (excel)' })).toBeDisabled()
+  await expect(second.getByRole('button', { name: 'Editar desempeños finales' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Limpiar informes' })).toBeDisabled()
   await expect(second.getByRole('button', { name: 'Exportar backup (.xlsx)' })).toBeEnabled()
 
@@ -102,14 +102,14 @@ test('keyboard and scripted edits are rejected in the read-only tab', async ({ p
   await second.close()
 })
 
-test('clearing reports drops the pending matrix in another tab', async ({ page, context }) => {
+test('clearing reports drops session copies in another tab', async ({ page, context }) => {
   await seed(page, { reports })
   const second = await openTool(context)
   await expect(banner(second)).toBeVisible()
   await second.evaluate(() =>
     sessionStorage.setItem(
-      'informes.pendingMatrix',
-      JSON.stringify({ Matemáticas: { Alto: 'Pendiente ajeno.' } }),
+      'informes.finalPerformances',
+      JSON.stringify({ ANA: { 'Matemáticas': 'Final ajeno.' } }),
     ),
   )
 
@@ -121,7 +121,7 @@ test('clearing reports drops the pending matrix in another tab', async ({ page, 
     .click()
 
   await expect
-    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
+    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.finalPerformances')))
     .toBeNull()
   await expect(second.getByRole('button', { name: 'Informe 1', exact: true })).toHaveCount(0)
 })

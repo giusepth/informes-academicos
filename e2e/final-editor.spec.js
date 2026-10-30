@@ -125,7 +125,11 @@ test('the final matrix fills only empty annotations and is not persisted', async
       ],
     }),
   ]
-  await seed(page, { reports: withOwnText, tab: 'final' })
+  await seed(page, {
+    reports: withOwnText,
+    finalPerformances: { ANA: { 'Matemáticas': 'Juicio propio' } },
+    tab: 'final',
+  })
   await openFinalEditor(page)
 
   await loadFinalMatrix(page, matrixBytes())

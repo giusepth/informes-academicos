@@ -9,21 +9,16 @@ import { Info, SignatureField, ToneBadge } from './ui'
  * "Promedio" column is the raw mean (two decimals) and the "Valoración" column
  * applies the institutional rounding rule to assign the qualitative band.
  *
- * The "Desempeño" column shows the final-report annotations (editable when
- * `editable`): unlike period sheets, this text belongs to the final document
- * itself and is keyed by student NAME so it survives period re-imports.
- *
- * `editable` renders the cells as textareas. The exported/printed copy uses
- * `editable={false}`, so the capture shows clean text instead of input boxes.
+ * The "Desempeño" column shows the final-report annotations. Unlike period
+ * sheets, this text belongs to the final document itself and is keyed by
+ * student NAME so it survives period re-imports. The sheet is always
+ * read-only: annotations are edited in the final editor (F5/R4).
  */
 export default function FinalReportSheet({
   ref,
   config,
   report,
   student,
-  editable = false,
-  readOnly = false,
-  onPerformanceChange,
   className,
 }) {
   const subjects = report.subjects
@@ -133,19 +128,9 @@ export default function FinalReportSheet({
                     {label ? <ToneBadge tone={tone}>{label}</ToneBadge> : '—'}
                   </td>
                   <td className="border border-slate-200 px-3 py-2 align-top">
-                    {editable ? (
-                      <textarea
-                        className="min-h-[56px] w-full resize-y rounded-md border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400 read-only:bg-slate-50 read-only:text-slate-700"
-                        placeholder="Juicio valorativo final…"
-                        value={student.performances?.[subject] ?? ''}
-                        readOnly={readOnly}
-                        onChange={(e) => onPerformanceChange?.(student.id, subject, e.target.value)}
-                      />
-                    ) : (
-                      <span className="block whitespace-pre-wrap text-slate-700">
-                        {student.performances?.[subject] || ' '}
-                      </span>
-                    )}
+                    <span className="block whitespace-pre-wrap text-slate-700">
+                      {student.performances?.[subject] || ' '}
+                    </span>
                   </td>
                 </tr>
               )

@@ -10,12 +10,32 @@ import { Button } from './ui'
 const countLabel = (count, singular, plural) =>
   `${count} ${count === 1 ? singular : plural}`
 
+const SCOPES = {
+  period: {
+    titleId: 'period-matrix-title',
+    title: 'Matriz de desempeños del período',
+    description:
+      'Completa solo los casilleros vacíos de este período. No se guarda en el respaldo: solo quedan los textos aplicados.',
+    fileLabel: 'Archivo de matriz del período',
+    applyLabel: 'Aplicar a este período',
+  },
+  final: {
+    titleId: 'final-matrix-title',
+    title: 'Matriz de desempeños del informe final',
+    description:
+      'Completa solo los casilleros vacíos del informe final. No se guarda en el respaldo: solo quedan los textos aplicados.',
+    fileLabel: 'Archivo de matriz del informe final',
+    applyLabel: 'Aplicar al informe final',
+  },
+}
+
 /**
- * Local performance-matrix import for one period editor (R4.4). The matrix
- * lives only in this draft: it is applied to empty cells on demand and is
- * never persisted in IndexedDB or the backup.
+ * Local performance-matrix import shared by the period editor and the final
+ * editor (R4.4/F5). The matrix lives only in its draft: it is applied to empty
+ * cells on demand and is never persisted in IndexedDB or the backup.
  */
-export default function PeriodMatrixImport({
+export default function PerformanceMatrixImport({
+  scope = 'period',
   matrix = null,
   stats = null,
   readOnly = false,
@@ -25,6 +45,7 @@ export default function PeriodMatrixImport({
   onClearMatrix,
   onApply,
 }) {
+  const copy = SCOPES[scope] ?? SCOPES.period
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [localNotice, setLocalNotice] = useState('')
@@ -64,23 +85,20 @@ export default function PeriodMatrixImport({
 
   return (
     <section
-      aria-labelledby="period-matrix-title"
+      aria-labelledby={copy.titleId}
       className="rounded-xl border border-sky-200 bg-sky-50/60 p-4"
     >
-      <h3 id="period-matrix-title" className="text-sm font-semibold text-slate-900">
-        Matriz de desempeños del período
+      <h3 id={copy.titleId} className="text-sm font-semibold text-slate-900">
+        {copy.title}
       </h3>
-      <p className="mt-1 text-sm text-slate-600">
-        Completa solo los casilleros vacíos de este período. No se guarda en el respaldo:
-        solo quedan los textos aplicados.
-      </p>
+      <p className="mt-1 text-sm text-slate-600">{copy.description}</p>
 
       <input
         ref={fileInputRef}
         type="file"
         accept=".xlsx,.xls"
         className="hidden"
-        aria-label="Archivo de matriz del período"
+        aria-label={copy.fileLabel}
         disabled={readOnly}
         onChange={(event) => {
           const input = event.currentTarget
@@ -113,7 +131,7 @@ export default function PeriodMatrixImport({
         {matrix ? (
           <>
             <Button onClick={onApply} disabled={busy || readOnly || applyDisabled}>
-              Aplicar a este período
+              {copy.applyLabel}
             </Button>
             <Button
               variant="secondary"
