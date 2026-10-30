@@ -7,6 +7,7 @@ import {
 } from '../utils/parser'
 import { parseScoreInput } from '../utils/scoreInput'
 import PerformanceMatrixImport from './PerformanceMatrixImport'
+import StudentFocusPanel from './StudentFocusPanel'
 import { Button, Field, TextArea, TextInput } from './ui'
 
 const normalizeSubject = (value) => value.trim().toLocaleLowerCase('es')
@@ -109,6 +110,11 @@ export default function PeriodEditor({
   const [subjects, setSubjects] = useState(base.subjects)
   const [students, setStudents] = useState(base.students)
   const [scoreDrafts, setScoreDrafts] = useState({})
+  const [focusStudentId, setFocusStudentId] = useState(null)
+  // Compact view collapses desempeños per row; the full grid (default) never
+  // hides them, so imports/reviews always see the whole picture at first.
+  const [compact, setCompact] = useState(false)
+  const [expandedRows, setExpandedRows] = useState({})
   const [matrix, setMatrix] = useState(null)
   const [matrixNotice, setMatrixNotice] = useState('')
   const [error, setError] = useState('')
@@ -383,6 +389,14 @@ export default function PeriodEditor({
   }
 
   const editing = mode === 'edit'
+  const focusIndex = focusStudentId ? students.findIndex((s) => s.id === focusStudentId) : -1
+  const focusActive = focusIndex !== -1
+  const rowExpanded = (studentId) => !compact || Boolean(expandedRows[studentId])
+  const toggleRowExpand = (studentId) =>
+    setExpandedRows((current) => ({ ...current, [studentId]: !current[studentId] }))
+  const filledPerformances = (student) =>
+    subjects.filter((subject) => String(student.performances?.[subject.id] ?? '').trim() !== '')
+      .length
 
   return (
     <div className="space-y-6">
@@ -462,23 +476,63 @@ export default function PeriodEditor({
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-medium text-slate-700">Estudiantes ({students.length})</p>
+          {students.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={compact}
+              onClick={() => {
+                setCompact((current) => !current)
+                setExpandedRows({})
+              }}
+            >
+              {compact ? 'Vista completa' : 'Vista compacta'}
+            </Button>
+          ) : null}
+        </div>
+
+        {focusActive ? (
+          <StudentFocusPanel
+            student={students[focusIndex]}
+            position={focusIndex}
+            count={students.length}
+            subjects={subjects}
+            scoreDrafts={scoreDrafts}
+            maxScore={maxScore}
+            scale={scale}
+            scaleType={scaleType}
+            onNameChange={setStudentName}
+            onScoreDraftChange={(id, subjectId, value) =>
+              setScoreDrafts((current) => ({
+                ...current,
+                [`${id}:${subjectId}`]: value,
+              }))
+            }
+            onScoreCommit={commitScore}
+            onPerformanceChange={setPerformance}
+            onNavigate={(delta) => setFocusStudentId(students[focusIndex + delta]?.id ?? null)}
+            onClose={() => setFocusStudentId(null)}
+          />
+        ) : (
+        <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
+            <thead className="text-left text-xs uppercase tracking-wide text-slate-600">
               <tr>
-                <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2">Estudiante</th>
+                <th className="sticky left-0 top-0 z-20 bg-slate-50 px-3 py-2">Estudiante</th>
                 {subjects.map((subject) => (
-                  <th key={subject.id} className="min-w-56 px-3 py-2">
+                  <th key={subject.id} className={`sticky top-0 z-10 bg-slate-50 px-3 py-2 ${compact ? 'min-w-32' : 'min-w-56'}`}>
                     {subject.name || '—'}
                   </th>
                 ))}
-                <th className="px-3 py-2" />
+                <th className="sticky top-0 z-10 bg-slate-50 px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {students.map((student, studentIndex) => (
                 <tr key={student.id} className="border-t border-slate-100 align-top">
-                  <td className="sticky left-0 z-10 bg-white px-3 py-2">
+                  <td className="sticky left-0 z-10 bg-white px-3 py-1.5">
                     <TextInput
                       className="w-56"
                       value={student.name}
@@ -492,7 +546,7 @@ export default function PeriodEditor({
                     const draft = scoreDrafts[draftKey]
                     const score = student.scores?.[subject.id]
                     return (
-                      <td key={subject.id} className="px-3 py-2">
+                      <td key={subject.id} className="px-3 py-1.5">
                         <div className="space-y-1.5">
                           <TextInput
                             className="w-24"
@@ -515,37 +569,66 @@ export default function PeriodEditor({
                             }}
                             aria-label={`Nota de ${student.name || 'estudiante'} en ${subject.name || 'asignatura'}`}
                           />
-                          <TextArea
-                            placeholder="Desempeño…"
-                            value={student.performances?.[subject.id] ?? ''}
-                            onChange={(event) =>
-                              setPerformance(student.id, subject.id, event.target.value)
-                            }
-                            aria-label={`Desempeño de ${student.name || 'estudiante'} en ${subject.name || 'asignatura'}`}
-                          />
+                          {rowExpanded(student.id) ? (
+                            <TextArea
+                              placeholder="Desempeño…"
+                              value={student.performances?.[subject.id] ?? ''}
+                              onChange={(event) =>
+                                setPerformance(student.id, subject.id, event.target.value)
+                              }
+                              aria-label={`Desempeño de ${student.name || 'estudiante'} en ${subject.name || 'asignatura'}`}
+                            />
+                          ) : null}
                         </div>
                       </td>
                     )
                   })}
-                  <td className="px-3 py-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeStudent(student.id)}
-                      aria-label={`Quitar ${student.name || 'estudiante'}`}
-                    >
-                      ×
-                    </Button>
+                  <td className="px-3 py-1.5">
+                    <div className="flex items-center gap-1">
+                      {compact ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-expanded={rowExpanded(student.id)}
+                          aria-label={`Desempeños de ${student.name || 'estudiante'}`}
+                          onClick={() => toggleRowExpand(student.id)}
+                        >
+                          {filledPerformances(student)}/{subjects.length}
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeStudent(student.id)}
+                        aria-label={`Quitar ${student.name || 'estudiante'}`}
+                      >
+                        ×
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        )}
 
-        <Button variant="secondary" size="sm" onClick={addStudent}>
-          Agregar estudiante
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={addStudent}>
+            Agregar estudiante
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              focusActive
+                ? setFocusStudentId(null)
+                : setFocusStudentId(students[0]?.id ?? null)
+            }
+          >
+            {focusActive ? 'Volver a la grilla' : 'Modo enfoque'}
+          </Button>
+        </div>
 
         <PerformanceMatrixImport
           matrix={matrix}
