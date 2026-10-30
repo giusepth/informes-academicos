@@ -52,3 +52,17 @@ describe('PeriodEditor assisted manual entry', () => {
     expect(markup).toContain('aria-label="Lista de estudiantes para pegar"')
   })
 })
+
+describe('PeriodEditor performance-matrix guidance and progress', () => {
+  it('explains the matrix flow in numbered teacher language', () => {
+    const markup = render()
+    expect(markup).toContain('escribe un texto por banda')
+    expect(markup).toContain('solo se llenan los vacíos')
+    expect(markup).toContain('lo que ya escribiste no se reemplaza')
+  })
+
+  it('shows the live desempeño progress counter', () => {
+    const markup = render()
+    expect(markup).toContain('Desempeños listos: 0 de 1')
+  })
+})

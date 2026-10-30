@@ -92,6 +92,12 @@ export default function PerformanceMatrixImport({
         {copy.title}
       </h3>
       <p className="mt-1 text-sm text-slate-600">{copy.description}</p>
+      <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-xs text-slate-500">
+        <li>Descarga la plantilla y escribe un texto por banda (Bajo, Básico, Alto, Superior).</li>
+        <li>Carga el archivo aquí.</li>
+        <li>Revisa el resumen: solo se llenan los vacíos.</li>
+        <li>Aplica: lo que ya escribiste no se reemplaza.</li>
+      </ol>
 
       <input
         ref={fileInputRef}
@@ -123,6 +129,9 @@ export default function PerformanceMatrixImport({
             {stats.unmatched > 0
               ? ` · ${countLabel(stats.unmatched, 'casillero sin coincidencia', 'casilleros sin coincidencia')}`
               : ''}.
+          </p>
+          <p className="mt-1 text-slate-600">
+            Se completan solo los casilleros vacíos; los textos que ya escribiste no se reemplazan.
           </p>
         </div>
       ) : null}
