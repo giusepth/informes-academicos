@@ -11,9 +11,9 @@ const Initial = {
   ],
 }
 
-const render = (mode = 'create') =>
+const render = (mode = 'create', initial = Initial) =>
   renderToStaticMarkup(
-    <PeriodEditor mode={mode} initial={Initial} onSave={() => {}} onCancel={() => {}} />,
+    <PeriodEditor mode={mode} initial={initial} onSave={() => {}} onCancel={() => {}} />,
   )
 
 describe('PeriodEditor density controls', () => {
@@ -27,5 +27,28 @@ describe('PeriodEditor density controls', () => {
     const markup = render()
     expect(markup).toContain('Estudiantes (1)')
     expect(markup).toContain('Vista compacta')
+  })
+})
+
+describe('PeriodEditor assisted manual entry', () => {
+  it('offers common subject suggestions not already used', () => {
+    const markup = render()
+    expect(markup).toContain('aria-label="Asignatura sugerida: Ciencias Naturales"')
+    expect(markup).not.toContain('aria-label="Asignatura sugerida: Matemáticas"')
+  })
+
+  it('hides an already-taken suggested subject', () => {
+    const markup = render('create', {
+      ...Initial,
+      subjects: ['Matemáticas', 'Ciencias Naturales'],
+    })
+    expect(markup).not.toContain('aria-label="Asignatura sugerida: Ciencias Naturales"')
+  })
+
+  it('provides the paste-a-roster loader', () => {
+    const markup = render()
+    expect(markup).toContain('Cargar una lista de estudiantes')
+    expect(markup).toContain('Cargar lista')
+    expect(markup).toContain('aria-label="Lista de estudiantes para pegar"')
   })
 })
