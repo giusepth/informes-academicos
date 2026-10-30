@@ -7,6 +7,7 @@ import {
 } from '../utils/parser'
 import { parseScoreInput } from '../utils/scoreInput'
 import PerformanceMatrixImport from './PerformanceMatrixImport'
+import StudentFocusPanel from './StudentFocusPanel'
 import { Button, Field, TextArea, TextInput } from './ui'
 
 const normalizeSubject = (value) => value.trim().toLocaleLowerCase('es')
@@ -109,6 +110,7 @@ export default function PeriodEditor({
   const [subjects, setSubjects] = useState(base.subjects)
   const [students, setStudents] = useState(base.students)
   const [scoreDrafts, setScoreDrafts] = useState({})
+  const [focusStudentId, setFocusStudentId] = useState(null)
   const [matrix, setMatrix] = useState(null)
   const [matrixNotice, setMatrixNotice] = useState('')
   const [error, setError] = useState('')
@@ -383,6 +385,8 @@ export default function PeriodEditor({
   }
 
   const editing = mode === 'edit'
+  const focusIndex = focusStudentId ? students.findIndex((s) => s.id === focusStudentId) : -1
+  const focusActive = focusIndex !== -1
 
   return (
     <div className="space-y-6">
@@ -462,6 +466,29 @@ export default function PeriodEditor({
           </div>
         </div>
 
+        {focusActive ? (
+          <StudentFocusPanel
+            student={students[focusIndex]}
+            position={focusIndex}
+            count={students.length}
+            subjects={subjects}
+            scoreDrafts={scoreDrafts}
+            maxScore={maxScore}
+            scale={scale}
+            scaleType={scaleType}
+            onNameChange={setStudentName}
+            onScoreDraftChange={(id, subjectId, value) =>
+              setScoreDrafts((current) => ({
+                ...current,
+                [`${id}:${subjectId}`]: value,
+              }))
+            }
+            onScoreCommit={commitScore}
+            onPerformanceChange={setPerformance}
+            onNavigate={(delta) => setFocusStudentId(students[focusIndex + delta]?.id ?? null)}
+            onClose={() => setFocusStudentId(null)}
+          />
+        ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
@@ -542,10 +569,24 @@ export default function PeriodEditor({
             </tbody>
           </table>
         </div>
+        )}
 
-        <Button variant="secondary" size="sm" onClick={addStudent}>
-          Agregar estudiante
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={addStudent}>
+            Agregar estudiante
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              focusActive
+                ? setFocusStudentId(null)
+                : setFocusStudentId(students[0]?.id ?? null)
+            }
+          >
+            {focusActive ? 'Volver a la grilla' : 'Modo enfoque'}
+          </Button>
+        </div>
 
         <PerformanceMatrixImport
           matrix={matrix}
