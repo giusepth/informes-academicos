@@ -168,6 +168,38 @@ test('closing the writer promotes the read-only tab with fresh data', async ({ p
   await second.close()
 })
 
+test('promotion remounts the final editor with fresh annotations', async ({ page, context }) => {
+  await seed(page, { reports, tab: 'final' })
+  const second = await openTool(context)
+  await expect(banner(second)).toBeVisible()
+  await second.goto('/#/final')
+
+  // The reader opens the final editor and sees a disabled draft.
+  await second.getByRole('button', { name: 'Editar desempeños finales' }).first().click()
+  await expect(second.getByLabel('Desempeño final de Ana en Matemáticas')).toBeDisabled()
+
+  // The writer saves an annotation right before closing.
+  await page.getByRole('button', { name: 'Editar desempeños finales' }).first().click()
+  await page.getByLabel('Desempeño final de Ana en Matemáticas').fill('Anotación nueva')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await waitForPersisted(
+    page,
+    'informes.finalPerformances',
+    (value) => value?.ANA?.['Matemáticas'] === 'Anotación nueva',
+  )
+
+  await page.close()
+
+  // Promotion re-reads IndexedDB and remounts the draft with the new value.
+  await expect(banner(second)).toHaveCount(0, { timeout: 3000 })
+  await expect(second.getByLabel('Desempeño final de Ana en Matemáticas')).toHaveValue(
+    'Anotación nueva',
+  )
+  await expect(second.getByRole('button', { name: 'Guardar cambios' })).toBeEnabled()
+
+  await second.close()
+})
+
 test('promotion re-reads IndexedDB even without BroadcastChannel', async ({ page, context }) => {
   await seed(page, { reports })
 

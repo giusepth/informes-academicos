@@ -1091,6 +1091,7 @@ export default function App() {
         ) : route === TOOL_ROUTES.editorFinal ? (
           finalReport ? (
             <FinalEditor
+              key={`final:${editorEpoch}`}
               report={finalReport}
               initialPerformances={finalPerformances}
               scale={config?.scale ?? DEFAULT_SCALES[scaleType]}
