@@ -37,15 +37,20 @@ S6 — Documentación.
 
 ## Tasks
 
-- T1 — Ruta `#/editor-final`, vista final de solo lectura y botón de edición. Specs: S1, S2. Route: inline. Status: pending.
-- T2 — `FinalEditor` con borrador, guardar/cancelar, confirmación y persistencia. Specs: S2. Route: inline. Status: pending.
-- T3 — Matriz final dentro del editor con componente compartido (`scope: final`). Specs: S3. Route: inline. Status: pending.
-- T4 — Retiro del staging global del menú; plantilla/ejemplo permanecen. Specs: S5. Route: inline. Status: pending.
-- T5 — E2E de backup y actualización de specs existentes. Specs: S4. Route: inline. Status: pending.
-- T6 — Documentación y estado del SDD. Specs: S6. Route: inline. Status: pending.
-- T7 — Verificación: unit, e2e completo, lint, build. Specs: S1–S6. Route: inline. Status: pending.
+- T1 — Ruta `#/editor-final`, vista final de solo lectura y botón de edición. Specs: S1, S2. Route: inline. Status: done (commit 6b0be8d).
+- T2 — `FinalEditor` con borrador, guardar/cancelar, confirmación y persistencia. Specs: S2. Route: inline. Status: done (commit 6b0be8d).
+- T3 — Matriz final dentro del editor con componente compartido (`scope: final`). Specs: S3. Route: inline. Status: done (commit 6b0be8d).
+- T4 — Retiro del staging global del menú; plantilla/ejemplo permanecen. Specs: S5. Route: inline. Status: done (commit 6b0be8d).
+- T5 — E2E de backup y actualización de specs existentes. Specs: S4. Route: inline. Status: done (commits e427ab8, 6b0be8d).
+- T6 — Documentación y estado del SDD. Specs: S6. Route: inline. Status: done (este commit).
+- T7 — Verificación: unit, e2e completo, lint, build. Specs: S1–S6. Route: inline. Status: done: 166 unit, 124 e2e, lint sin errores nuevos, build OK.
 
 ## Log
 
 L1 (2026-10-30, verbatim): «Hola compa, sigue por donde lo dejamos.»
 Contexto: la sesión anterior cerró F4.1 (PR #48) y dejó como próximo paso F5: `#/editor-final`, edición de anotaciones finales fuera del boletín y matriz final dentro del editor (issue #41, `docs/workflow-refactor-sdd.md`).
+
+L2 (2026-10-30): exploración del flujo vigente. Se confirmó que `FinalReportSheet` editaba con textareas, que la matriz final se encolaba en `informes.pendingMatrix` desde el menú y que el backup ya transportaba `finalPerformances`; F5 requiere retirar ambas vías y abrir `#/editor-final`.
+L3 (2026-10-30): RED observado en `hashRoute.test.js` (ruta inexistente) y en las 6 pruebas nuevas de `e2e/final-editor.spec.js`; tests congelados en `e427ab8`.
+L4 (2026-10-30): implementación en `6b0be8d`: ruta y guard de editor final, `FinalEditor` con borrador/confirmación, `PerformanceMatrixImport` compartido con `scope: period|final`, boletín final 100% de solo lectura, menú sin staging global y matriz final solo en el editor. Verificación: `npm test` 166/166; `npm run e2e` 124/124; `npm run build` OK; `npm run lint` sin errores nuevos.
+L5 (2026-10-30): documentación actualizada (manual y copia pública idénticas, `docs/final-report.md`, `spec.md`, `PRODUCT.md`, estado del SDD). `docsConsistency` 16/16.

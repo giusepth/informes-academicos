@@ -12,7 +12,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
    * **Modo Manual (Vanilla):** Creación e ingreso de datos 100% a mano desde una interfaz interactiva.
 2. **Estructura Dinámica de Asignaturas ($N$ Asignaturas):** Capacidad de adaptarse a cursos que manejan diferente número y nombre de asignaturas sin restricciones fijas.
 3. **Cálculos Automáticos y Edge Cases:** Redondeo institucional hacia arriba (ej. $2.92 \to 3.0$) aplicado a la valoración cualitativa, ranking por promedio crudo descendente y visualización del promedio con dos decimales.
-4. **Desempeños Cualitativos y Carga Opcional:** Espacio editable por asignatura para el docente, con opción de pre-cargar textos mediante una matriz auxiliar local al período; la matriz del informe final se aplica explícitamente desde el menú hasta F5.
+4. **Desempeños Cualitativos y Carga Opcional:** Espacio editable por asignatura para el docente dentro del editor de período; el informe final es de solo lectura y sus anotaciones se editan en `#/editor-final`. Cada editor carga su propia matriz auxiliar local (período o informe final) y la aplica explícitamente solo a casilleros vacíos.
 5. **Identidad Institucional:** Inserción de escudo institucional PNG con opacidad controlada en el fondo del informe impreso/exportado.
 6. **Exportación Versátil:** Descarga individual en PDF, paquete compilado en formato `.ZIP` y opción de impresión directa optimizada (`@media print`).
 7. **Despliegue Gratuito:** Configurado para compilación estática lista para producción en Vercel.
@@ -39,7 +39,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
     *   *Puestos densos:* el siguiente promedio distinto toma el número de puesto consecutivo, sin saltar casilleros. Dos estudiantes empatados en el 1° puesto son seguidos por el 2° puesto, no por el 3°.
     *   Asignación automática de la valoración cualitativa (Bajo, Básico, Alto, Superior) con base en la nota redondeada y la escala configurada.
 *   **RF-06: Observaciones / Desempeños por Asignatura:**
-    *   Apartado de texto libre por cada asignatura para que el docente redacte el juicio valorativo o desempeño específico del estudiante.
+    *   Apartado de texto libre por cada asignatura para que el docente redacte el juicio valorativo o desempeño específico del estudiante. Los desempeños de período se editan en el editor de período; los finales, en `#/editor-final`. Los boletines son de solo lectura.
 *   **RF-07: Exportación y Compilación:**
     *   Generación de vista previa interactiva paginada por estudiante.
     *   Acción individual que abre una vista previa en HTML del informe con opción de impresión (botón "Imprimir" o `Ctrl + P`), en lugar de una descarga automática de PDF.
@@ -66,8 +66,9 @@ src/
 │   ├── SetupModal.jsx          # Configuración inicial de escala y escudo PNG
 │   ├── ManagementMenu.jsx       # Menú de gestión: nuevo trabajo, período actual, desempeños y respaldo
 │   ├── PeriodEditor.jsx         # Editor compartido para crear o editar un período completo
-│   ├── PeriodMatrixImport.jsx   # Matriz de desempeños local al borrador del período
-│   ├── ReportDashboard.jsx      # Vista de solo lectura del período y edición de desempeños finales
+│   ├── PerformanceMatrixImport.jsx # Matriz local al borrador del período o del informe final
+│   ├── FinalEditor.jsx          # Edición de anotaciones finales y matriz del informe final
+│   ├── ReportDashboard.jsx      # Vista de solo lectura del período o del informe final
 │   └── ExportToolbar.jsx       # Panel de acciones (Imprimir, Descargar PDF individual, Generar ZIP)
 ├── utils/
 │   ├── parser.js               # Lectura SheetJS y generador de estructura de datos manual
