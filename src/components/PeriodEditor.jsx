@@ -7,7 +7,7 @@ import {
 } from '../utils/parser'
 import { parseScoreInput } from '../utils/scoreInput'
 import PerformanceMatrixImport from './PerformanceMatrixImport'
-import { Button, Field, TextInput } from './ui'
+import { Button, Field, TextArea, TextInput } from './ui'
 
 const normalizeSubject = (value) => value.trim().toLocaleLowerCase('es')
 
@@ -390,14 +390,14 @@ export default function PeriodEditor({
         <h2 className="text-lg font-semibold text-slate-900">
           {editing ? 'Editar período' : 'Nuevo período'}
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-600">
           {editing
             ? 'Ajusta estudiantes, asignaturas, notas y desempeños. Los demás períodos no cambian.'
             : 'Completa la estructura del período; se agrega cuando guardas.'}
         </p>
       </div>
 
-      <fieldset disabled={readOnly} className="space-y-6 disabled:opacity-60">
+      <fieldset disabled={readOnly} className="min-w-0 space-y-6 disabled:opacity-60">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Grado / Curso">
             <TextInput
@@ -435,14 +435,14 @@ export default function PeriodEditor({
               >
                 <div className="flex flex-col gap-1">
                   <TextInput
-                    className="w-44 border-transparent bg-transparent shadow-none"
+                    className="w-44"
                     value={subject.name}
                     onChange={(event) => renameSubject(subject.id, event.target.value)}
                     placeholder="Asignatura"
                     aria-label={`Nombre de asignatura ${index + 1}`}
                   />
                   <TextInput
-                    className="w-44 border-transparent bg-transparent shadow-none"
+                    className="w-44"
                     value={subject.teacher}
                     onChange={(event) => setSubjectTeacher(subject.id, event.target.value)}
                     placeholder="Docente (opcional)"
@@ -464,7 +464,7 @@ export default function PeriodEditor({
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-600">
               <tr>
                 <th className="sticky left-0 z-10 bg-slate-50 px-3 py-2">Estudiante</th>
                 {subjects.map((subject) => (
@@ -476,7 +476,7 @@ export default function PeriodEditor({
               </tr>
             </thead>
             <tbody>
-              {students.map((student) => (
+              {students.map((student, studentIndex) => (
                 <tr key={student.id} className="border-t border-slate-100 align-top">
                   <td className="sticky left-0 z-10 bg-white px-3 py-2">
                     <TextInput
@@ -484,6 +484,7 @@ export default function PeriodEditor({
                       value={student.name}
                       onChange={(event) => setStudentName(student.id, event.target.value)}
                       placeholder="Nombre del estudiante"
+                      aria-label={`Nombre del estudiante ${studentIndex + 1}`}
                     />
                   </td>
                   {subjects.map((subject) => {
@@ -514,8 +515,7 @@ export default function PeriodEditor({
                             }}
                             aria-label={`Nota de ${student.name || 'estudiante'} en ${subject.name || 'asignatura'}`}
                           />
-                          <textarea
-                            className="min-h-[56px] w-full resize-y rounded-md border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                          <TextArea
                             placeholder="Desempeño…"
                             value={student.performances?.[subject.id] ?? ''}
                             onChange={(event) =>

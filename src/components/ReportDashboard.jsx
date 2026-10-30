@@ -34,7 +34,7 @@ export default function ReportDashboard({
       <aside className="no-print rounded-2xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-800">Estudiantes</h2>
-          <span className="text-xs text-slate-400">{rankedStudents.length}</span>
+          <span className="text-xs text-slate-600">{rankedStudents.length}</span>
         </div>
         <ol className="space-y-1">
           {rankedStudents.map((student) => {
@@ -75,7 +75,7 @@ export default function ReportDashboard({
         </ol>
 
         <div className="mt-4 border-t border-slate-100 pt-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
             Escala
           </p>
           <ul className="space-y-1">
