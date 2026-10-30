@@ -111,9 +111,11 @@ modifica los desempeños de período.
   asignatura. Toda la edición del período ocurre en el editor.
 - **Editar un período**: **Menú → Trabajo actual → Editar período** abre el
   editor con los datos de ese período: grado, docente, asignaturas, docentes
-  por asignatura, estudiantes, notas y desempeños. **Guardar cambios** aplica
-  solo ese período; **Volver** no modifica nada. Si hay cambios sin guardar,
-  la app pregunta antes de salir (o al cerrar o recargar la pestaña).
+  por asignatura, estudiantes, notas y desempeños. Los campos editables tienen
+  fondo azulado y borde visible; al pasar el cursor cambian apenas de tono y al
+  enfocarlos el borde se refuerza. **Guardar cambios** aplica solo ese período;
+  **Volver** no modifica nada. Si hay cambios sin guardar, la app pregunta
+  antes de salir (o al cerrar o recargar la pestaña).
 - **Matriz de desempeños del período**: dentro del editor, **Cargar matriz
   (.xlsx)** lee una hoja `Asignatura × Banda` y muestra cuántas asignaturas
   detectó, cuántos casilleros se completarían, cuántos ya tienen texto propio,

@@ -45,3 +45,31 @@ Restricción del usuario (vinculante): paleta clara, amable y gentil — nada de
 - Línea de persistencia en Configuración (Plex Mono 12.5px, `#6f6757`): «Almacenamiento protegido en este navegador.» o aviso de backup; aparece solo al resolverse la solicitud, sin toast ni cambio de layout.
 - Capturas: `.impeccable/review/landing-v2-desktop.png`, `landing-v2-mobile.png` (fresh load, settle + thump terminados, 1.5s).
 - e2e: `e2e/landing.spec.js` (5 tests) + suite trackeada completa 17/17. (Un `e2e/contact.spec.js` WIP de PR paralelo vive sin trackear; no corre en este gate.)
+
+## Formularios del editor (R6)
+
+Solo dentro de los editores (período, informe final y configuración), los campos editables se distinguen del papel del boletín:
+
+| Estado | Token | Hex |
+| --- | --- | --- |
+| Fondo en reposo | `edit-bg` | `#f4f8fc` |
+| Borde en reposo | `edit-border` | `#8da4c2` |
+| Fondo hover | `edit-hover` | `#edf4fb` |
+| Borde y anillo de foco | `form-blue` | `#3e6fa8` (anillo al 30 %) |
+| Texto | `ink-slate` | `#0f172a` sobre el fondo del campo |
+| Placeholder | `typed-ochre` | `slate-500` (#64748b), AA sobre `#f4f8fc` |
+
+- Aplica a `input`, `select` y `textarea`, desempeños incluidos, mediante `TextInput` y `TextArea` en `src/components/ui.jsx`.
+- El hover cambia solo el fondo, nunca el tamaño ni la posición.
+- Los campos deshabilitados o de solo lectura vuelven al fondo blanco del boletín y a un borde neutro `#e2e8f0`; no muestran el tratamiento editable.
+- Los campos conservan `label` o `aria-label`; el nombre del estudiante en el editor usa `Nombre del estudiante N`.
+- El `fieldset` de los editores lleva `min-w-0` para que la tabla ancha scrollee dentro de su contenedor en pantallas de 360 px.
+
+## Verificación F7 (contraste y detector)
+
+- `impeccable detect src index.html`: 0 hallazgos, igual que el baseline F6.
+- Landing servida: 0 anti-patrones; 2 avisos `hard-offset-shadow` del CTA de papel (dirección documentada, no se eliminan).
+- Menú de gestión servido: 3 `nested-cards` y 2 avisos, idénticos al baseline F6; F7 no introduce hallazgos nuevos.
+- Boletín de período y boletín final: 0 hallazgos tras subir los textos atenuados a `slate-600`.
+- Editor de período y editor final: 0 anti-patrones; quedan avisos de jerarquía tipográfica y de un texto auxiliar, preexistentes.
+- Campos: texto `slate-900` sobre `#f4f8fc`, placeholders `slate-600` (>4.5:1) y foco `#3e6fa8`; los estados deshabilitados/solo lectura usan borde `#e2e8f0` y fondo blanco.

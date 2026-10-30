@@ -1,6 +1,6 @@
 # Refactor del flujo de trabajo — SDD
 
-**Estado:** F1–F5 fusionadas (PR #47, PR #48 y PR #49). F6 (precarga de desempeños del próximo período) está implementada en la rama `feat/landing-next-matrix`, pendiente de PR y merge. F7 pendiente.
+**Estado:** F1–F6 fusionadas (PR #47, PR #48, PR #49 y PR #50). F7 (contraste editable, accesibilidad y cierre documental) está implementada en la rama `feat/editable-contrast-a11y`, pendiente de PR y merge.
 **Alcance de este documento:** plan de trabajo estricto; no autoriza ejecutar código ni levantar agentes.
 **Base verificada:** aplicación React/Vite, IndexedDB, landing, menú de gestión, editor de períodos, boletines y matriz de desempeños actuales.
 
@@ -491,6 +491,7 @@ la matriz final no modifica desempeños de período.
 
 ### Fase 7 — Contraste editable, accesibilidad y cierre
 
+**Estado:** implementada en `feat/editable-contrast-a11y`; pendiente de PR y merge.
 **Archivos:** estilos de editor/UI, `DESIGN.md`, `docs/manual-de-uso.md`, `public/manual-de-uso.md`, `spec.md`, `PRODUCT.md`.
 
 - Aplicar R6.

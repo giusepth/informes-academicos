@@ -32,7 +32,7 @@ Calculated, private, and school-flavored reports with zero accounts: the school'
 
 ## Brand Commitments
 
-- App name in UI copy: "Informes" (tool), repo name informes-academicos. Voice: cálido, sin superlativos, frases cortas; Spanish school vocabulary (informe, desempeño, asignatura, valoración, estudiante, pestaña, respaldo).
+- App name in UI copy: "Informes" (tool), repo name informes-academicos. Voice: cálido, sin superlativos, frases cortas; Spanish school vocabulary (informe, desempeño, asignatura, valoración, estudiante, pestaña, respaldo). Editable fields inside the editors use the subtle blue form treatment (R6) with AA text and a visible focus ring; read-only report surfaces keep the plain paper look.
 - Visual identity of the TOOL (incumbent): light slate neutrals, white rounded-2xl panels on a soft gray page, restrained accent colors for performance bands, education-card styling. See docs/manual-de-uso.md screenshots section and src/components for the honest system.
 
 ## Evidence on Hand
