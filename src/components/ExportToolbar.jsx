@@ -95,7 +95,7 @@ export default function ExportToolbar({
         </Button>
         {onBackupExport ? (
           <Button variant="secondary" onClick={handleBackup} disabled={busy}>
-            Descargar respaldo (.xlsx)
+            {busy ? 'Generando…' : 'Descargar respaldo (.xlsx)'}
           </Button>
         ) : null}
         {busy ? (

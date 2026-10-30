@@ -639,6 +639,17 @@ export default function PeriodEditor({
                 </tr>
               ))}
             </tbody>
+            {students.length === 0 ? (
+              <tr className="border-t border-slate-100">
+                <td
+                  colSpan={subjects.length + 2}
+                  role="status"
+                  className="px-3 py-6 text-center text-sm text-slate-500"
+                >
+                  Todavía no hay estudiantes: agrega uno o pega una lista debajo.
+                </td>
+              </tr>
+            ) : null}
           </table>
         </div>
         )}
@@ -701,13 +712,21 @@ export default function PeriodEditor({
         ) : null}
       </fieldset>
 
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onCancel}>
-          Volver
-        </Button>
-        <Button onClick={handleSave} disabled={readOnly}>
-          {editing ? 'Guardar cambios' : 'Crear período'}
-        </Button>
+      <div className="flex items-center justify-between gap-2">
+        <p
+          role="status"
+          className={`text-sm text-slate-500 ${dirty ? '' : 'opacity-0'}`}
+        >
+          Cambios sin guardar
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onCancel}>
+            Volver
+          </Button>
+          <Button onClick={handleSave} disabled={readOnly}>
+            {editing ? 'Guardar cambios' : 'Crear período'}
+          </Button>
+        </div>
       </div>
     </div>
   )
