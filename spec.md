@@ -12,7 +12,7 @@ El **MVP 0.0.1** es una Aplicación de Página Única (SPA) desarrollada en **Re
    * **Modo Manual (Vanilla):** Creación e ingreso de datos 100% a mano desde una interfaz interactiva.
 2. **Estructura Dinámica de Asignaturas ($N$ Asignaturas):** Capacidad de adaptarse a cursos que manejan diferente número y nombre de asignaturas sin restricciones fijas.
 3. **Cálculos Automáticos y Edge Cases:** Redondeo institucional hacia arriba (ej. $2.92 \to 3.0$) aplicado a la valoración cualitativa, ranking por promedio crudo descendente y visualización del promedio con dos decimales.
-4. **Desempeños Cualitativos y Carga Opcional:** Espacio editable por asignatura para el docente dentro del editor de período; el informe final es de solo lectura y sus anotaciones se editan en `#/editor-final`. Cada editor carga su propia matriz auxiliar local (período o informe final) y la aplica explícitamente solo a casilleros vacíos.
+4. **Desempeños Cualitativos y Carga Opcional:** Espacio editable por asignatura para el docente dentro del editor de período; el informe final es de solo lectura y sus anotaciones se editan en `#/editor-final`. Cada editor carga su propia matriz auxiliar local (período o informe final) y la aplica explícitamente solo a casilleros vacíos. La landing y el menú permiten precargar la matriz del próximo período; se consume una sola vez al crear o importar el primer período.
 5. **Identidad Institucional:** Inserción de escudo institucional PNG con opacidad controlada en el fondo del informe impreso/exportado.
 6. **Exportación Versátil:** Descarga individual en PDF, paquete compilado en formato `.ZIP` y opción de impresión directa optimizada (`@media print`).
 7. **Despliegue Gratuito:** Configurado para compilación estática lista para producción en Vercel.
@@ -67,6 +67,7 @@ src/
 │   ├── ManagementMenu.jsx       # Menú de gestión: nuevo trabajo, período actual, desempeños y respaldo
 │   ├── PeriodEditor.jsx         # Editor compartido para crear o editar un período completo
 │   ├── PerformanceMatrixImport.jsx # Matriz local al borrador del período o del informe final
+│   ├── NextPeriodMatrixActions.jsx # Precarga de la matriz del próximo período (landing y menú)
 │   ├── FinalEditor.jsx          # Edición de anotaciones finales y matriz del informe final
 │   ├── ReportDashboard.jsx      # Vista de solo lectura del período o del informe final
 │   └── ExportToolbar.jsx       # Panel de acciones (Imprimir, Descargar PDF individual, Generar ZIP)

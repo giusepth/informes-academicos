@@ -25,7 +25,9 @@ lectura; las anotaciones se editan en `#/editor-final` (F5).
 
 1. **Informe 1**: al abrir la app por primera vez, importa `informe-1.xlsx`
    (o crea todo a mano con "Crear manualmente", que abre el editor de
-   período). Queda como el único informe.
+   período). Queda como el único informe. Opcionalmente, antes de entrar,
+   carga en la landing la **matriz del próximo período**: se aplica una sola
+   vez a este primer informe, solo a celdas vacías y cuando existan notas.
 2. **Informe 2..4**: en **Menú → Nuevo trabajo** usa **Importar Excel
    (.xlsx)** para cada archivo nuevo, o **Nuevo periodo en blanco** que abre
    el editor con la estructura del informe activo (mismos

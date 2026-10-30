@@ -32,14 +32,17 @@ S5 — Documentación.
 
 ## Tasks
 
-- T1 — Landing: sección y acciones; componente compartido de matriz del próximo período. Specs: S1, S2. Route: inline. Status: pending.
-- T2 — App: estado `nextPeriodMatrix`, aplicación al primer período creado/importado/restaurado y consumo único. Specs: S3. Route: inline. Status: pending.
-- T3 — Limpieza local/remota y clave legada. Specs: S4. Route: inline. Status: pending.
-- T4 — Tests e2e y actualización de specs existentes. Specs: S1–S4. Route: inline. Status: pending.
-- T5 — Documentación y estado del SDD. Specs: S5. Route: inline. Status: pending.
+- T1 — Landing: sección y acciones; componente compartido de matriz del próximo período. Specs: S1, S2. Route: inline. Status: done (commit 228d117).
+- T2 — App: estado `nextPeriodMatrix`, aplicación al primer período creado/importado/restaurado y consumo único. Specs: S3. Route: inline. Status: done (commit 228d117).
+- T3 — Limpieza local/remota y clave legada. Specs: S4. Route: inline. Status: done (commit 228d117).
+- T4 — Tests e2e y actualización de specs existentes. Specs: S1–S4. Route: inline. Status: done (commits b49176a, 228d117).
+- T5 — Documentación y estado del SDD. Specs: S5. Route: inline. Status: done (este commit).
 - T6 — Verificación completa, PR, auditoría y CI. Specs: S1–S5. Route: inline. Status: pending.
 
 ## Log
 
 L1 (2026-10-30, verbatim): «Continua con todo.»
 Contexto: tras fusionar F5 (PR #49), el siguiente paso del SDD es F6 (R5/Fase 6): precarga visible de desempeños del próximo período desde la landing y el menú, con consumo único al primer período.
+L2 (2026-10-30): RED observado en las 3 pruebas nuevas de `e2e/landing-matrix.spec.js` (sección/acciones inexistentes) y en las pruebas de menú/limpieza actualizadas; tests congelados en `b49176a`.
+L3 (2026-10-30): implementación `228d117`: sección «Desempeños antes de empezar» en landing, componente compartido `NextPeriodMatrixActions` (modo `nextPeriod`/`downloads`), estado `informes.nextPeriodMatrix` en sessionStorage, aplicación única al primer período creado/importado/restaurado y limpieza local/remota. Verificación: 166 unit, 130 e2e, build OK, lint sin errores nuevos.
+L4 (2026-10-30): documentación actualizada (manual/copia pública, `final-report.md`, `spec.md`, `PRODUCT.md`, SDD).
