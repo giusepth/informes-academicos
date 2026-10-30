@@ -5,6 +5,7 @@ import {
   makeId,
   matrixApplicationStats,
 } from '../utils/parser'
+import { parseRosterNames, remainingSubjectSuggestions } from '../utils/roster'
 import { parseScoreInput } from '../utils/scoreInput'
 import PerformanceMatrixImport from './PerformanceMatrixImport'
 import StudentFocusPanel from './StudentFocusPanel'
@@ -115,6 +116,7 @@ export default function PeriodEditor({
   // hides them, so imports/reviews always see the whole picture at first.
   const [compact, setCompact] = useState(false)
   const [expandedRows, setExpandedRows] = useState({})
+  const [rosterText, setRosterText] = useState('')
   const [matrix, setMatrix] = useState(null)
   const [matrixNotice, setMatrixNotice] = useState('')
   const [error, setError] = useState('')
@@ -398,6 +400,18 @@ export default function PeriodEditor({
     subjects.filter((subject) => String(student.performances?.[subject.id] ?? '').trim() !== '')
       .length
 
+  const subjectSuggestions = remainingSubjectSuggestions(subjects.map((subject) => subject.name))
+
+  const addSuggestedSubject = (name) =>
+    setSubjects((current) => [...current, { id: makeId(), name, teacher: '' }])
+
+  const addRosterStudents = () => {
+    const names = parseRosterNames(rosterText, students.map((student) => student.name))
+    if (names.length === 0) return
+    setStudents((current) => [...current, ...names.map((name) => ({ ...emptyStudent(), name }))])
+    setRosterText('')
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -474,6 +488,22 @@ export default function PeriodEditor({
               </div>
             ))}
           </div>
+          {subjectSuggestions.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-slate-500">Asignaturas comunes:</span>
+              {subjectSuggestions.map((name) => (
+                <Button
+                  key={name}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addSuggestedSubject(name)}
+                  aria-label={`Asignatura sugerida: ${name}`}
+                >
+                  + {name}
+                </Button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="mb-2 flex items-center justify-between">
@@ -629,6 +659,29 @@ export default function PeriodEditor({
             {focusActive ? 'Volver a la grilla' : 'Modo enfoque'}
           </Button>
         </div>
+
+        <details className="rounded-lg border border-slate-200 bg-white p-3">
+          <summary className="cursor-pointer text-sm text-slate-700">
+            Cargar una lista de estudiantes
+          </summary>
+          <p className="mt-1 text-xs text-slate-500">
+            Pega los nombres, un estudiante por línea. Se omiten los que ya están en la lista.
+          </p>
+          <div className="mt-2">
+            <TextArea
+              className="min-h-24"
+              value={rosterText}
+              onChange={(event) => setRosterText(event.target.value)}
+              placeholder={'Ana Gómez\nLuis Pérez'}
+              aria-label="Lista de estudiantes para pegar"
+            />
+          </div>
+          <div className="mt-2">
+            <Button variant="secondary" size="sm" onClick={addRosterStudents}>
+              Cargar lista
+            </Button>
+          </div>
+        </details>
 
         <PerformanceMatrixImport
           matrix={matrix}
