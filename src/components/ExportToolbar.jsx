@@ -27,6 +27,7 @@ export default function ExportToolbar({
   onSelectStudent,
   getPrintElement,
   onPreview,
+  onBackupExport,
   onNotify,
 }) {
   const [busy, setBusy] = useState(false)
@@ -73,6 +74,11 @@ export default function ExportToolbar({
       setProgress({ done: 0, total: 0 })
     })
 
+  const handleBackup = () =>
+    withBusy(async () => {
+      await onBackupExport?.()
+    })
+
   return (
     <div className="no-print rounded-2xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -87,6 +93,11 @@ export default function ExportToolbar({
             ? `Generando ZIP… ${progress.done}/${progress.total}`
             : 'Generar ZIP (todos)'}
         </Button>
+        {onBackupExport ? (
+          <Button variant="secondary" onClick={handleBackup} disabled={busy}>
+            Descargar respaldo (.xlsx)
+          </Button>
+        ) : null}
         {busy ? (
           <span className="text-xs text-slate-500">
             Renderizando informes, puede demorar…

@@ -27,7 +27,7 @@ import {
   migrateLegacy,
   MIGRATION_FLAG,
 } from './utils/idbState'
-import { applyMatrixToReport, makeId, matrixApplicationStats } from './utils/parser'
+import { applyMatrixToReport, buildBackupWorkbook, makeId, matrixApplicationStats } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync, TAB_SYNC_REASONS } from './utils/tabSync'
@@ -849,6 +849,15 @@ export default function App() {
     )
   }
 
+  // Session-level backup from the working view: the same workbook the
+  // management menu builds, surfaced next to the PDF/ZIP exports so a manual
+  // entry session can take a portable copy without visiting Gestión.
+  const handleDownloadBackup = async () => {
+    await buildBackupWorkbook(reports, finalPerformances)
+    const day = new Date().toISOString().slice(0, 10)
+    setToast(`Respaldo descargado: informes-backup-${day}.xlsx`)
+  }
+
   const handleImportPeriod = (data) => {
     if (readOnlyRef.current) return
     const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
@@ -1212,6 +1221,7 @@ export default function App() {
               onSelectStudent={setSelectedStudentId}
               getPrintElement={() => printSheetRef.current}
               onPreview={() => setPreviewOpen(true)}
+              onBackupExport={handleDownloadBackup}
               onNotify={setToast}
             />
             <ReportDashboard
