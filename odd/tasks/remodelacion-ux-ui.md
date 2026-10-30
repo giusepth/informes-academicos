@@ -2,7 +2,7 @@
 
 Objetivo: implementar `docs/remodelacion-ux-ui.md` (ola 1 primero: carga manual y densidad).
 Branch: `feat/remodelacion-ux-ui` · Runner: `npx vitest run` (unit) / `npm run e2e` cuando aplique.
-Delivery: `ask-on-risk` (default) — se decide cadena en cierre de ola 1 según líneas acumuladas.
+Delivery: `ask-on-risk` (default) — **decidido por el dueño: cadena de PRs**. Boundaries: PR1 = T0+T1 (export) · PR2 = T2+T3 (editor densidad) · PR3 = T4+T5 (carga manual asistida) · PR4 = T6+T7 (matriz) · PR5 = T8+T9 (identidad + interacción).
 
 ## Specs (citas verbatim del usuario; detalle en docs/remodelacion-ux-ui.md)
 
@@ -24,8 +24,8 @@ Delivery: `ask-on-risk` (default) — se decide cadena en cierre de ola 1 según
 | T3 | S1 | Densidad compacta + sticky + desempeños colapsables | inline | ✅ | 72e2dfa |
 | T4 | S5 | Entrada manual asistida: sugerencias de asignaturas + pegar lista de estudiantes | inline | ✅ | 90da975 |
 | T5 | S5, S6 | Empty states con guía + guardado inline (5 estados en controles nuevos) | inline | ✅ | 5944641 |
-| T6 | S4 | Matriz: explicación, pasos, vista previa con matrixApplicationStats | inline | pendiente (ola 2) | — |
-| T7 | S4, S6 | Progreso "N de M desempeños listos" | inline | pendiente (ola 2) | — |
+| T6 | S4 | Matriz: explicación, pasos, vista previa con matrixApplicationStats | inline | ✅ | fd3ea9b |
+| T7 | S4, S6 | Progreso "N de M desempeños listos" | inline | ✅ | fd3ea9b |
 | T8 | S7 | Identidad triplicado → tool (dashboard/gestión/modales) | inline | pendiente (ola 3) | — |
 | T9 | S6 | Auditoría global de interacción (ningún botón sin reacción) | inline | pendiente (ola 3) | — |
 
@@ -35,3 +35,5 @@ Delivery: `ask-on-risk` (default) — se decide cadena en cierre de ola 1 según
 - Dirección aprobada: docs/remodelacion-ux-ui.md (escrito previamente por el orquestador con decisiones cerradas: sin modales de grilla; xlsx export existente a superficie; matriz explicada con preview; triplicado a todo el producto).
 - RDD: off (global) — checks ordinarios, sin ceremonia de review.
 - L2 (cierre ola 1): unit 180/180, e2e completa 145/145. Authored lines de la rama: 740+ / 37−. Cambio de diseño bloqueante documentado: colapsar desempeños por defecto rompería ~8 specs e2e (getByLabel 'Desempeño de…') → vista compacta OPT-IN, default = grilla completa (T3). Pendiente decidir estrategia de entrega (ask-on-risk): rama ya supera 400 líneas → cadena de PRs vs PR único.
+- L3 (decisión del dueño, verbatim): "recomendado" → estrategia = CADENA DE PRs con boundaries arriba.
+- L4 (cierre ola 2): T6+T7 en un solo work unit (mismo panel/encabezado). unit 182/182, e2e de matriz 27/27. Los count strings del panel (`N casillero a completar`, `0 sin nota`) se conservaron intactos porque los e2e los asertan literalmente; la explicación/pasos se agregaron alrededor.
