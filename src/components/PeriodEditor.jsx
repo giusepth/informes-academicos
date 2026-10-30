@@ -507,7 +507,14 @@ export default function PeriodEditor({
         </div>
 
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-700">Estudiantes ({students.length})</p>
+          <div>
+            <p className="text-sm font-medium text-slate-700">Estudiantes ({students.length})</p>
+            <p className="text-xs text-slate-500">
+              Desempeños listos:{' '}
+              {students.reduce((count, student) => count + filledPerformances(student), 0)} de{' '}
+              {students.length * subjects.length}
+            </p>
+          </div>
           {students.length > 0 ? (
             <Button
               variant="ghost"
