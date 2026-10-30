@@ -26,7 +26,7 @@ Calculated, private, and school-flavored reports with zero accounts: the school'
 
 ## Capabilities and Constraints
 
-- Confirmed: xlsx import (scores + docente per subject + desempeño), manual entry with insane clamps per scale, editable qualitative band ranges, scale switch decimal/centesimal at setup, performance-matrix text pre-load filling ONLY empty cells, final consolidated report, per-student printable A4 + PDF, pagination-safe multi-page export, .xlsx backup export/import (periods, scores, per-period desempeños and final-report annotations), all client-side (react + vite + tailwind + sheetjs + jspdf + html2canvas-pro + jszip).
+- Confirmed: xlsx import (scores + docente per subject + desempeño), manual entry with insane clamps per scale, editable qualitative band ranges, scale switch decimal/centesimal at setup, performance-matrix text pre-load filling ONLY empty cells (next-period preload from the landing/menu, or inside the period/final editor), final consolidated report, per-student printable A4 + PDF, pagination-safe multi-page export, .xlsx backup export/import (periods, scores, per-period desempeños and final-report annotations), all client-side (react + vite + tailwind + sheetjs + jspdf + html2canvas-pro + jszip).
 - Hard constraint: NO backend, NO accounts, NO analytics/telemetry of any kind. Accessibility: keyboard-reachability and semantic semantics per RF/RNF of docs/spec.md; Spanish-first UI copy (neutral tuteo is the product voice — «Genera y exporta», not voseo).
 - Undecided/none: marketing assets (no logo beyond school crests, no testimonials — must NOT be fabricated).
 

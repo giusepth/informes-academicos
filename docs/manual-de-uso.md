@@ -69,6 +69,13 @@ inicio, cuando todavía no hay informes cargados.
 
 ### Descargar y cargar desempeños
 
+Antes de cargar el primer período, la landing ofrece **Desempeños antes de
+empezar** (y el menú la misma precarga mientras no haya períodos): carga la
+matriz del próximo período, muestra cuántas asignaturas detectó y avisa que se
+aplicará **una sola vez** al primer período que crees o importes, solo a
+casilleros vacíos y cuando existan notas. Puedes **Reemplazar archivo** o
+**Quitar matriz**; la matriz no se guarda en el respaldo.
+
 Las **matrices de período** se cargan dentro del editor de cada período y la
 **matriz del informe final** dentro de **Editar informe final** (ver más
 abajo). La sección **Desempeños** del menú ofrece las descargas:
@@ -154,18 +161,21 @@ Sin IndexedDB (modo privado o navegador bloqueado), el trabajo vive por pestaña
 
 ## 4. Varios periodos y el informe final
 
-1. Importa `informe-1.xlsx` → aparece la barra de gestión con **Informe 1**.
-2. Para el siguiente periodo: **Menú → Nuevo trabajo → Importar Excel
+1. Opcional: en la landing, carga la **matriz del próximo período** antes de
+   entrar. Se aplicará una sola vez al primer período, solo a celdas vacías.
+2. Importa `informe-1.xlsx` → aparece la barra de gestión con **Informe 1**.
+3. Para el siguiente periodo: **Menú → Nuevo trabajo → Importar Excel
    (.xlsx)** con un archivo nuevo, o **Nuevo periodo en blanco** para abrir el
    editor con la estructura lista y escribir a mano (los ids de estudiantes se
    regeneran: las observaciones quedan separadas por periodo, como
-   corresponde).
-3. El botón **"Informe N (final)"** (se numera según la cantidad cargada)
+   corresponde). La matriz precargada en la landing ya se consumió y no se
+   aplica a este segundo período.
+4. El botón **"Informe N (final)"** (se numera según la cantidad cargada)
    abre el boletín que promedia cada asignatura entre los periodos: una
    columna por informe + **Promedio** + **Valoración** + **Desempeño**.
    Los estudiantes se emparejan **por nombre**, las ausencias no penalizan
    y el docente por asignatura toma el del informe más reciente.
-4. El boletín final es de **solo lectura**. Para escribir los desempeños,
+5. El boletín final es de **solo lectura**. Para escribir los desempeños,
    usa **Editar desempeños finales**: se abre el editor final, ajusta los
    juicios valorativos por estudiante y asignatura y guarda. Se guardan por
    nombre de estudiante y **no dependen de los informes de periodo**:

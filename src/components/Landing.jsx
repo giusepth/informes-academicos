@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import NextPeriodMatrixActions from './NextPeriodMatrixActions'
 import { Button } from './ui'
 import '@fontsource-variable/archivo/wdth.css'
 import '@fontsource/ibm-plex-mono/400.css'
@@ -102,7 +103,12 @@ function Field({ label, value }) {
   )
 }
 
-export default function Landing({ onOpen }) {
+export default function Landing({
+  onOpen,
+  nextPeriodMatrix = null,
+  onLoadNextMatrix,
+  onClearNextMatrix,
+}) {
   // Which anchored section currently sits in the reading band: drives the
   // typed underline in the navbar (one observer, four sections).
   const [activeSection, setActiveSection] = useState('')
@@ -321,6 +327,36 @@ export default function Landing({ onOpen }) {
               <p className="text-[14.5px] leading-[1.55] text-[#5d6a85]">{line}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Next-period matrix: a discreet preload before the privacy note. */}
+      <section
+        id="desempenos"
+        aria-labelledby="landing-matrix-title"
+        className="mx-auto max-w-6xl scroll-mt-28 lg:scroll-mt-24 px-6 pb-16"
+      >
+        <Rule />
+        <div className="mt-8 border border-[#d8cfb8] bg-[#fdfcf8] p-6">
+          <h2
+            id="landing-matrix-title"
+            style={headed}
+            className="text-[24px] text-[#3b4a63] md:text-[28px]"
+          >
+            Desempeños antes de empezar
+          </h2>
+          <p className="mt-3 max-w-[70ch] text-[15px] leading-[1.65] text-[#5d6a85]">
+            Si ya tienes la matriz descriptiva del próximo período, cárgala aquí. La app la
+            aplicará una sola vez al primer período que crees o importes, solo en los
+            casilleros vacíos y cuando existan notas.
+          </p>
+          <div className="mt-5">
+            <NextPeriodMatrixActions
+              matrix={nextPeriodMatrix}
+              onLoadMatrix={onLoadNextMatrix}
+              onClearMatrix={onClearNextMatrix}
+            />
+          </div>
         </div>
       </section>
 

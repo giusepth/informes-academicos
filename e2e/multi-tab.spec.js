@@ -106,12 +106,16 @@ test('clearing reports drops session copies in another tab', async ({ page, cont
   await seed(page, { reports })
   const second = await openTool(context)
   await expect(banner(second)).toBeVisible()
-  await second.evaluate(() =>
+  await second.evaluate(() => {
     sessionStorage.setItem(
       'informes.finalPerformances',
       JSON.stringify({ ANA: { 'Matemáticas': 'Final ajeno.' } }),
-    ),
-  )
+    )
+    sessionStorage.setItem(
+      'informes.nextPeriodMatrix',
+      JSON.stringify({ 'Matemáticas': { Alto: 'Pendiente ajeno.' } }),
+    )
+  })
 
   await openManagementMenu(page)
   await page.getByRole('button', { name: 'Limpiar informes' }).click()
@@ -122,6 +126,9 @@ test('clearing reports drops session copies in another tab', async ({ page, cont
 
   await expect
     .poll(() => second.evaluate(() => sessionStorage.getItem('informes.finalPerformances')))
+    .toBeNull()
+  await expect
+    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.nextPeriodMatrix')))
     .toBeNull()
   await expect(second.getByRole('button', { name: 'Informe 1', exact: true })).toHaveCount(0)
 })

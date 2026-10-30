@@ -27,7 +27,7 @@ import {
   migrateLegacy,
   MIGRATION_FLAG,
 } from './utils/idbState'
-import { makeId } from './utils/parser'
+import { applyMatrixToReport, makeId, matrixApplicationStats } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync, TAB_SYNC_REASONS } from './utils/tabSync'
@@ -56,6 +56,9 @@ const STORAGE_KEYS = {
   entered: 'informes.entered',
   // Final-report desempeño overrides, keyed by normalized student name.
   finalPerformances: 'informes.finalPerformances',
+  // Per-tab preload of the next period's performance matrix. Session-only:
+  // it is consumed by the first created/imported period and never persisted.
+  nextPeriodMatrix: 'informes.nextPeriodMatrix',
   // Local editor intent (create/edit); the draft itself lives in the editor.
   editor: 'informes.editor',
   // Legacy single-report key; read only, kept for one-shot migration.
@@ -169,6 +172,9 @@ export default function App() {
     readStorage(STORAGE_KEYS.selected),
   )
   const [finalPerformances, setFinalPerformances] = useState({})
+  const [nextPeriodMatrix, setNextPeriodMatrix] = useState(() =>
+    readStorage(STORAGE_KEYS.nextPeriodMatrix),
+  )
   const [editorState, setEditorState] = useState(() => readStorage(STORAGE_KEYS.editor))
   const [editorDirty, setEditorDirty] = useState(false)
   const [editorEpoch, setEditorEpoch] = useState(0)
@@ -555,6 +561,8 @@ export default function App() {
           } catch {
             /* A blocked sessionStorage does not block the cleanup. */
           }
+          writeStorage(STORAGE_KEYS.nextPeriodMatrix, null)
+          setNextPeriodMatrix(null)
         }
         requestResync()
         // Without Web Locks both tabs can write. Never claim exclusivity:
@@ -739,12 +747,53 @@ export default function App() {
     setToast('Configuración guardada.')
   }
 
+  /** Toast fragment for a consumed next-period matrix. */
+  const nextMatrixToast = ({ fillable }) =>
+    fillable === 0
+      ? ' Matriz del próximo período consumida: no había celdas vacías con nota.'
+      : ` Matriz del próximo período aplicada: ${fillable} ${
+          fillable === 1 ? 'casillero completado' : 'casilleros completados'
+        }.`
+
+  /**
+   * Applies the landing/menu preload to the first period and consumes it.
+   * `applyMatrixToReport` fills only empty desempeño cells that have a grade;
+   * the preload is single-use even when nothing could be filled.
+   */
+  const applyNextPeriodMatrix = (data) => {
+    if (!nextPeriodMatrix) return { data, applied: false, fillable: 0 }
+    const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
+    const stats = matrixApplicationStats(data, nextPeriodMatrix, scale, scaleType)
+    const filled = applyMatrixToReport(data, nextPeriodMatrix, scale, scaleType)
+    setNextPeriodMatrix(null)
+    persist(STORAGE_KEYS.nextPeriodMatrix, null)
+    return {
+      data: { ...data, students: filled },
+      applied: true,
+      fillable: stats.fillable,
+    }
+  }
+
+  const handleLoadNextMatrix = (matrix) => {
+    if (readOnlyRef.current) return
+    setNextPeriodMatrix(matrix)
+    persist(STORAGE_KEYS.nextPeriodMatrix, matrix)
+    setToast('Matriz del próximo período cargada.')
+  }
+
+  const handleClearNextMatrix = () => {
+    if (readOnlyRef.current || !nextPeriodMatrix) return
+    setNextPeriodMatrix(null)
+    persist(STORAGE_KEYS.nextPeriodMatrix, null)
+    setToast('Matriz del próximo período quitada.')
+  }
+
   const handleLoaded = (data) => {
     if (readOnlyRef.current) return
     if (!config) {
       setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
     }
-    const first = {
+    const base = {
       ...data,
       id: makeId(),
       label: 'Informe 1',
@@ -755,11 +804,16 @@ export default function App() {
         id: student.id ?? makeId(),
       })),
     }
+    const consumed = applyNextPeriodMatrix(base)
+    const first = consumed.data
     setReports([first])
     setActiveReportId(first.id)
     setSelectedStudentId(first.students[0]?.id ?? null)
     navigate(TOOL_ROUTES.boletin)
-    setToast(`Informe 1 cargado con ${first.students.length} estudiantes.`)
+    setToast(
+      `Informe 1 cargado con ${first.students.length} estudiantes.` +
+        (consumed.applied ? nextMatrixToast(consumed) : ''),
+    )
   }
 
   const handleLoadedBackup = (rawReports, skipped = [], restoredFinalPerformances = {}) => {
@@ -773,6 +827,11 @@ export default function App() {
       label: report.label ?? `Informe ${index + 1}`,
       students: (report.students ?? []).map((student) => ({ ...student, id: makeId() })),
     }))
+    let consumed = { applied: false, fillable: 0 }
+    if (restored.length > 0 && reports.length === 0) {
+      consumed = applyNextPeriodMatrix(restored[0])
+      restored[0] = consumed.data
+    }
     setReports(restored)
     setActiveReportId(restored[0]?.id ?? null)
     setSelectedStudentId(restored[0]?.students[0]?.id ?? null)
@@ -785,7 +844,8 @@ export default function App() {
     }
     setToast(
       `Backup restaurado: ${restored.length} informe(s) importados.` +
-        (skipped.length > 0 ? ` — ${skipped.length} hoja(s) omitida(s): ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}` : ''),
+        (skipped.length > 0 ? ` — ${skipped.length} hoja(s) omitida(s): ${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? '…' : ''}` : '') +
+        (consumed.applied ? nextMatrixToast(consumed) : ''),
     )
   }
 
@@ -895,16 +955,24 @@ export default function App() {
           : 'El período original ya no estaba disponible; se guardó como uno nuevo.',
       )
     } else {
-      saved = {
+      const base = {
         ...data,
         id: makeId(),
         label: `Informe ${reports.length + 1}`,
         students: data.students.map((student) => ({ ...student, id: makeId() })),
       }
+      const consumed =
+        reports.length === 0
+          ? applyNextPeriodMatrix(base)
+          : { data: base, applied: false, fillable: 0 }
+      saved = consumed.data
       setReports((currentReports) => [...currentReports, saved])
       setActiveReportId(saved.id)
       setSelectedStudentId(saved.students[0]?.id ?? null)
-      setToast(`${saved.label} creado con ${saved.students.length} estudiantes.`)
+      setToast(
+        `${saved.label} creado con ${saved.students.length} estudiantes.` +
+          (consumed.applied ? nextMatrixToast(consumed) : ''),
+      )
     }
     leaveEditor(TOOL_ROUTES.boletin)
   }
@@ -957,6 +1025,8 @@ export default function App() {
 
       setReports([])
       setFinalPerformances({})
+      setNextPeriodMatrix(null)
+      persist(STORAGE_KEYS.nextPeriodMatrix, null)
       setActiveReportId(null)
       setSelectedStudentId(null)
       setEditorState(null)
@@ -1019,6 +1089,9 @@ export default function App() {
             setEntered(true)
             navigate(TOOL_ROUTES.gestion)
           }}
+          nextPeriodMatrix={nextPeriodMatrix}
+          onLoadNextMatrix={handleLoadNextMatrix}
+          onClearNextMatrix={handleClearNextMatrix}
         />
         {notice}
       </>
@@ -1108,8 +1181,11 @@ export default function App() {
             finalPerformances={finalPerformances}
             activeReport={activeReport}
             config={config}
+            nextPeriodMatrix={nextPeriodMatrix}
             readOnly={readOnly}
             onNewReport={handleNewReport}
+            onLoadNextMatrix={handleLoadNextMatrix}
+            onClearNextMatrix={handleClearNextMatrix}
             onLoadedBackup={handleLoadedBackup}
             onCreateManual={handleCreateManual}
             onNewBlank={handleNewBlank}

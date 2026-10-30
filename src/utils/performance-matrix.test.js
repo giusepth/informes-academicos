@@ -246,7 +246,7 @@ describe('countMatrixFills', () => {
     { label: 'Superior', min: 90, max: 100 },
   ]
 
-  it('returns 0 for a roster with no numeric scores (pending must wait)', () => {
+  it('returns 0 for a roster with no numeric scores (nothing to fill)', () => {
     const report = {
       subjects: ['Matemáticas'],
       students: [

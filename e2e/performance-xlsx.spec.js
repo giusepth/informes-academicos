@@ -9,6 +9,7 @@ import { completeFirstRun } from './helpers'
  */
 
 const ACTIONS = {
+  load: 'Cargar desempeños del próximo período (.xlsx)',
   template: 'Descargar plantilla de desempeños',
   sample: 'Descargar ejemplo de desempeños',
 }
@@ -21,7 +22,7 @@ async function download(page, name) {
   return downloadEvent
 }
 
-test('the main menu offers both desempeño downloads', async ({ page }) => {
+test('the main menu offers the next-period matrix actions and both downloads', async ({ page }) => {
   await completeFirstRun(page)
 
   for (const name of Object.values(ACTIONS)) {

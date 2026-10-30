@@ -1,6 +1,6 @@
 # Refactor del flujo de trabajo — SDD
 
-**Estado:** F1–F4.1 fusionadas (PR #47 y PR #48). F5 (editor del informe final) está implementada en la rama `feat/final-editor`, pendiente de PR y merge. F6–F7 pendientes.
+**Estado:** F1–F5 fusionadas (PR #47, PR #48 y PR #49). F6 (precarga de desempeños del próximo período) está implementada en la rama `feat/landing-next-matrix`, pendiente de PR y merge. F7 pendiente.
 **Alcance de este documento:** plan de trabajo estricto; no autoriza ejecutar código ni levantar agentes.
 **Base verificada:** aplicación React/Vite, IndexedDB, landing, menú de gestión, editor de períodos, boletines y matriz de desempeños actuales.
 
@@ -215,7 +215,7 @@ componente de importación y un alcance distinto.
 
 ### R5 — Desempeños visibles desde la landing
 
-Se agregará una sección discreta «Desempeños antes de empezar» en la landing, antes del cierre o del bloque de privacidad:
+La sección discreta «Desempeños antes de empezar» vive en la landing, antes del cierre y del bloque de privacidad; el menú reutiliza el mismo componente mientras no existan períodos:
 
 - «Cargar desempeños del próximo período (.xlsx)».
 - «Descargar plantilla de desempeños».
@@ -476,7 +476,8 @@ la matriz final no modifica desempeños de período.
 
 ### Fase 6 — Precarga visible de desempeños del próximo período
 
-**Archivos:** `Landing.jsx`, componente compartido de matriz, App, manual.
+**Estado:** implementada en `feat/landing-next-matrix`; pendiente de PR y merge.
+**Archivos:** `Landing.jsx`, `NextPeriodMatrixActions`, `ManagementMenu`, App, manual.
 
 - Sección en landing con alcance `nextPeriod`.
 - Estado cargado/reemplazar/quitar.
