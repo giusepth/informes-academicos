@@ -24,11 +24,6 @@ const MATRIX = workbookBytes([
   ['Ciencias', 'C-Bajo', 'C-Básico', 'C-Alto', 'C-Superior'],
 ])
 
-const EMPTY_MATRIX = workbookBytes([
-  ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior'],
-  ['Matemáticas', '', '', '', ''],
-])
-
 const fileFor = (buffer) => ({
   name: 'matriz.xlsx',
   mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -37,7 +37,7 @@ S5 — Documentación.
 - T3 — Limpieza local/remota y clave legada. Specs: S4. Route: inline. Status: done (commit 228d117).
 - T4 — Tests e2e y actualización de specs existentes. Specs: S1–S4. Route: inline. Status: done (commits b49176a, 228d117).
 - T5 — Documentación y estado del SDD. Specs: S5. Route: inline. Status: done (este commit).
-- T6 — Verificación completa, PR, auditoría y CI. Specs: S1–S5. Route: inline. Status: pending.
+- T6 — Verificación completa, PR, auditoría y CI. Specs: S1–S5. Route: inline. Status: done: 166 unit, 137 e2e, build OK, lint sin warnings nuevos; auditoría read-only sin bloqueadores; PR #50 abierto.
 
 ## Log
 
@@ -46,3 +46,4 @@ Contexto: tras fusionar F5 (PR #49), el siguiente paso del SDD es F6 (R5/Fase 6)
 L2 (2026-10-30): RED observado en las 3 pruebas nuevas de `e2e/landing-matrix.spec.js` (sección/acciones inexistentes) y en las pruebas de menú/limpieza actualizadas; tests congelados en `b49176a`.
 L3 (2026-10-30): implementación `228d117`: sección «Desempeños antes de empezar» en landing, componente compartido `NextPeriodMatrixActions` (modo `nextPeriod`/`downloads`), estado `informes.nextPeriodMatrix` en sessionStorage, aplicación única al primer período creado/importado/restaurado y limpieza local/remota. Verificación: 166 unit, 130 e2e, build OK, lint sin errores nuevos.
 L4 (2026-10-30): documentación actualizada (manual/copia pública, `final-report.md`, `spec.md`, `PRODUCT.md`, SDD).
+L5 (2026-10-30): auditoría read-only independiente sin bloqueadores. Advisories corregidos: el rechazo de plantilla vacía ya no muestra un toast contradictorio de «quitada», el estado pendiente se persiste en los handlers (sin warning nuevo de efecto), comentarios de `parser.js` alineados con el consumo único y pruebas de regresión añadidas (`e2e/next-period-matrix-regressions.spec.js`: reemplazo inválido, primer período sin notas, backup, menú read-only, limpieza en modo sesión, recarga del landing y escala centesimal). Suite final: 166 unit, 137 e2e, build OK, lint 108 warnings (igual que el baseline).

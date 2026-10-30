@@ -424,8 +424,8 @@ export function fillPerformances(
 
 /**
  * Applies a matrix to one period report: returns a new student list with ONLY
- * the empty desempeño cells filled. Pure helper shared by the manual matrix
- * import and the pending menu apply flow; the source report is never mutated.
+ * the empty desempeño cells filled. Pure helper shared by the editor matrix
+ * imports and the next-period preload; the source report is never mutated.
  */
 export function applyMatrixToReport(report, matrix, scale = DEFAULT_SCALE, scaleType = 'decimal') {
   const students = report?.students ?? []
@@ -445,9 +445,9 @@ export function applyMatrixToReport(report, matrix, scale = DEFAULT_SCALE, scale
 
 /**
  * Counts how many desempeño cells `applyMatrixToReport` would actually fill.
- * The pending-matrix flow uses it to wait for real grades: a roster with no
- * numeric scores (or a template with empty band texts) yields 0 and must not
- * consume the pending payload.
+ * The next-period preload uses it to report the result; a roster with no
+ * numeric scores (or a template with empty band texts) yields 0, and the
+ * preload is still consumed because it is scoped to the first period.
  */
 export function countMatrixFills(report, matrix, scale = DEFAULT_SCALE, scaleType = 'decimal') {
   const next = applyMatrixToReport(report, matrix, scale, scaleType)

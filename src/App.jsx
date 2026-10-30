@@ -657,10 +657,6 @@ export default function App() {
     if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
   }, [finalPerformances, dataQueue, readOnly])
-  useEffect(
-    () => persist(STORAGE_KEYS.nextPeriodMatrix, nextPeriodMatrix),
-    [nextPeriodMatrix],
-  )
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
@@ -770,6 +766,7 @@ export default function App() {
     const stats = matrixApplicationStats(data, nextPeriodMatrix, scale, scaleType)
     const filled = applyMatrixToReport(data, nextPeriodMatrix, scale, scaleType)
     setNextPeriodMatrix(null)
+    persist(STORAGE_KEYS.nextPeriodMatrix, null)
     return {
       data: { ...data, students: filled },
       applied: true,
@@ -780,12 +777,14 @@ export default function App() {
   const handleLoadNextMatrix = (matrix) => {
     if (readOnlyRef.current) return
     setNextPeriodMatrix(matrix)
+    persist(STORAGE_KEYS.nextPeriodMatrix, matrix)
     setToast('Matriz del próximo período cargada.')
   }
 
   const handleClearNextMatrix = () => {
-    if (readOnlyRef.current) return
+    if (readOnlyRef.current || !nextPeriodMatrix) return
     setNextPeriodMatrix(null)
+    persist(STORAGE_KEYS.nextPeriodMatrix, null)
     setToast('Matriz del próximo período quitada.')
   }
 
@@ -1027,6 +1026,7 @@ export default function App() {
       setReports([])
       setFinalPerformances({})
       setNextPeriodMatrix(null)
+      persist(STORAGE_KEYS.nextPeriodMatrix, null)
       setActiveReportId(null)
       setSelectedStudentId(null)
       setEditorState(null)
