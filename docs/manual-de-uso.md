@@ -69,14 +69,10 @@ inicio, cuando todavía no hay informes cargados.
 
 ### Descargar y cargar desempeños
 
-Las **matrices de período** se cargan dentro del editor de cada período (ver
-**Editar un período**). La sección **Desempeños** del menú trabaja con la
-matriz del **informe final** y ofrece tres acciones:
+Las **matrices de período** se cargan dentro del editor de cada período y la
+**matriz del informe final** dentro de **Editar informe final** (ver más
+abajo). La sección **Desempeños** del menú ofrece las descargas:
 
-- **Cargar matriz del informe final (excel)**: importa una hoja
-  `Asignatura | Bajo | Básico | Alto | Superior` con textos. La matriz queda
-  cargada en esta pestaña y solo se aplica al informe final cuando uses
-  **Aplicar al informe final**. También puedes reemplazarla o quitarla.
 - **Descargar plantilla de desempeños** (`plantilla-desempenos.xlsx`): matriz
   con los encabezados `Asignatura | Bajo | Básico | Alto | Superior`, una
   segunda hoja **Instrucciones** con la guía de uso y las celdas de banda
@@ -85,6 +81,15 @@ matriz del **informe final** y ofrece tres acciones:
 - **Descargar ejemplo de desempeños** (`ejemplo-desempenos.xlsx`): matriz
   **lista para usar**, con cuatro asignaturas y textos redactados para cada
   banda. Sirve para ver el formato esperado o para partir de ella.
+
+Dentro del editor correspondiente, **Cargar matriz (.xlsx)** lee una hoja
+`Asignatura × Banda` y muestra cuántas asignaturas detectó, cuántos casilleros
+se completarían, cuántos ya tienen texto propio, cuántos no tienen nota y
+cuántos no coinciden con la matriz. **Aplicar a este período** o **Aplicar al
+informe final** completa solo los casilleros vacíos del borrador; **Quitar
+matriz** la descarta. La matriz no se guarda en el respaldo: al guardar solo
+quedan los textos aplicados. Sin notas, la matriz permanece cargada y explica
+por qué no puede completar nada.
 
 La matriz completa **solo los casilleros de desempeño vacíos**: si ya
 escribiste un juicio valorativo, se conserva. La matriz del informe final no
@@ -114,12 +119,18 @@ modifica los desempeños de período.
 - **Crear un período en blanco**: **Menú → Nuevo trabajo → Nuevo periodo en
   blanco** abre el editor con la estructura del período activo y las notas y
   desempeños vacíos. **Crear período** guarda el período nuevo.
-- La columna **Desempeño** del informe final sí se edita directamente en el
-  boletín final; el resto de los datos se corrige desde el editor del período.
+- **Editar el informe final**: **Informe N (final) → Editar desempeños
+  finales** (o **Menú → Trabajo actual → Editar desempeños finales**) abre el
+  editor de anotaciones finales. El boletín final es de **solo lectura**:
+  muestra promedios y valoraciones calculados, sin campos editables.
+  **Guardar cambios** aplica solo las anotaciones; **Volver** no modifica nada
+  y pide confirmación si hay cambios sin guardar. La **matriz del informe
+  final** se carga dentro de ese editor con **Cargar matriz (.xlsx)** y se
+  aplica con **Aplicar al informe final**.
 - **Períodos**: en la barra del boletín aparece una pestaña por informe,
-  además del botón del informe final. Las importaciones, el respaldo y la
-  matriz del informe final viven en **Menú**; la matriz de cada período se
-  carga dentro de su editor.
+  además del botón del informe final. Las importaciones y el respaldo viven en
+  **Menú**; las matrices se cargan dentro del editor de cada período o del
+  informe final.
 
 ### Varias pestañas abiertas
 
@@ -154,9 +165,13 @@ Sin IndexedDB (modo privado o navegador bloqueado), el trabajo vive por pestaña
    columna por informe + **Promedio** + **Valoración** + **Desempeño**.
    Los estudiantes se emparejan **por nombre**, las ausencias no penalizan
    y el docente por asignatura toma el del informe más reciente.
-4. La columna **Desempeño** del boletín final es editable: escribe ahí el
-   juicio valorativo final. Se guarda al instante y **no depende de los
-   informes de periodo**: reimportar periodos no borra lo anotado.
+4. El boletín final es de **solo lectura**. Para escribir los desempeños,
+   usa **Editar desempeños finales**: se abre el editor final, ajusta los
+   juicios valorativos por estudiante y asignatura y guarda. Se guardan por
+   nombre de estudiante y **no dependen de los informes de periodo**:
+   reimportar periodos no borra lo anotado. Dentro de ese editor también
+   puedes cargar la **matriz del informe final** y aplicarla solo a los
+   casilleros vacíos.
 
 Detalles completos del módulo: `docs/final-report.md`.
 
@@ -177,18 +192,19 @@ Detalles completos del módulo: `docs/final-report.md`.
   configuración y **empieza por importar ese mismo archivo** (si detecta hojas
   Informe N restaura la sesión completa de una vez: periodos, notas y
   desempeños, finales incluidos).
-- **Cargar matriz del informe final (excel)** (en **Menú → Desempeños**):
-  importa la **matriz descriptiva** —una hoja
+- **Matriz del informe final** (en **Editar desempeños finales → Cargar
+  matriz (.xlsx)**): importa la **matriz descriptiva** —una hoja
   `Asignatura | Bajo | Básico | Alto | Superior` con el texto que usas por
   banda— y, con **Aplicar al informe final**, completa solo los desempeños
   finales vacíos según la banda del redondeo institucional de cada nota. Lo
-  que ya escribió el docente **no se sobrescribe**. Las matrices de período se
-  cargan dentro del editor de cada período. **Descargar plantilla de
-  desempeños** y **Descargar ejemplo de desempeños** ofrecen los mismos
-  archivos (`plantilla-desempenos.xlsx` y `ejemplo-desempenos.xlsx`): la
-  plantilla incluye la hoja Instrucciones y las celdas de banda vacías (si la
-  cargas sin completar, la app avisa y no aplica nada); el ejemplo, una matriz
-  lista para usar.
+  que ya escribió el docente **no se sobrescribe** y la matriz no se guarda en
+  el respaldo. Las matrices de período se cargan dentro del editor de cada
+  período. **Descargar plantilla de desempeños** y **Descargar ejemplo de
+  desempeños** (en **Menú → Desempeños**) ofrecen los mismos archivos
+  (`plantilla-desempenos.xlsx` y `ejemplo-desempenos.xlsx`): la plantilla
+  incluye la hoja Instrucciones y las celdas de banda vacías (si la cargas sin
+  completar, la app avisa y no aplica nada); el ejemplo, una matriz lista para
+  usar.
 
 ## 6. Dónde viven los datos y cuándo se pierden
 

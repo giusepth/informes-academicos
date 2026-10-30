@@ -2,11 +2,12 @@ import { useRef, useState } from 'react'
 import {
   assertImportSize,
   buildBackupWorkbook,
+  downloadPerformanceSample,
+  downloadPerformanceTemplate,
   downloadTemplate,
   parseBackupWorkbook,
   parseWorkbook,
 } from '../utils/parser'
-import PerformanceMatrixActions from './PerformanceMatrixActions'
 import { Button } from './ui'
 
 /**
@@ -20,7 +21,6 @@ export default function ManagementMenu({
   finalPerformances = {},
   activeReport = null,
   config = null,
-  pendingMatrix = null,
   readOnly = false,
   onNewReport,
   onLoadedBackup,
@@ -28,11 +28,9 @@ export default function ManagementMenu({
   onNewBlank,
   onOpenReport,
   onEditReport,
+  onEditFinal,
   onOpenFinal,
   onOpenSettings,
-  onLoadMatrix,
-  onClearMatrix,
-  onApplyMatrixToFinal,
   onOpenClear,
 }) {
   const [busy, setBusy] = useState(false)
@@ -243,6 +241,13 @@ export default function ManagementMenu({
               >
                 Editar período
               </Button>
+              <Button
+                variant="secondary"
+                onClick={onEditFinal}
+                disabled={readOnly || !hasReports}
+              >
+                Editar desempeños finales
+              </Button>
             </div>
           </div>
         ) : (
@@ -260,16 +265,17 @@ export default function ManagementMenu({
           Desempeños
         </h3>
         <p className="mt-1 mb-4 text-sm text-slate-500">
-          Carga una matriz para el informe final, o descarga la plantilla y el ejemplo.
-          Los desempeños de cada período se cargan dentro de su editor.
+          Descarga la plantilla y el ejemplo. La matriz de cada período se carga dentro de
+          su editor; la del informe final, en «Editar desempeños finales».
         </p>
-        <PerformanceMatrixActions
-          pendingMatrix={pendingMatrix}
-          onLoadMatrix={onLoadMatrix}
-          onClearMatrix={onClearMatrix}
-          onApplyToFinal={hasReports ? () => onApplyMatrixToFinal?.(pendingMatrix) : undefined}
-          readOnly={readOnly}
-        />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={downloadPerformanceTemplate}>
+            Descargar plantilla de desempeños
+          </Button>
+          <Button variant="secondary" onClick={downloadPerformanceSample}>
+            Descargar ejemplo de desempeños
+          </Button>
+        </div>
       </section>
 
       <section

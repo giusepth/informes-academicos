@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ClearReportsDialog from './components/ClearReportsDialog'
 import ContactPage from './components/ContactPage'
 import ExportToolbar from './components/ExportToolbar'
+import FinalEditor from './components/FinalEditor'
 import Landing from './components/Landing'
 import ManagementMenu from './components/ManagementMenu'
 import PeriodBar from './components/PeriodBar'
@@ -26,11 +27,7 @@ import {
   migrateLegacy,
   MIGRATION_FLAG,
 } from './utils/idbState'
-import {
-  fillPerformances,
-  finalPerformanceKey,
-  makeId,
-} from './utils/parser'
+import { makeId } from './utils/parser'
 import { createPersistenceRequester } from './utils/persistence'
 import { readStorage, writeStorage } from './utils/storage'
 import { createTabSync, TAB_SYNC_REASONS } from './utils/tabSync'
@@ -48,8 +45,6 @@ const STORAGE_FALLBACK_TOAST =
   'Sin almacenamiento persistente: el trabajo se guarda solo en esta pestaña.'
 const SAVE_ERROR_TOAST =
   'No se pudo guardar en este navegador; exporta el backup (.xlsx) para no perder datos.'
-const FINAL_MATRIX_TOAST =
-  'Matriz del informe final cargada. Aplícala cuando quieras.'
 
 const STORAGE_KEYS = {
   config: 'informes.config',
@@ -61,9 +56,6 @@ const STORAGE_KEYS = {
   entered: 'informes.entered',
   // Final-report desempeño overrides, keyed by normalized student name.
   finalPerformances: 'informes.finalPerformances',
-  // Matrix loaded from the menu for the final report (F5 moves it to the
-  // final editor). Period matrices live only inside the period editor.
-  pendingMatrix: 'informes.pendingMatrix',
   // Local editor intent (create/edit); the draft itself lives in the editor.
   editor: 'informes.editor',
   // Legacy single-report key; read only, kept for one-shot migration.
@@ -177,9 +169,6 @@ export default function App() {
     readStorage(STORAGE_KEYS.selected),
   )
   const [finalPerformances, setFinalPerformances] = useState({})
-  const [pendingMatrix, setPendingMatrix] = useState(() =>
-    readStorage(STORAGE_KEYS.pendingMatrix),
-  )
   const [editorState, setEditorState] = useState(() => readStorage(STORAGE_KEYS.editor))
   const [editorDirty, setEditorDirty] = useState(false)
   const [editorEpoch, setEditorEpoch] = useState(0)
@@ -555,8 +544,8 @@ export default function App() {
   useEffect(() => {
     const sync = createTabSync({
       onRemoteChange: (origin, message) => {
-        // A clear in another tab must also drop this tab's session-local
-        // matrix, otherwise it could be applied after promotion.
+        // A clear in another tab must also drop this tab's session copies,
+        // otherwise a stale read could be re-applied after promotion.
         if (
           message?.reason === TAB_SYNC_REASONS.clearReports &&
           storageModeRef.current === 'idb'
@@ -564,10 +553,8 @@ export default function App() {
           try {
             clearSessionReportCopies()
           } catch {
-            /* A blocked sessionStorage does not block the pending cleanup. */
+            /* A blocked sessionStorage does not block the cleanup. */
           }
-          writeStorage(STORAGE_KEYS.pendingMatrix, null)
-          setPendingMatrix(null)
         }
         requestResync()
         // Without Web Locks both tabs can write. Never claim exclusivity:
@@ -662,7 +649,6 @@ export default function App() {
     if (readOnly) return
     dataQueue.enqueue(STORAGE_KEYS.finalPerformances, finalPerformances)
   }, [finalPerformances, dataQueue, readOnly])
-  useEffect(() => persist(STORAGE_KEYS.pendingMatrix, pendingMatrix), [pendingMatrix])
   useEffect(() => persist(STORAGE_KEYS.entered, entered), [entered])
 
   useEffect(() => {
@@ -682,18 +668,19 @@ export default function App() {
         hasReports: reports.length > 0,
         activeTab: initialTab,
       })
-      // A dirty editor owns the route: keep the hash on #/editor and ask
-      // before discarding. Programmatic exits use replaceState and never
+      // A dirty editor owns the route: keep the hash on the open editor and
+      // ask before discarding. Programmatic exits use replaceState and never
       // reach this handler.
-      if (route === TOOL_ROUTES.editor && nextRoute !== TOOL_ROUTES.editor) {
+      const editing = route === TOOL_ROUTES.editor || route === TOOL_ROUTES.editorFinal
+      if (editing && nextRoute !== route) {
         if (editorDirtyRef.current) {
-          window.history.replaceState(null, '', hashForRoute(TOOL_ROUTES.editor))
+          window.history.replaceState(null, '', hashForRoute(route))
           setLeaveTarget(nextRoute)
           return
         }
-        // A clean editor left through history must not keep a stale intent:
-        // a later #/editor would reopen the old report.
-        setEditorState(null)
+        // A clean period editor left through history must not keep a stale
+        // intent: a later #/editor would reopen the old report.
+        if (route === TOOL_ROUTES.editor) setEditorState(null)
         setEditorDirty(false)
       }
       setHash(nextHash)
@@ -927,58 +914,29 @@ export default function App() {
     navigate(TOOL_ROUTES.boletin)
   }
 
-  /**
-   * The menu stages a matrix only for the final report. A period matrix is
-   * loaded inside its editor and never enters this global payload (F4.1).
-   */
-  const handleLoadMatrix = (matrix) => {
-    if (readOnlyRef.current) return
-    setPendingMatrix(matrix)
-    setToast(FINAL_MATRIX_TOAST)
-  }
-
-  const handleClearPendingMatrix = () => {
-    if (readOnlyRef.current) return
-    setPendingMatrix(null)
-    setToast('Matriz del informe final quitada.')
-  }
-
   const handleSelectFinal = () => {
     navigate(TOOL_ROUTES.final)
   }
 
-  const handlePerformanceChange = (studentId, subject, text) => {
-    if (readOnlyRef.current) return
-    // On the final tab the annotation belongs to the finalPerformances slice,
-    // keyed by normalized name — the same matching rule as period reports.
-    if (isFinal) {
-      const student = rankedStudents.find((entry) => entry.id === studentId)
-      if (!student) return
-      const key = finalPerformanceKey(student.name)
-      setFinalPerformances((current) => ({
-        ...current,
-        [key]: { ...current?.[key], [subject]: text },
-      }))
+  const handleEditFinal = () => {
+    if (!finalReport) return
+    setEditorDirty(false)
+    navigate(TOOL_ROUTES.editorFinal)
+  }
+
+  const handleFinalEditorCancel = () => {
+    if (editorDirtyRef.current) {
+      setLeaveTarget(TOOL_ROUTES.final)
       return
     }
-    if (!activeReport) return
-    setReports((current) =>
-      current.map((reportEntry) =>
-        reportEntry.id === activeReport.id
-          ? {
-              ...reportEntry,
-              students: reportEntry.students.map((student) =>
-                student.id === studentId
-                  ? {
-                      ...student,
-                      performances: { ...student.performances, [subject]: text },
-                    }
-                  : student,
-              ),
-            }
-          : reportEntry,
-      ),
-    )
+    leaveEditor(TOOL_ROUTES.final)
+  }
+
+  const handleFinalEditorSave = (draft) => {
+    if (readOnlyRef.current) return
+    setFinalPerformances(draft)
+    setToast('Desempeños finales guardados.')
+    leaveEditor(TOOL_ROUTES.final)
   }
 
   const handleClearReports = async () => {
@@ -997,7 +955,6 @@ export default function App() {
         tabSyncRef.current?.notify(TAB_SYNC_REASONS.clearReports)
       }
 
-      setPendingMatrix(null)
       setReports([])
       setFinalPerformances({})
       setActiveReportId(null)
@@ -1014,36 +971,6 @@ export default function App() {
     } finally {
       setClearing(false)
     }
-  }
-
-  /**
-   * An explicit matrix application to the final report (annotations keyed by
-   * normalized student name). Only empty final cells are filled; the pending
-   * payload is consumed and the teacher lands on the final view.
-   */
-  const handleApplyMatrixToFinal = (matrix) => {
-    if (readOnlyRef.current || !finalReport || !matrix) return
-    const scale = config?.scale ?? DEFAULT_SCALES[scaleType]
-    const scoresById = Object.fromEntries(
-      finalReport.students.map((student) => [student.id, student.scores ?? {}]),
-    )
-    const filled = fillPerformances(
-      finalReport.students,
-      finalReport.subjects,
-      scoresById,
-      scale,
-      matrix,
-      scaleType,
-    )
-    const next = { ...finalPerformances }
-    finalReport.students.forEach((student) => {
-      const key = finalPerformanceKey(student.name)
-      next[key] = filled[student.id]
-    })
-    setPendingMatrix(null)
-    setFinalPerformances(next)
-    setToast('Matriz aplicada al informe final (solo casilleros vacíos).')
-    navigate(TOOL_ROUTES.final)
   }
 
   // The contact route is static: it must not mount the data boot at all (no
@@ -1113,11 +1040,11 @@ export default function App() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() =>
-                route === TOOL_ROUTES.editor
-                  ? handleEditorCancel()
-                  : navigate(TOOL_ROUTES.gestion)
-              }
+              onClick={() => {
+                if (route === TOOL_ROUTES.editor) handleEditorCancel()
+                else if (route === TOOL_ROUTES.editorFinal) handleFinalEditorCancel()
+                else navigate(TOOL_ROUTES.gestion)
+              }}
             >
               Menú
             </Button>
@@ -1161,13 +1088,26 @@ export default function App() {
               onDirtyChange={setEditorDirty}
             />
           ) : null
+        ) : route === TOOL_ROUTES.editorFinal ? (
+          finalReport ? (
+            <FinalEditor
+              key={`final:${editorEpoch}`}
+              report={finalReport}
+              initialPerformances={finalPerformances}
+              scale={config?.scale ?? DEFAULT_SCALES[scaleType]}
+              scaleType={scaleType}
+              readOnly={readOnly}
+              onSave={handleFinalEditorSave}
+              onCancel={handleFinalEditorCancel}
+              onDirtyChange={setEditorDirty}
+            />
+          ) : null
         ) : route === TOOL_ROUTES.gestion || reports.length === 0 ? (
           <ManagementMenu
             reports={reports}
             finalPerformances={finalPerformances}
             activeReport={activeReport}
             config={config}
-            pendingMatrix={pendingMatrix}
             readOnly={readOnly}
             onNewReport={handleNewReport}
             onLoadedBackup={handleLoadedBackup}
@@ -1175,11 +1115,9 @@ export default function App() {
             onNewBlank={handleNewBlank}
             onOpenReport={handleSelectReport}
             onEditReport={handleEditReport}
+            onEditFinal={handleEditFinal}
             onOpenFinal={handleSelectFinal}
             onOpenSettings={() => setSettingsOpen(true)}
-            onLoadMatrix={handleLoadMatrix}
-            onClearMatrix={handleClearPendingMatrix}
-            onApplyMatrixToFinal={handleApplyMatrixToFinal}
             onOpenClear={() => setClearOpen(true)}
           />
         ) : (
@@ -1206,7 +1144,7 @@ export default function App() {
               rankedStudents={rankedStudents}
               selectedStudentId={activeStudentId}
               onSelectStudent={setSelectedStudentId}
-              onPerformanceChange={isFinal ? handlePerformanceChange : undefined}
+              onEditFinal={isFinal ? handleEditFinal : undefined}
               printSheetRef={printSheetRef}
               variant={isFinal ? 'final' : 'period'}
               readOnly={readOnly}

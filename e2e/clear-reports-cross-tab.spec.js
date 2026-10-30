@@ -73,7 +73,7 @@ test('a clear removes legacy session copies from another tab', async ({ page, co
   await expect(second.getByRole('button', { name: 'Informe 1', exact: true })).toHaveCount(0)
 })
 
-test('without BroadcastChannel a clear still drops the pending final matrix', async ({
+test('without BroadcastChannel a clear still drops session copies in another tab', async ({
   page,
   context,
 }) => {
@@ -84,12 +84,13 @@ test('without BroadcastChannel a clear still drops the pending final matrix', as
   })
   await second.goto('/')
   await waitForHydrated(second)
-  await second.evaluate(() =>
+  await second.evaluate(() => {
+    sessionStorage.setItem('informes.reports', JSON.stringify([{ id: 'stale' }]))
     sessionStorage.setItem(
-      'informes.pendingMatrix',
-      JSON.stringify({ Matemáticas: { Alto: 'Pendiente ajeno.' } }),
-    ),
-  )
+      'informes.finalPerformances',
+      JSON.stringify({ ANA: { 'Matemáticas': 'Final ajeno.' } }),
+    )
+  })
   await second.reload()
   await waitForHydrated(second)
   await expect(second.getByRole('status').filter({ hasText: 'Solo lectura' })).toBeVisible()
@@ -106,7 +107,11 @@ test('without BroadcastChannel a clear still drops the pending final matrix', as
     timeout: 15_000,
   })
   await expect
-    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
+    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.reports')))
     .toBeNull()
+  await expect
+    .poll(() => second.evaluate(() => sessionStorage.getItem('informes.finalPerformances')))
+    .toBeNull()
+  await expect(second.getByText('Importar Excel (.xlsx)')).toBeVisible()
   await second.close()
 })

@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test'
-import * as XLSX from 'xlsx'
-import { readDataKey, report, seed } from './helpers'
+import { report, seed } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -11,26 +10,12 @@ const reports = [
     students: [
       {
         name: 'Ana',
-        scores: { Matemáticas: 4.5, Ciencias: 3.8 },
+        scores: { 'Matemáticas': 4.5, 'Ciencias': 3.8 },
         performances: {},
       },
     ],
   }),
 ]
-
-function matrixBytes() {
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet([
-      ['Asignatura', 'Bajo', 'Básico', 'Alto', 'Superior'],
-      ['Matemáticas', 'Bajo.', 'Básico.', 'Alto.', 'Sup.'],
-      ['Ciencias', 'BajoC.', 'BásicoC.', 'AltoC.', 'SupC.'],
-    ]),
-    'Desempeños',
-  )
-  return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
-}
 
 const openMenu = async (page) => {
   await page.getByRole('button', { name: 'Menú', exact: true }).click()
@@ -62,11 +47,14 @@ test('the management menu groups every action in the four semantic sections', as
   await expect(current.getByRole('button', { name: 'Informe 2 (final)' })).toBeVisible()
   await expect(current.getByRole('button', { name: 'Abrir boletín' })).toBeVisible()
   await expect(current.getByRole('button', { name: 'Editar período' })).toBeVisible()
+  await expect(
+    current.getByRole('button', { name: 'Editar desempeños finales' }),
+  ).toBeVisible()
   await expect(current).toContainText('Estado del período activo')
 
   await expect(
     performances.getByRole('button', { name: 'Cargar matriz del informe final (excel)' }),
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
     performances.getByRole('button', { name: 'Descargar plantilla de desempeños' }),
   ).toBeVisible()
@@ -99,53 +87,15 @@ test('editing the active period from the menu opens the period editor', async ({
   await expect(page.getByLabel('Nota de Ana en Matemáticas')).toBeVisible()
 })
 
-test('a final matrix shows its status and can be replaced or removed', async ({ page }) => {
+test('editing the final report from the menu opens the final editor', async ({ page }) => {
   await seed(page, { reports })
   await openMenu(page)
 
-  const file = {
-    name: 'matriz.xlsx',
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    buffer: matrixBytes(),
-  }
-  await page.locator('input[aria-label="Archivo de matriz del informe final"]').setInputFiles(file)
+  await page.getByRole('button', { name: 'Editar desempeños finales' }).click()
 
-  const status = page.locator('div[role="status"]').filter({ hasText: 'asignaturas detectadas' })
-  await expect(status).toContainText('2 asignaturas detectadas')
-  await expect(page.getByRole('button', { name: 'Reemplazar archivo' })).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: 'Aplicar al informe final' }),
-  ).toBeVisible()
-
-  await page.getByRole('button', { name: 'Quitar matriz' }).click()
-
-  await expect(status).toHaveCount(0)
-  await expect(
-    page.getByRole('button', { name: 'Cargar matriz del informe final (excel)' }),
-  ).toBeVisible()
-  expect(
-    await page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')),
-  ).toBeNull()
-})
-
-test('a final matrix never fills a period automatically', async ({ page }) => {
-  await seed(page, { reports })
-  await openMenu(page)
-
-  await page.locator('input[aria-label="Archivo de matriz del informe final"]').setInputFiles({
-    name: 'matriz.xlsx',
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    buffer: matrixBytes(),
-  })
-
-  await page.getByRole('button', { name: 'Abrir boletín' }).click()
-  await expect(page.getByText('Desempeños aplicados a Informe 1.')).toHaveCount(0)
-
-  const stored = await readDataKey(page, 'informes.reports')
-  expect(stored[0].students[0].performances?.['Matemáticas']).toBeUndefined()
-  await expect
-    .poll(() => page.evaluate(() => sessionStorage.getItem('informes.pendingMatrix')))
-    .not.toBeNull()
+  await expect(page).toHaveURL(/#\/editor-final$/)
+  await expect(page.getByRole('heading', { name: 'Editar informe final' })).toBeVisible()
+  await expect(page.getByLabel('Desempeño final de Ana en Matemáticas')).toBeVisible()
 })
 
 test('the menu has no horizontal overflow on a narrow viewport', async ({ page }) => {

@@ -1,7 +1,8 @@
 # Informe final (quinto informe) — Documentación de módulo
 
-> Estado: implementado en `main` (commit `570ee11`). Verificado con build de Vite,
-> `oxlint` y smoke test de dominio. CI: `.github/workflows/ci.yml`.
+> Estado: implementado en `main` (base `1b1c08a`); F5 (editor del informe final,
+> `#/editor-final`) se desarrolla en `feat/final-editor`. Verificado con build de
+> Vite, `oxlint` y la suite de tests. CI: `.github/workflows/ci.yml`.
 
 ## 1. Qué resuelve
 
@@ -16,8 +17,9 @@ produce el boletín final con:
 - promedio general final, valoración general y puesto (ranking denso).
 
 El informe final es **derivado**: siempre se recalcula desde los informes de
-periodos cargados. Solo sus desempeños editables se persisten en una capa
-aparte, para que reimportar periodos no los pise.
+periodos cargados. Solo sus anotaciones de desempeño se persisten en una capa
+aparte, para que reimportar periodos no las pise. El boletín final es de solo
+lectura; las anotaciones se editan en `#/editor-final` (F5).
 
 ## 2. Flujo del docente
 
@@ -35,10 +37,12 @@ aparte, para que reimportar periodos no los pise.
    estudiantes, notas y desempeños de período. Los boletines de período son de
    solo lectura; al guardar solo cambia el período editado.
 4. **Informe final**: el botón **"Informe 5 (final)"** (el número crece según
-   la cantidad de informes) abre el boletín computado. Desde ahí funcionan la
-   vista previa, la impresión (`Ctrl+P`) y el ZIP masivo igual que en los
-   informes de periodo. La columna **Desempeño** del informe final sigue siendo
-   editable directamente en ese boletín.
+   la cantidad de informes) abre el boletín computado, de solo lectura. Desde
+   ahí funcionan la vista previa, la impresión (`Ctrl+P`) y el ZIP masivo igual
+   que en los informes de periodo. **Editar desempeños finales** abre
+   `#/editor-final`: allí se escriben los juicios valorativos por estudiante y
+   asignatura, se guardan en una capa aparte y se carga la matriz del informe
+   final. Promedios, valoraciones y puestos no se editan.
 
 Cada importación de período acepta **un archivo con una hoja activa**; un
 periodo = un archivo (o un periodo manual a mano). Si ya hay informes, la
@@ -73,9 +77,9 @@ Estudiante | Grado | Docente | Matemáticas | Docente (Matemáticas) | Ciencias 
 | Promedio general | Promedio **crudo** de los promedios por asignatura (dos decimales visibles). |
 | Puesto | `rankStudents`: orden por promedio crudo, empates comparten puesto y la numeración es **densa** (sin saltos) — RF-05. |
 | Docente por asignatura | **Gana el informe más reciente**: si el docente cambió a mitad de año, el final refleja el último cargado. |
-| Desempeños finales | Columna **Desempeño** editable en la hoja final. Se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. Se muestran solo en la pestaña del informe final; los informes de periodo no ven estas anotaciones. |
+| Desempeños finales | Se editan en `#/editor-final` (el boletín final es de solo lectura) y se guardan **por nombre normalizado del estudiante** (misma regla que el emparejamiento) en una capa de persistencia aparte, de forma que re-importar periodos nunca los pisa. Se muestran solo en la pestaña del informe final; los informes de periodo no ven estas anotaciones. |
 | Matriz de período | Dentro de **Editar período**, `Cargar matriz (.xlsx)` importa una hoja `Asignatura × Bajo/Básico/Alto/Superior`. La matriz es local al borrador: **Aplicar a este período** completa solo casilleros vacíos con la banda del redondeo institucional (`roundUpTenth` antes de `qualitativeFor`), nunca sobrescribe texto propio y no se guarda en IndexedDB ni en el backup. Cada período tiene su propia matriz. |
-| Matriz del informe final | `Cargar matriz del informe final (excel)` (en **Menú → Desempeños**) importa la misma hoja y **Aplicar al informe final** completa solo las anotaciones finales vacías (claves por nombre). Hasta F5 la carga vive en el menú; F5 la moverá a `#/editor-final`. Los juicios ya escritos por el docente no se pisan. |
+| Matriz del informe final | Dentro de `#/editor-final`, `Cargar matriz (.xlsx)` importa la misma hoja y **Aplicar al informe final** completa solo las anotaciones finales vacías (claves por nombre). La matriz es local al borrador y no se guarda en IndexedDB ni en el backup. Los juicios ya escritos por el docente no se pisan. |
 
 ## 5. Modelo y persistencia (RNF-01)
 
@@ -102,8 +106,9 @@ backup (.xlsx)** y se re-importa al abrir la app en el otro navegador.
 Claves de estado de vista (`sessionStorage`, por pestaña): `informes.activeReport`
 (informe activo), `informes.tab` (`period` o `final`), `informes.selected`
 (estudiante seleccionado), `informes.entered` (si la pestaña ya entró a la
-herramienta) e `informes.editor` (intención del editor: modo, período y origen;
-nunca el borrador).
+herramienta) e `informes.editor` (intención del editor de período: modo,
+período y origen; nunca el borrador). El editor final no persiste intención ni
+borrador: una recarga después del aviso de cambios sin guardar empieza limpia.
 
 Notas del modelo:
 
@@ -132,8 +137,10 @@ Notas del modelo:
 - **Unit tests**: `npx vitest run` (`src/utils/calculations.test.js`) cubre ties densos,
   redondeo 2.92→3.0 antes de la banda, unión de asignaturas, matching por nombre,
   promedios que ignoran nulls y el merge de desempeños finales por nombre.
-- **E2E**: `npx playwright test` — pestaña final promedia por asignatura a través de
-  periodos y los desempeños finales sobreviven recargas sin ensuciar los de periodo.
+- **E2E**: `npx playwright test` — la pestaña final promedia por asignatura a
+  través de periodos, el boletín no tiene campos editables, el editor final
+  guarda/descarta anotaciones, la matriz final solo completa vacíos y el backup
+  conserva las anotaciones sin ensuciar los desempeños de periodo.
 - **Datos de prueba**: `samples/make-sample-workbooks.cjs` genera `informe-1..4.xlsx`
   con casos borde incluidos:
   - Ana falta en Matemáticas del Informe 3 → su promedio no se penaliza.

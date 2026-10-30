@@ -6,7 +6,7 @@ import {
   matrixApplicationStats,
 } from '../utils/parser'
 import { parseScoreInput } from '../utils/scoreInput'
-import PeriodMatrixImport from './PeriodMatrixImport'
+import PerformanceMatrixImport from './PerformanceMatrixImport'
 import { Button, Field, TextInput } from './ui'
 
 const normalizeSubject = (value) => value.trim().toLocaleLowerCase('es')
@@ -547,7 +547,7 @@ export default function PeriodEditor({
           Agregar estudiante
         </Button>
 
-        <PeriodMatrixImport
+        <PerformanceMatrixImport
           matrix={matrix}
           stats={matrixStats}
           readOnly={readOnly}

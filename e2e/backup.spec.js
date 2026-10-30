@@ -60,11 +60,11 @@ test('full backup round trip: export, wipe session, import again', async ({ page
   ).toContainText('Desempeño tipo 2')
 
   // Final-report annotations ride along in the backup too: open the final tab
-  // and the restored texto is already in the editable cell.
+  // and the restored text is already on the read-only sheet.
   await page.getByRole('button', { name: 'Informe 3 (final)' }).click()
-  await expect(
-    page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
-  ).toHaveValue('Anotación final del año')
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText(
+    'Anotación final del año',
+  )
 
   // Every student row survives, not just the first one.
   await page.getByRole('button', { name: 'Informe 2' }).click()

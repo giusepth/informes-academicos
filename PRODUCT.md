@@ -12,7 +12,7 @@ Primary users: rectores, coordinadores académicos y docentes de colegios de peq
 
 ## Product Purpose
 
-Turn the school's existing grades spreadsheet (.xlsx) into compute-ready printable student performance reports: averages, Bajo/Básico/Alto/Superior bands (decimal 1.0–5.0 or centesimal 1–100 institutional scale), per-student A4 report with crest watermark + PDF export, consolidated quinto informe with editable per-subject desempeño, multi-period sessions, and full .xlsx backup round-trip (period sheets, scores, per-period desempeños and final-report annotations). Success = the rector prints or exports everything in minutes and trust in numbers is kept.
+Turn the school's existing grades spreadsheet (.xlsx) into compute-ready printable student performance reports: averages, Bajo/Básico/Alto/Superior bands (decimal 1.0–5.0 or centesimal 1–100 institutional scale), per-student A4 report with crest watermark + PDF export, consolidated quinto informe with per-subject desempeño edited in a dedicated final editor, multi-period sessions, and full .xlsx backup round-trip (period sheets, scores, per-period desempeños and final-report annotations). Success = the rector prints or exports everything in minutes and trust in numbers is kept.
 
 ## Positioning
 
@@ -37,7 +37,7 @@ Calculated, private, and school-flavored reports with zero accounts: the school'
 
 ## Evidence on Hand
 
-- Working product + full e2e suite (16 playwright specs) and CI green on main d9ed42c.
+- Working product + full e2e suite and CI green on main `1b1c08a`.
 - No marketing testimonials, logos, or benchmarks exist yet; landing copy must not manufacture proof it doesn't have. Only truthful capability claims are allowed.
 
 ## Product Principles

@@ -1,6 +1,7 @@
 export const TOOL_ROUTES = Object.freeze({
   gestion: 'gestion',
   editor: 'editor',
+  editorFinal: 'editor-final',
   boletin: 'boletin',
   final: 'final',
   contacto: 'contacto',
@@ -22,9 +23,11 @@ export function parseToolRoute(hash) {
 }
 
 /**
- * Resolves the screen to render. Editor routes are only valid once a report
- * exists; a missing or unknown hash keeps the current tab for backward
- * compatibility with sessions stored by the previous build.
+ * Resolves the screen to render. The period editor is valid with an empty
+ * session because it can create the first report; the final editor needs at
+ * least one period to derive the final report. A missing or unknown hash keeps
+ * the current tab for backward compatibility with sessions stored by the
+ * previous build.
  */
 export function resolveToolRoute(hash, { hasReports = false, activeTab = 'period' } = {}) {
   const parsed = parseToolRoute(hash)

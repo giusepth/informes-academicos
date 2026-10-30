@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import * as XLSX from 'xlsx'
-import { openManagementMenu, report, seed } from './helpers'
+import { report, seed } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 
@@ -32,7 +32,9 @@ const reports = [1, 2].map((n) =>
   }),
 )
 
-test('the matrix applies to the final report and never rewrites saved judgments', async ({ page }) => {
+test('the final matrix applies only to empty annotations and keeps saved judgments', async ({
+  page,
+}) => {
   await seed(page, {
     reports,
     tab: 'final',
@@ -40,7 +42,7 @@ test('the matrix applies to the final report and never rewrites saved judgments'
     finalPerformances: { ANA: { 'Matemáticas': 'Ya anotado final.' } },
   })
 
-  await openManagementMenu(page)
+  await page.getByRole('button', { name: 'Editar desempeños finales' }).first().click()
   await page.locator('input[aria-label="Archivo de matriz del informe final"]').setInputFiles({
     name: 'matriz.xlsx',
     mimeType: 'application/octet-stream',
@@ -48,17 +50,20 @@ test('the matrix applies to the final report and never rewrites saved judgments'
   })
   await page.getByRole('button', { name: 'Aplicar al informe final' }).click()
 
-  await expect(page.getByText('Matriz aplicada al informe final (solo casilleros vacíos).')).toBeVisible()
+  await expect(page.getByText('Matriz aplicada: 3 casilleros completados.')).toBeVisible()
 
-  const box = (name) => page.locator('tr', { hasText: name }).first().locator('textarea')
-  const select = (name) => page.getByRole('button', { name: name }).first()
+  const box = (name) => page.getByLabel(`Desempeño final de ${name}`)
+  // Ana: Matemáticas keeps the teacher's text; Ciencias fills from the band.
+  await expect(box('Ana en Matemáticas')).toHaveValue('Ya anotado final.')
+  await expect(box('Ana en Ciencias')).toHaveValue('AltoC.')
+  // Luis: final mean for Matemáticas = mean(3.2, 3.4) = 3.3 → Básico.
+  await expect(box('Luis en Matemáticas')).toHaveValue('Básico.')
+  await expect(box('Luis en Ciencias')).toHaveValue('BajoC.')
 
-  const aMath = box('Matemáticas')
-  await expect(aMath).toHaveValue('Ya anotado final.')
-  await expect(box('Ciencias')).toHaveValue('AltoC.')
-
-  await select('Luis').click()
-  // Final mean for Luis Matemáticas = mean(3.2, 3.4) = 3.3 → Básico.
-  await expect(box('Matemáticas')).toHaveValue('Básico.')
-  await expect(box('Ciencias')).toHaveValue('BajoC.')
+  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page).toHaveURL(/#\/final$/)
+  await expect(page.locator('tr', { hasText: 'Ciencias' }).first()).toContainText('AltoC.')
+  await page.getByRole('button', { name: 'Luis' }).first().click()
+  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('Básico.')
+  await expect(page.locator('tr', { hasText: 'Ciencias' }).first()).toContainText('BajoC.')
 })

@@ -68,8 +68,8 @@ test('legacy session data is migrated once and survives a reload', async ({ page
   await expect(page.getByText(MIGRATION_TOAST)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Informe 2 (final)' })).toBeVisible()
   await expect(
-    page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
-  ).toHaveValue('Anotación final previa')
+    page.locator('tr', { hasText: 'Matemáticas' }).first(),
+  ).toContainText('Anotación final previa')
 
   await waitForPersisted(page, 'informes.config', (value) => value?.institution === 'Colegio Legacy')
   await waitForPersisted(page, 'informes.reports', (value) => Array.isArray(value) && value.length === 1)
@@ -85,8 +85,8 @@ test('legacy session data is migrated once and survives a reload', async ({ page
   await expect(page.getByText(MIGRATION_TOAST)).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Informe 2 (final)' })).toBeVisible()
   await expect(
-    page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
-  ).toHaveValue('Anotación final previa')
+    page.locator('tr', { hasText: 'Matemáticas' }).first(),
+  ).toContainText('Anotación final previa')
 })
 
 test('a legacy single report is wrapped as Informe 1', async ({ page }) => {

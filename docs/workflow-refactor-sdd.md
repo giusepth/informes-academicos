@@ -1,6 +1,6 @@
 # Refactor del flujo de trabajo — SDD
 
-**Estado:** F1–F4 fusionadas (PR #47, incluido F4.0). F4.1 (matriz de desempeños por período) está implementada en la rama `feat/period-matrix`, pendiente de PR y merge. F5–F7 pendientes.
+**Estado:** F1–F4.1 fusionadas (PR #47 y PR #48). F5 (editor del informe final) está implementada en la rama `feat/final-editor`, pendiente de PR y merge. F6–F7 pendientes.
 **Alcance de este documento:** plan de trabajo estricto; no autoriza ejecutar código ni levantar agentes.
 **Base verificada:** aplicación React/Vite, IndexedDB, landing, menú de gestión, editor de períodos, boletines y matriz de desempeños actuales.
 
@@ -62,7 +62,7 @@ Si alguna decisión no se aprueba, se ajusta el SDD antes de crear issues.
 - Acciones: «Cancelar» y «Limpiar informes». No se usará `window.confirm`.
 - Al confirmar:
   - se borrarán de IndexedDB `informes.reports` e `informes.finalPerformances`;
-  - se restablecerán la vista activa y `informes.pendingMatrix`;
+  - se restablecerá la vista activa; las matrices locales de cada editor no se persisten;
   - no se borrará `informes.config`;
   - se conservarán la pestaña y el estado `entered`;
   - se volverá a `#/gestion`;
@@ -78,7 +78,7 @@ Rutas mínimas:
 |---|---|---|
 | `#/gestion` | Menú de gestión | Nuevo trabajo, períodos existentes, desempeños y respaldo |
 | `#/editor` | Editor del período activo | Crear o editar estudiantes, notas, asignaturas y desempeños |
-| `#/editor-final` | Editor final (F5, aún no expuesta) | Desempeños finales por estudiante y asignatura |
+| `#/editor-final` | Editor del informe final | Desempeños finales por estudiante y asignatura y matriz final |
 | `#/boletin` | Boletín del período activo | Vista de solo lectura |
 | `#/final` | Informe final | Vista de solo lectura |
 | `#/contacto` | Contacto | Formulario existente |
@@ -206,11 +206,11 @@ UX propuesta dentro de **Editar período** (y también al crear):
    resto del borrador.
 
 El menú **Desempeños** deja de prometer una aplicación al «primer informe con
-notas». Conserva plantilla, ejemplo y la matriz del informe final. La carga de
-un período se hace desde su editor, que ya es el único lugar donde se editan
-notas y desempeños.
+notas». Conserva las descargas de plantilla y ejemplo. La carga de un período
+se hace desde su editor, que ya es el único lugar donde se editan notas y
+desempeños.
 
-La matriz del informe final se cargará en `#/editor-final` (F5), con el mismo
+La matriz del informe final se carga en `#/editor-final` (F5), con el mismo
 componente de importación y un alcance distinto.
 
 ### R5 — Desempeños visibles desde la landing
@@ -351,12 +351,11 @@ Solo dentro de los editores:
 ### 7.3 Componentes previstos
 
 - `ManagementMenu`: secciones del menú.
-- `PerformanceMatrixActions`: acciones y estado compartido de matrices.
-- `PeriodMatrixImport` (o equivalente): importación local de la matriz dentro del editor de período, reutilizable por el editor final con otro alcance.
+- `PerformanceMatrixImport`: importación local de la matriz compartida por el editor de período y el editor final (`scope: period | final`).
+- `FinalEditor`: edición de anotaciones finales y matriz del informe final.
 - `ClearReportsDialog`: confirmación destructiva.
 - `UnsavedChangesDialog`: confirmación de borrador.
 - `ReportEditor`: extensión de `ManualEntryForm`.
-- `FinalPerformanceEditor`: variante final del editor.
 - `PeriodBar`: simplificación o retiro gradual de responsabilidades trasladadas al menú.
 
 ### 7.4 Migración compatible
@@ -440,8 +439,8 @@ de regresión; suite completa verde.
 
 ### Fase 4.1 — Matriz de desempeños por período
 
-**Estado:** implementada en `feat/period-matrix`; pendiente de PR y merge.
-**Archivos:** `PeriodEditor`, `PeriodMatrixImport`, helpers de matriz, App, pruebas, manual.
+**Estado:** completada y fusionada en el PR #48 (merge `1b1c08a`).
+**Archivos:** `PeriodEditor`, `PerformanceMatrixImport`, helpers de matriz, App, pruebas, manual.
 
 - Carga local de matriz dentro del editor de período.
 - Aplicación solo al borrador del período y solo a celdas vacías.
@@ -461,7 +460,8 @@ resultantes.
 
 ### Fase 5 — Editor del informe final
 
-**Archivos:** editor final, `FinalReportSheet`, App, pruebas de backup.
+**Estado:** implementada en `feat/final-editor`; pendiente de PR y merge.
+**Archivos:** `FinalEditor`, `PerformanceMatrixImport`, `FinalReportSheet`, App, pruebas de backup.
 
 - Edición de anotaciones finales fuera del boletín final.
 - Carga de la matriz del informe final dentro de `#/editor-final`, con el
