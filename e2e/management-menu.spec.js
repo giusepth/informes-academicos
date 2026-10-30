@@ -55,9 +55,11 @@ test('the management menu groups every action in the four semantic sections', as
   await expect(
     performances.getByRole('button', { name: 'Cargar matriz del informe final (excel)' }),
   ).toHaveCount(0)
+  // With a period already loaded, the next-period preload is a false promise:
+  // only the downloads remain (the preload lives on the empty menu/landing).
   await expect(
     performances.getByRole('button', { name: 'Cargar desempeños del próximo período (.xlsx)' }),
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
     performances.getByRole('button', { name: 'Descargar plantilla de desempeños' }),
   ).toBeVisible()

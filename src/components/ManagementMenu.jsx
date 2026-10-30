@@ -2,12 +2,11 @@ import { useRef, useState } from 'react'
 import {
   assertImportSize,
   buildBackupWorkbook,
-  downloadPerformanceSample,
-  downloadPerformanceTemplate,
   downloadTemplate,
   parseBackupWorkbook,
   parseWorkbook,
 } from '../utils/parser'
+import NextPeriodMatrixActions from './NextPeriodMatrixActions'
 import { Button } from './ui'
 
 /**
@@ -21,6 +20,7 @@ export default function ManagementMenu({
   finalPerformances = {},
   activeReport = null,
   config = null,
+  nextPeriodMatrix = null,
   readOnly = false,
   onNewReport,
   onLoadedBackup,
@@ -31,6 +31,8 @@ export default function ManagementMenu({
   onEditFinal,
   onOpenFinal,
   onOpenSettings,
+  onLoadNextMatrix,
+  onClearNextMatrix,
   onOpenClear,
 }) {
   const [busy, setBusy] = useState(false)
@@ -265,17 +267,17 @@ export default function ManagementMenu({
           Desempeños
         </h3>
         <p className="mt-1 mb-4 text-sm text-slate-500">
-          Descarga la plantilla y el ejemplo. La matriz de cada período se carga dentro de
-          su editor; la del informe final, en «Editar desempeños finales».
+          {hasReports
+            ? 'Descarga la plantilla y el ejemplo. La matriz de cada período se carga dentro de su editor; la del informe final, en «Editar desempeños finales».'
+            : 'Precarga la matriz del próximo período o descarga la plantilla y el ejemplo. Se aplicará una sola vez al primer período que crees o importes.'}
         </p>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={downloadPerformanceTemplate}>
-            Descargar plantilla de desempeños
-          </Button>
-          <Button variant="secondary" onClick={downloadPerformanceSample}>
-            Descargar ejemplo de desempeños
-          </Button>
-        </div>
+        <NextPeriodMatrixActions
+          matrix={nextPeriodMatrix}
+          mode={hasReports ? 'downloads' : 'nextPeriod'}
+          readOnly={readOnly}
+          onLoadMatrix={onLoadNextMatrix}
+          onClearMatrix={onClearNextMatrix}
+        />
       </section>
 
       <section
