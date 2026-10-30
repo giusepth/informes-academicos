@@ -138,3 +138,18 @@ test('without Web Locks both tabs edit and a remote change shows the advisory', 
 
   await second.close()
 })
+
+test('a read-only tab inspects the final editor without editing', async ({ page, context }) => {
+  await seed(page, { reports, tab: 'final' })
+
+  const reader = await context.newPage()
+  await reader.goto('/#/editor-final')
+  await waitForHydrated(reader)
+
+  await expect(banner(reader)).toBeVisible()
+  await expect(reader.getByRole('heading', { name: 'Editar informe final' })).toBeVisible()
+  await expect(reader.getByLabel('Desempeño final de Ana en Matemáticas')).toBeDisabled()
+  await expect(reader.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
+
+  await reader.close()
+})

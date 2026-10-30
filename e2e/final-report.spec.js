@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { report, seed, waitForPersisted } from './helpers'
+import { report, seed } from './helpers'
 
 const SUBJECTS = ['Matemáticas', 'Ciencias']
 const TEACHERS = { 'Matemáticas': 'Prof. Torres', 'Ciencias': 'Prof. Suárez' }
@@ -73,38 +73,17 @@ test('switching back to a period tab keeps the period layout intact', async ({ p
   await expect(page.locator('tr', { hasText: 'Matemáticas' }).first()).toContainText('4.8')
 })
 
-test('final-sheet performances are saved by student name and survive a reload', async ({ page }) => {
+test('final-sheet performances are read-only and editing moves to the final editor', async ({
+  page,
+}) => {
   await seed(page, { reports, tab: 'final' })
 
-  // Only the interactive copy renders textareas: the off-screen capture mirror
-  // is non-editable on purpose so PDF/ZIP exports stay clean. One textarea per
-  // subject row (one student × N subjects).
-  const matBox = page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea')
-  await expect(page.locator('textarea')).toHaveCount(2)
-  await matBox.fill('Alto desempeño sostenido en el año')
-  await expect(matBox).toHaveValue('Alto desempeño sostenido en el año')
+  // Final annotations are no longer edited over the report: the sheet has no
+  // fields, and the editor is the only place that mutates them (F5/R4).
+  await expect(page.locator('textarea')).toHaveCount(0)
 
-  // The annotation appears on both sheet instances (mirror included).
-  await expect(page.getByText('Alto desempeño sostenido en el año')).toHaveCount(2)
-
-  await waitForPersisted(
-    page,
-    'informes.finalPerformances',
-    (value) => value?.ANA?.['Matemáticas'] === 'Alto desempeño sostenido en el año',
-  )
-  await page.reload()
-  await expect(page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea')).toHaveValue(
-    'Alto desempeño sostenido en el año',
-  )
-
-  // Switching to a period tab does NOT leak the final annotation into the
-  // period sheet: different storage slice.
-  await page.getByRole('button', { name: 'Informe 1' }).click()
-  await expect(
-    page.locator('tr', { hasText: 'Matemáticas' }).first(),
-  ).not.toContainText('Alto desempeño sostenido en el año')
-  await page.getByRole('button', { name: 'Informe 5 (final)' }).click()
-  await expect(
-    page.locator('tr', { hasText: 'Matemáticas' }).first().locator('textarea'),
-  ).toHaveValue('Alto desempeño sostenido en el año')
+  await page.getByRole('button', { name: 'Editar desempeños finales' }).first().click()
+  await expect(page).toHaveURL(/#\/editor-final$/)
+  await expect(page.getByRole('heading', { name: 'Editar informe final' })).toBeVisible()
+  await expect(page.getByLabel('Desempeño final de Ana en Matemáticas')).toBeVisible()
 })
