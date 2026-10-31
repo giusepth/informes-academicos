@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { assertImportSize, finalPerformanceKey, parsePerformancesWorkbook } from '../utils/parser'
+import { assertImportSize, downloadStudentPerformancesTemplate, finalPerformanceKey, parsePerformancesWorkbook } from '../utils/parser'
 import { parseRosterNames, remainingSubjectSuggestions } from '../utils/roster'
 import { Button, Field, TextArea, TextInput } from './ui'
 
@@ -326,6 +326,9 @@ export default function ManualEntryWizard({ onOpenEditor, onSaveAndOpenReports, 
               disabled={busy}
             >
               {busy ? 'Leyendo…' : 'Cargar por Excel'}
+            </Button>
+            <Button variant="ghost" onClick={() => void downloadStudentPerformancesTemplate()}>
+              Descargar plantilla (.xlsx)
             </Button>
             <Button variant="ghost" onClick={() => onOpenEditor(initial(null))}>
               Omitir por ahora

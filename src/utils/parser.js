@@ -715,6 +715,50 @@ export async function buildBackupWorkbook(reports, finalPerformances = {}) {
 }
 
 /**
+ * Builds the guided manual entry's desempeños template: long layout
+ * (Estudiante | Asignatura | Desempeño) with example rows and every text
+ * cell empty, plus a reserved Instrucciones sheet. Loading it unedited is a
+ * no-op (no texts), and `parsePerformancesWorkbook` reads only the first
+ * sheet, so the guide never reaches the parser.
+ */
+export async function buildStudentPerformancesWorkbook() {
+  const XLSX = await loadXlsx()
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ['Estudiante', 'Asignatura', 'Desempeño'],
+      ['Ana Gómez', 'Matemáticas', ''],
+      ['Ana Gómez', 'Lengua', ''],
+      ['Luis Pérez', 'Matemáticas', ''],
+      ['Luis Pérez', 'Lengua', ''],
+    ]),
+    'Desempeños',
+  )
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ['Instrucciones'],
+      [''],
+      ['Esta plantilla carga desempeños por estudiante, uno por fila.'],
+      ['Columnas: Estudiante, Asignatura, Desempeño.'],
+      ['El nombre debe coincidir con la lista de estudiantes (no importan mayúsculas ni tildes).'],
+      ['Cada fila lleva el texto de UNA asignatura para UN estudiante.'],
+      ['La hoja Instrucciones no se lee: solo se usa la hoja Desempeños.'],
+    ]),
+    'Instrucciones',
+  )
+  return { workbook, fileName: 'plantilla-desempenos-estudiantes.xlsx' }
+}
+
+/** Downloads the per-student desempeños template used by the manual wizard. */
+export async function downloadStudentPerformancesTemplate() {
+  const { workbook, fileName } = await buildStudentPerformancesWorkbook()
+  const XLSX = await loadXlsx()
+  XLSX.writeFile(workbook, fileName)
+}
+
+/**
  * Builds a downloadable .xlsx template matching the expected format, so a
  * teacher can fill it and re-import it.
  */
@@ -725,11 +769,23 @@ export async function downloadTemplate() {
     'Estudiante',
     'Grado',
     'Docente',
-    ...subjects.flatMap((subject) => [subject, `Docente (${subject})`]),
+    ...subjects.flatMap((subject) => [subject, `Docente (${subject})`, `Desempeño (${subject})`]),
   ]
   const sample = [
-    ['Ana Gómez', '5° A', 'Prof. Rivera', 4.5, 'Prof. Torres', 3.8, 'Prof. Torres', 4.2, 'Prof. Suárez', 3.0, 'Prof. Suárez'],
-    ['Luis Pérez', '5° A', 'Prof. Rivera', 3.2, 'Prof. Torres', 2.9, 'Prof. Torres', 3.5, 'Prof. Suárez', 4.0, 'Prof. Suárez'],
+    [
+      'Ana Gómez', '5° A', 'Prof. Rivera',
+      4.5, 'Prof. Torres', 'Resuelve problemas con seguridad y explica sus procedimientos.',
+      3.8, 'Prof. Torres', 'Comprende los procedimientos esenciales con apoyo ocasional.',
+      4.2, 'Prof. Suárez', 'Comprende y produce textos coherentes con buena organización.',
+      3.0, 'Prof. Suárez', '',
+    ],
+    [
+      'Luis Pérez', '5° A', 'Prof. Rivera',
+      3.2, 'Prof. Torres', '',
+      2.9, 'Prof. Torres', '',
+      3.5, 'Prof. Suárez', '',
+      4.0, 'Prof. Suárez', '',
+    ],
   ]
   const sheet = XLSX.utils.aoa_to_sheet([header, ...sample])
   const workbook = XLSX.utils.book_new()

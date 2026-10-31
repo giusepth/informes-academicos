@@ -42,6 +42,14 @@ test('manual path: confirmation stop, desempeños question, then the editor', as
   await expect(page.getByLabel('Nombre del estudiante 1')).toHaveValue('Ana Gómez')
 })
 
+test('the desempeños step offers a downloadable template', async ({ page }) => {
+  await startWizard(page)
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Descargar plantilla (.xlsx)' }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toBe('plantilla-desempenos-estudiantes.xlsx')
+})
+
 test('excel path: preview of loaded desempeños and the editor destination', async ({ page }) => {
   await startWizard(page)
   await page.getByLabel('Archivo de desempeños').setInputFiles({
