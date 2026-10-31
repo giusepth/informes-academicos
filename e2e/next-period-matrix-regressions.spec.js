@@ -68,8 +68,12 @@ test('a first period without grades consumes the matrix without filling', async 
   await page.getByRole('button', { name: 'Guardar configuración' }).click()
 
   await page.getByRole('button', { name: 'Crear manualmente' }).click()
-  await page.getByLabel('Nombre de asignatura 1').fill('Matemáticas')
-  await page.getByPlaceholder('Nombre del estudiante').first().fill('Ana')
+  await expect(page.getByRole('heading', { name: 'Carga manual del período' })).toBeVisible()
+  await page.getByLabel('Nombre del estudiante 1').fill('Ana')
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Cargar manualmente' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
   await page.getByRole('button', { name: 'Crear período' }).click()
 
   await expect(page.getByText(/Matriz del próximo período consumida/)).toBeVisible()
@@ -236,8 +240,12 @@ test('the centesimal scale selects the band for the first period', async ({ page
   await page.getByLabel('Archivo de matriz del próximo período').setInputFiles(MATRIX_FILE)
 
   await page.getByRole('button', { name: 'Crear manualmente' }).click()
-  await page.getByLabel('Nombre de asignatura 1').fill('Matemáticas')
-  await page.getByPlaceholder('Nombre del estudiante').first().fill('Ana')
+  await expect(page.getByRole('heading', { name: 'Carga manual del período' })).toBeVisible()
+  await page.getByLabel('Nombre del estudiante 1').fill('Ana')
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Cargar manualmente' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
   await page.getByLabel('Nota de Ana en Matemáticas').fill('85')
   await page.getByRole('button', { name: 'Crear período' }).click()
 

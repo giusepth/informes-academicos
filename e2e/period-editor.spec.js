@@ -424,7 +424,14 @@ test('the editor can create the first report from an empty session', async ({ pa
 
   await page.getByRole('button', { name: 'Crear manualmente' }).click()
   await expect(page).toHaveURL(/#\/editor$/)
-  await page.getByPlaceholder('Nombre del estudiante').first().fill('Ana')
+  // Guided manual entry (S8): students first, then the desempeños stop.
+  await expect(page.getByRole('heading', { name: 'Carga manual del período' })).toBeVisible()
+  await page.getByLabel('Nombre del estudiante 1').fill('Ana')
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Cargar manualmente' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
+
   await page.getByLabel('Nota de Ana en Matemáticas').fill('4.0')
   await page.getByRole('button', { name: 'Crear período' }).click()
 
