@@ -40,7 +40,10 @@ const pendingStatus = (root) =>
 test('a malformed replacement keeps the loaded matrix', async ({ page }) => {
   await page.goto('/')
   await waitForHydrated(page)
-  const section = page.getByRole('region', { name: 'Desempeños antes de empezar' })
+  await page.getByRole('button', { name: 'Abrir la herramienta' }).first().click()
+  await page.getByPlaceholder('Colegio Ejemplo').fill('Colegio Matriz')
+  await page.getByRole('button', { name: 'Guardar configuración' }).click()
+  const section = page.getByRole('region', { name: 'Desempeños' })
   const input = section.getByLabel('Archivo de matriz del próximo período')
   await input.setInputFiles(MATRIX_FILE)
   await expect(pendingStatus(section)).toContainText('2 asignaturas detectadas')
@@ -60,12 +63,13 @@ test('a malformed replacement keeps the loaded matrix', async ({ page }) => {
 test('a first period without grades consumes the matrix without filling', async ({ page }) => {
   await page.goto('/')
   await waitForHydrated(page)
-  await page
-    .locator('input[aria-label="Archivo de matriz del próximo período"]')
-    .setInputFiles(MATRIX_FILE)
   await page.getByRole('button', { name: 'Abrir la herramienta' }).first().click()
   await page.getByPlaceholder('Colegio Ejemplo').fill('Colegio Sin Notas')
   await page.getByRole('button', { name: 'Guardar configuración' }).click()
+  await page
+    .getByRole('region', { name: 'Desempeños' })
+    .getByLabel('Archivo de matriz del próximo período')
+    .setInputFiles(MATRIX_FILE)
 
   await page.getByRole('button', { name: 'Crear manualmente' }).click()
   await expect(page.getByRole('heading', { name: 'Carga manual del período' })).toBeVisible()
@@ -203,17 +207,24 @@ test('the session-fallback clear drops the pending matrix', async ({ page }) => 
   await expect.poll(() => sessionKey(page)).toBeNull()
 })
 
-test('the pending matrix survives a reload of the landing', async ({ page }) => {
+test('the pending matrix survives a reload of the tool', async ({ page }) => {
   await page.goto('/')
   await waitForHydrated(page)
-  const section = page.getByRole('region', { name: 'Desempeños antes de empezar' })
+  await page.getByRole('button', { name: 'Abrir la herramienta' }).first().click()
+  await page.getByPlaceholder('Colegio Ejemplo').fill('Colegio Matriz')
+  await page.getByRole('button', { name: 'Guardar configuración' }).click()
+  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
+
+  const section = page.getByRole('region', { name: 'Desempeños' })
   await section.getByLabel('Archivo de matriz del próximo período').setInputFiles(MATRIX_FILE)
   await expect(pendingStatus(section)).toContainText('2 asignaturas detectadas')
 
   await page.reload()
   await waitForHydrated(page)
+  // A configured session reopens in the tool; the preload survives the reload.
+  await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
   await expect(
-    pendingStatus(page.getByRole('region', { name: 'Desempeños antes de empezar' })),
+    pendingStatus(page.getByRole('region', { name: 'Desempeños' })),
   ).toContainText('2 asignaturas detectadas')
   await expect(page.getByRole('button', { name: 'Reemplazar archivo' })).toBeVisible()
 })

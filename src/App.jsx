@@ -178,7 +178,9 @@ export default function App() {
   )
   const [editorState, setEditorState] = useState(() => readStorage(STORAGE_KEYS.editor))
   // Guided manual entry (S8): students+subjects wizard runs before the editor.
+  // A parsed workbook (menu import) seeds the same flow at the confirmation stop.
   const [manualEntry, setManualEntry] = useState(false)
+  const [wizardSeed, setWizardSeed] = useState(null)
   const [editorDirty, setEditorDirty] = useState(false)
   const [editorEpoch, setEditorEpoch] = useState(0)
   const [leaveTarget, setLeaveTarget] = useState(null)
@@ -792,34 +794,6 @@ export default function App() {
     setToast('Matriz del próximo período quitada.')
   }
 
-  const handleLoaded = (data) => {
-    if (readOnlyRef.current) return
-    if (!config) {
-      setConfig({ institution: '', period: '', scaleType: 'decimal', scale: DEFAULT_SCALE, logo: null })
-    }
-    const base = {
-      ...data,
-      id: makeId(),
-      label: 'Informe 1',
-      // The single-sheet backup parser returns raw students; the normal import
-      // parser already assigned ids. Give raw ones a fresh identity.
-      students: (data.students ?? []).map((student) => ({
-        ...student,
-        id: student.id ?? makeId(),
-      })),
-    }
-    const consumed = applyNextPeriodMatrix(base)
-    const first = consumed.data
-    setReports([first])
-    setActiveReportId(first.id)
-    setSelectedStudentId(first.students[0]?.id ?? null)
-    navigate(TOOL_ROUTES.boletin)
-    setToast(
-      `Informe 1 cargado con ${first.students.length} estudiantes.` +
-        (consumed.applied ? nextMatrixToast(consumed) : ''),
-    )
-  }
-
   const handleLoadedBackup = (rawReports, skipped = [], restoredFinalPerformances = {}) => {
     if (readOnlyRef.current) return
     if (!config) {
@@ -862,21 +836,14 @@ export default function App() {
     setToast(`Respaldo descargado: informes-backup-${day}.xlsx`)
   }
 
+  // An imported workbook no longer jumps to the reports view: it enters the
+  // guided flow (confirmation -> desempeños -> destination) with its data
+  // seeded, so the teacher decides where to land.
   const handleImportPeriod = (data) => {
     if (readOnlyRef.current) return
-    const next = { ...data, id: makeId(), label: `Informe ${reports.length + 1}` }
-    setReports((current) => [...current, next])
-    setActiveReportId(next.id)
-    setSelectedStudentId(next.students[0]?.id ?? null)
-    navigate(TOOL_ROUTES.boletin)
-    setToast(`${next.label} importado con ${next.students.length} estudiantes.`)
-  }
-
-  // With existing work, "new" means an additional period; with none, it is
-  // the first one. Both paths navigate to the new report's boletín.
-  const handleNewReport = (data) => {
-    if (reports.length === 0) handleLoaded(data)
-    else handleImportPeriod(data)
+    setWizardSeed({ ...data })
+    setManualEntry(true)
+    navigate(TOOL_ROUTES.editor)
   }
 
   const openEditor = (state) => {
@@ -889,6 +856,7 @@ export default function App() {
   const handleCreateManual = () => {
     if (readOnlyRef.current) return
     setEditorDirty(false)
+    setWizardSeed(null)
     setManualEntry(true)
     navigate(TOOL_ROUTES.editor)
   }
@@ -1003,6 +971,7 @@ export default function App() {
 
   const handleWizardOpenEditor = (initial) => {
     setManualEntry(false)
+    setWizardSeed(null)
     openEditor({ mode: 'create', source: 'manual', initial })
   }
 
@@ -1010,12 +979,14 @@ export default function App() {
     if (readOnlyRef.current) return
     persistNewReport(data)
     setManualEntry(false)
+    setWizardSeed(null)
     // replaceState avoids the hashchange resolver racing the reports update.
     navigate(TOOL_ROUTES.boletin, { replace: true })
   }
 
   const handleWizardCancel = () => {
     setManualEntry(false)
+    setWizardSeed(null)
     navigate(TOOL_ROUTES.gestion, { replace: true })
   }
 
@@ -1131,9 +1102,6 @@ export default function App() {
             setEntered(true)
             navigate(TOOL_ROUTES.gestion)
           }}
-          nextPeriodMatrix={nextPeriodMatrix}
-          onLoadNextMatrix={handleLoadNextMatrix}
-          onClearNextMatrix={handleClearNextMatrix}
         />
         {notice}
       </>
@@ -1191,6 +1159,7 @@ export default function App() {
         {route === TOOL_ROUTES.editor ? (
           manualEntry ? (
             <ManualEntryWizard
+              imported={wizardSeed}
               onOpenEditor={handleWizardOpenEditor}
               onSaveAndOpenReports={handleWizardSaveAndReports}
               onCancel={handleWizardCancel}
@@ -1231,7 +1200,7 @@ export default function App() {
             config={config}
             nextPeriodMatrix={nextPeriodMatrix}
             readOnly={readOnly}
-            onNewReport={handleNewReport}
+            onNewReport={handleImportPeriod}
             onLoadNextMatrix={handleLoadNextMatrix}
             onClearNextMatrix={handleClearNextMatrix}
             onLoadedBackup={handleLoadedBackup}
