@@ -26,8 +26,8 @@ Delivery: `ask-on-risk` (default) — **decidido por el dueño: cadena de PRs**.
 | T5 | S5, S6 | Empty states con guía + guardado inline (5 estados en controles nuevos) | inline | ✅ | 5944641 |
 | T6 | S4 | Matriz: explicación, pasos, vista previa con matrixApplicationStats | inline | ✅ | fd3ea9b |
 | T7 | S4, S6 | Progreso "N de M desempeños listos" | inline | ✅ | fd3ea9b |
-| T8 | S7 | Identidad triplicado → tool (dashboard/gestión/modales) | inline | pendiente (ola 3) | — |
-| T9 | S6 | Auditoría global de interacción (ningún botón sin reacción) | inline | pendiente (ola 3) | — |
+| T8 | S7 | Identidad triplicado → tool (dashboard/gestión/modales) | inline | ✅ | dc5f227 |
+| T9 | S6 | Auditoría global de interacción (ningún botón sin reacción) | inline | ✅ | dc5f227 |
 
 ## Log
 
@@ -38,3 +38,5 @@ Delivery: `ask-on-risk` (default) — **decidido por el dueño: cadena de PRs**.
 - L3 (decisión del dueño, verbatim): "recomendado" → estrategia = CADENA DE PRs con boundaries arriba.
 - L4 (cierre ola 2): T6+T7 en un solo work unit (mismo panel/encabezado). unit 182/182, e2e de matriz 27/27. Los count strings del panel (`N casillero a completar`, `0 sin nota`) se conservaron intactos porque los e2e los asertan literalmente; la explicación/pasos se agregaron alrededor.
 - L5: cadena publicada como PRs autoría giusepth, CI 3/3 verde en los 4: PR #52 (T0+T1) → #53 (T2+T3) → #54 (T4+T5) → #55 (T6+T7). Merges: a cargo del dueño, en ese orden. La rama `feat/remodelacion-ux-ui` sigue viva para la ola 3 (PR5 = T8+T9, base = feat/remodel-pr4-matrix).
+- L5: cadena publicada como PRs autoría giusepth, CI 3/3 verde en los 4: PR #52 (T0+T1) → #53 (T2+T3) → #54 (T4+T5) → #55 (T6+T7). Merges: a cargo del dueño, en ese orden. La rama `feat/remodelacion-ux-ui` sigue viva para la ola 3 (PR5 = T8+T9, base = feat/remodel-pr4-matrix).
+- L6 (cierre ola 3): tokens del triplicado declarados en `@theme` de index.css (paper/sheet/copy-sky/kraft/kraft-line/kraft-rule/ink-slate/typed-ochre/form-blue/form-blue-lift + font-display/font-typed) y aplicados a shell (header/banner/toast), tarjetas de gestión/dashboard/periodbar/toolbar, paneles del editor y Modal; R6 y boletines intactos. Botones con contrato único: hover form-blue-lift, press 1px (motion-reduce aware), 150ms. Pins e2e actualizados al token nuevo (tab activo `bg-form-blue`; aserción negativa endurecida) + `e2e/interaction-states.spec.js` nuevo. Verificación: unit 182/182, e2e completa 146/146, build vite verde. Nota de alcance: fuentes Archivo/Plex se usan en header/Modal; el resto mantiene la tipografía de sistema (profundizar tipografía es un pase posterior, no bloquea la ola).
