@@ -13,6 +13,7 @@ Delivery: `ask-on-risk` (default) — **decidido por el dueño: cadena de PRs**.
 - S5: "si una persona entra desde 0 se sentiria agobiada"
 - S6: "falta interactividad con los botones, desplazamientos sutiles, interaccion, feedback"
 - S7: "siento que no tiene vida"
+- S8 (asistente de carga manual, verbatim del dueño): "docente entra al app -> cargar estudiantes con planilla de nombres y materiiaas -> pagina dice se han cargado los estudiantes -> pagina pregunta Quieres cargar los desempeños -> user cargar los desempeños manual o por excel -> Si escoge manual llevar a pantalla de edicion, Si escoge xlsx mostrar desempeños cargados -> preguntar, ir a menu de edicion de periodo o ir a vista de infomes -> si escoge ir a menu de edicion deberia llevarlo al la misma parte de la carga manual donde vea todo lo diligenciado y si no pues llevarlo a la vista donde se exportan los informes." Decisión del dueño (verbatim): "3" → Excel por estudiante (Estudiante|Asignatura|Desempeño) en el asistente + matriz por bandas se queda dentro del editor.
 
 ## Tasks
 
@@ -28,6 +29,7 @@ Delivery: `ask-on-risk` (default) — **decidido por el dueño: cadena de PRs**.
 | T7 | S4, S6 | Progreso "N de M desempeños listos" | inline | ✅ | fd3ea9b |
 | T8 | S7 | Identidad triplicado → tool (dashboard/gestión/modales) | inline | ✅ | dc5f227 |
 | T9 | S6 | Auditoría global de interacción (ningún botón sin reacción) | inline | ✅ | dc5f227 |
+| T10 | S8 | Asistente de carga manual: estudiantes+materias → confirmación → stop de desempeños → manual (editor) o Excel (preview) → destino editor/informes | inline | ✅ | 2039546 |
 
 ## Log
 
@@ -40,3 +42,4 @@ Delivery: `ask-on-risk` (default) — **decidido por el dueño: cadena de PRs**.
 - L5: cadena publicada como PRs autoría giusepth, CI 3/3 verde en los 4: PR #52 (T0+T1) → #53 (T2+T3) → #54 (T4+T5) → #55 (T6+T7). Merges: a cargo del dueño, en ese orden. La rama `feat/remodelacion-ux-ui` sigue viva para la ola 3.
 - L6 (cierre ola 3): tokens del triplicado declarados en `@theme` de index.css (paper/sheet/copy-sky/kraft/kraft-line/kraft-rule/ink-slate/typed-ochre/form-blue/form-blue-lift + font-display/font-typed) y aplicados a shell (header/banner/toast), tarjetas de gestión/dashboard/periodbar/toolbar, paneles del editor y Modal; R6 y boletines intactos. Botones con contrato único: hover form-blue-lift, press 1px (motion-reduce aware), 150ms. Pins e2e actualizados al token nuevo (tab activo `bg-form-blue`; aserción negativa endurecida) + `e2e/interaction-states.spec.js` nuevo. Verificación: unit 182/182, e2e completa 146/146, build vite verde. Nota de alcance: fuentes Archivo/Plex se usan en header/Modal; el resto mantiene la tipografía de sistema (profundizar tipografía es un pase posterior, no bloquea la ola).
 - L7: el dueño mergeó la cadena #52–#55 (main tiene olas 1–2). Ola 3 publicada como **PR #56** (base `main`, sin dependencia de stack), CI 3/3 verde (Vercel + lint & build). Feature completa: T0–T9 entregadas.
+- L8 (asistente S8): `ManualEntryWizard` + `parsePerformancesWorkbook` (reusa la identidad del formato largo del backup). Navegación a informes con `replace: true` porque el resolver de hashchange leía `reports` del render previo (race real, detectado por e2e). Tres e2e existentes actualizados al flujo nuevo (period-editor, next-period-matrix-regressions, landing-matrix): "Crear manualmente" ya no abre el editor directo. Verificación: unit 186/186, e2e completa 149/149, build verde.
