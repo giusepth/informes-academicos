@@ -47,7 +47,7 @@ test('the final report averages per subject across periods', async ({ page }) =>
   await expect(
     page.getByText('Informe académico final', { exact: false }).first(),
   ).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Informe 5 (final)' })).toHaveClass(/bg-slate-900/)
+  await expect(page.getByRole('button', { name: 'Informe 5 (final)' })).toHaveClass(/bg-form-blue/)
 
   const matRow = page.locator('tr', { hasText: 'Matemáticas' }).first()
   await expect(matRow).toContainText('4.73') // raw mean of the 3 present periods

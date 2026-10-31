@@ -120,7 +120,7 @@ export default function ManagementMenu({
 
       <section
         aria-labelledby="menu-new-work"
-        className="rounded-2xl border border-slate-200 bg-white p-5"
+        className="rounded-2xl border border-kraft-line bg-sheet p-5"
       >
         <h3 id="menu-new-work" className="text-base font-semibold text-slate-900">
           Nuevo trabajo
@@ -167,7 +167,7 @@ export default function ManagementMenu({
             </div>
           </div>
 
-          <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-6 text-center">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-kraft-line bg-sheet p-6 text-center">
             <p className="text-base font-semibold text-slate-800">Carga manual</p>
             <p className="mt-1 mb-4 text-sm text-slate-500">
               Carga grado, docente, asignaturas y estudiantes a mano.
@@ -199,7 +199,7 @@ export default function ManagementMenu({
 
       <section
         aria-labelledby="menu-current-work"
-        className="rounded-2xl border border-slate-200 bg-white p-5"
+        className="rounded-2xl border border-kraft-line bg-sheet p-5"
       >
         <h3 id="menu-current-work" className="text-base font-semibold text-slate-900">
           Trabajo actual
@@ -261,7 +261,7 @@ export default function ManagementMenu({
 
       <section
         aria-labelledby="menu-performances"
-        className="rounded-2xl border border-slate-200 bg-white p-5"
+        className="rounded-2xl border border-kraft-line bg-sheet p-5"
       >
         <h3 id="menu-performances" className="text-base font-semibold text-slate-900">
           Desempeños
@@ -282,7 +282,7 @@ export default function ManagementMenu({
 
       <section
         aria-labelledby="menu-backup"
-        className="rounded-2xl border border-slate-200 bg-white p-5"
+        className="rounded-2xl border border-kraft-line bg-sheet p-5"
       >
         <h3 id="menu-backup" className="text-base font-semibold text-slate-900">
           Respaldo y datos

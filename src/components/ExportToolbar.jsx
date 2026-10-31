@@ -80,7 +80,7 @@ export default function ExportToolbar({
     })
 
   return (
-    <div className="no-print rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="no-print rounded-2xl border border-kraft-line bg-sheet p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={handlePrint} disabled={busy}>
           Imprimir
