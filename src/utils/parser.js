@@ -557,6 +557,24 @@ function parseFinalSheetRaw(XLSX, sheet) {
 }
 
 /**
+ * Reads a standalone desempeños workbook (long layout):
+ *   Estudiante | Asignatura | Desempeño
+ *
+ * Used by the guided manual entry: the teacher loads per-student texts
+ * BEFORE grades exist, so the band matrix (which needs scores) is not an
+ * option at that point. Identity follows the same rule as the backup final
+ * sheet: trimmed, uppercased student name. Throws when the first sheet
+ * cannot be interpreted.
+ */
+export async function parsePerformancesWorkbook(arrayBuffer) {
+  const XLSX = await loadXlsx()
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+  const firstSheetName = workbook.SheetNames[0]
+  if (!firstSheetName) throw new Error('El archivo no contiene hojas.')
+  return parseFinalSheetRaw(XLSX, workbook.Sheets[firstSheetName])
+}
+
+/**
  * Reads a backup workbook (.xlsx) that may contain one REPORT sheet per
  * period and restores the whole multi-period session as raw report objects.
  *

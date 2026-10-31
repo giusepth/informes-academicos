@@ -5,6 +5,7 @@ import ExportToolbar from './components/ExportToolbar'
 import FinalEditor from './components/FinalEditor'
 import Landing from './components/Landing'
 import ManagementMenu from './components/ManagementMenu'
+import ManualEntryWizard from './components/ManualEntryWizard'
 import PeriodBar from './components/PeriodBar'
 import PeriodEditor from './components/PeriodEditor'
 import UnsavedChangesDialog from './components/UnsavedChangesDialog'
@@ -176,6 +177,8 @@ export default function App() {
     readStorage(STORAGE_KEYS.nextPeriodMatrix),
   )
   const [editorState, setEditorState] = useState(() => readStorage(STORAGE_KEYS.editor))
+  // Guided manual entry (S8): students+subjects wizard runs before the editor.
+  const [manualEntry, setManualEntry] = useState(false)
   const [editorDirty, setEditorDirty] = useState(false)
   const [editorEpoch, setEditorEpoch] = useState(0)
   const [leaveTarget, setLeaveTarget] = useState(null)
@@ -530,6 +533,7 @@ export default function App() {
   // with a persisted edit intent finds its report only after IndexedDB loads.
   useEffect(() => {
     if (route !== TOOL_ROUTES.editor || hydrating) return
+    if (manualEntry) return
     if (editorState?.mode === 'create' || editorReport) return
     if (editorState && editorDirtyRef.current) {
       // The resync removed the period under an open draft. Ask before
@@ -540,7 +544,7 @@ export default function App() {
     setEditorState(null)
     setEditorDirty(false)
     navigate(TOOL_ROUTES.gestion, { replace: true })
-  }, [route, hydrating, editorState, editorReport, navigate])
+  }, [route, hydrating, editorState, editorReport, manualEntry, navigate])
 
   const configured = config !== null
   // The landing only faces first-time visitors: existing sessions (seeded e2e
@@ -883,7 +887,10 @@ export default function App() {
   }
 
   const handleCreateManual = () => {
-    openEditor({ mode: 'create', source: 'manual' })
+    if (readOnlyRef.current) return
+    setEditorDirty(false)
+    setManualEntry(true)
+    navigate(TOOL_ROUTES.editor)
   }
 
   const handleEditReport = (id) => {
@@ -932,6 +939,31 @@ export default function App() {
     leaveEditor(TOOL_ROUTES.gestion)
   }
 
+  // Creates a brand-new period from a finished draft (editor save or wizard)
+  // and returns it, so both entry points share identity, matrix preload and
+  // selection rules.
+  const persistNewReport = (data) => {
+    const base = {
+      ...data,
+      id: makeId(),
+      label: `Informe ${reports.length + 1}`,
+      students: data.students.map((student) => ({ ...student, id: makeId() })),
+    }
+    const consumed =
+      reports.length === 0
+        ? applyNextPeriodMatrix(base)
+        : { data: base, applied: false, fillable: 0 }
+    const saved = consumed.data
+    setReports((currentReports) => [...currentReports, saved])
+    setActiveReportId(saved.id)
+    setSelectedStudentId(saved.students[0]?.id ?? null)
+    setToast(
+      `${saved.label} creado con ${saved.students.length} estudiantes.` +
+        (consumed.applied ? nextMatrixToast(consumed) : ''),
+    )
+    return saved
+  }
+
   const handleEditorSave = (data) => {
     if (readOnlyRef.current || !editorState) return
     let saved
@@ -964,26 +996,27 @@ export default function App() {
           : 'El período original ya no estaba disponible; se guardó como uno nuevo.',
       )
     } else {
-      const base = {
-        ...data,
-        id: makeId(),
-        label: `Informe ${reports.length + 1}`,
-        students: data.students.map((student) => ({ ...student, id: makeId() })),
-      }
-      const consumed =
-        reports.length === 0
-          ? applyNextPeriodMatrix(base)
-          : { data: base, applied: false, fillable: 0 }
-      saved = consumed.data
-      setReports((currentReports) => [...currentReports, saved])
-      setActiveReportId(saved.id)
-      setSelectedStudentId(saved.students[0]?.id ?? null)
-      setToast(
-        `${saved.label} creado con ${saved.students.length} estudiantes.` +
-          (consumed.applied ? nextMatrixToast(consumed) : ''),
-      )
+      persistNewReport(data)
     }
     leaveEditor(TOOL_ROUTES.boletin)
+  }
+
+  const handleWizardOpenEditor = (initial) => {
+    setManualEntry(false)
+    openEditor({ mode: 'create', source: 'manual', initial })
+  }
+
+  const handleWizardSaveAndReports = (data) => {
+    if (readOnlyRef.current) return
+    persistNewReport(data)
+    setManualEntry(false)
+    // replaceState avoids the hashchange resolver racing the reports update.
+    navigate(TOOL_ROUTES.boletin, { replace: true })
+  }
+
+  const handleWizardCancel = () => {
+    setManualEntry(false)
+    navigate(TOOL_ROUTES.gestion, { replace: true })
   }
 
   const handleSelectReport = (id) => {
@@ -1156,7 +1189,13 @@ export default function App() {
 
       <main className="mx-auto max-w-7xl px-4 py-6">
         {route === TOOL_ROUTES.editor ? (
-          editorState ? (
+          manualEntry ? (
+            <ManualEntryWizard
+              onOpenEditor={handleWizardOpenEditor}
+              onSaveAndOpenReports={handleWizardSaveAndReports}
+              onCancel={handleWizardCancel}
+            />
+          ) : editorState ? (
             <PeriodEditor
               key={editorKey}
               mode={editorState.mode}
