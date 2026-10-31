@@ -4,13 +4,13 @@ import { cx } from '../utils/cx'
 
 const BUTTON_VARIANTS = {
   primary:
-    'bg-slate-900 text-white hover:bg-slate-700 focus-visible:outline-slate-900',
+    'bg-form-blue text-white hover:bg-form-blue-lift focus-visible:outline-form-blue',
   secondary:
-    'bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50 focus-visible:outline-slate-400',
+    'bg-sheet text-ink-slate ring-1 ring-kraft-line hover:bg-paper focus-visible:outline-kraft-rule',
   danger:
     'bg-red-600 text-white hover:bg-red-500 focus-visible:outline-red-600',
   ghost:
-    'bg-transparent text-slate-600 hover:bg-slate-100 focus-visible:outline-slate-400',
+    'bg-transparent text-typed-ochre hover:bg-kraft/50 focus-visible:outline-kraft-rule',
 }
 
 const BUTTON_SIZES = {
@@ -30,7 +30,9 @@ export function Button({
     <button
       type={type}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition',
+        'inline-flex items-center justify-center gap-2 rounded-lg font-medium',
+        'transition-[background-color,box-shadow,transform] duration-150 ease-out',
+        'active:translate-y-px motion-reduce:active:translate-y-0',
         'focus-visible:outline-2 focus-visible:outline-offset-2',
         'disabled:cursor-not-allowed disabled:opacity-50',
         BUTTON_VARIANTS[variant],
@@ -45,9 +47,9 @@ export function Button({
 export function Field({ label, hint, children, className }) {
   return (
     <label className={cx('block', className)}>
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-ink-slate">{label}</span>
       {children}
-      {hint ? <span className="mt-1 block text-xs text-slate-500">{hint}</span> : null}
+      {hint ? <span className="mt-1 block text-xs text-typed-ochre">{hint}</span> : null}
     </label>
   )
 }
@@ -166,10 +168,10 @@ export function Modal({ open, title, children, footer, onClose }) {
       <div
         ref={containerRef}
         tabIndex={-1}
-        className="w-full max-w-2xl rounded-2xl bg-white shadow-xl outline-none"
+        className="w-full max-w-2xl rounded-2xl bg-sheet shadow-xl outline-none"
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center justify-between border-b border-kraft-line px-6 py-4">
+          <h2 className="font-display text-lg font-semibold text-ink-slate">{title}</h2>
           {onClose ? (
             <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
               Cerrar
@@ -178,7 +180,7 @@ export function Modal({ open, title, children, footer, onClose }) {
         </div>
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5">{children}</div>
         {footer ? (
-          <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+          <div className="flex justify-end gap-2 border-t border-kraft-line px-6 py-4">
             {footer}
           </div>
         ) : null}

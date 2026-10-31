@@ -14,7 +14,7 @@ export default function PeriodBar({
   const finalLabel = `Informe ${reports.length + 1} (final)`
 
   return (
-    <div className="no-print flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+    <div className="no-print flex flex-wrap items-center gap-2 rounded-2xl border border-kraft-line bg-sheet p-3">
       <span className="text-sm font-semibold text-slate-700">Períodos</span>
 
       {reports.map((report, index) => (

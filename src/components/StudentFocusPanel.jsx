@@ -43,7 +43,7 @@ export default function StudentFocusPanel({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-xl border border-kraft-line bg-sheet p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-700">
           Enfoque: {student.name.trim() || 'sin nombre'}{' '}
@@ -79,7 +79,7 @@ export default function StudentFocusPanel({
           return (
             <div
               key={subject.id}
-              className="rounded-lg border border-slate-100 bg-slate-50/60 p-3"
+              className="rounded-lg border border-kraft-line/60 bg-paper/60 p-3"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-medium text-slate-800">

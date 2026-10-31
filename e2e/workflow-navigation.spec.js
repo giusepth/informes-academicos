@@ -72,7 +72,7 @@ test('a direct boletín route stays read-only even when the stored tab is final'
   await expect(page.locator('input, textarea')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Editar notas' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Informe 2 (final)' })).not.toHaveClass(
-    /bg-slate-900/,
+    /bg-form-blue/,
   )
 })
 

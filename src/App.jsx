@@ -1083,7 +1083,7 @@ export default function App() {
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className="no-print fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg"
+      className="no-print fixed bottom-5 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-ink-slate px-4 py-2 text-sm text-white shadow-lg"
     >
       {toast}
     </div>
@@ -1110,11 +1110,11 @@ export default function App() {
   return (
     <>
       <div className="min-h-full">
-      <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
+      <header className="no-print sticky top-0 z-30 border-b border-kraft-rule bg-sheet shadow-sm">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div>
-            <h1 className="text-base font-bold text-slate-900">Informes académicos</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="font-display text-base font-bold text-ink-slate">Informes académicos</h1>
+            <p className="text-xs text-typed-ochre">
               Genera y exporta informes 100% en tu navegador. Nada se sube a un servidor.
             </p>
           </div>
@@ -1138,7 +1138,7 @@ export default function App() {
       </header>
 
       {lockState === 'reader' ? (
-        <div role="status" className="no-print border-b border-slate-200 bg-slate-50">
+        <div role="status" className="no-print border-b border-kraft-line bg-paper">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2">
             <p className="text-sm text-slate-700">{READ_ONLY_BANNER}</p>
             <Button

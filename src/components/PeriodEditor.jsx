@@ -553,7 +553,7 @@ export default function PeriodEditor({
             onClose={() => setFocusStudentId(null)}
           />
         ) : (
-        <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200">
+        <div className="max-h-[70vh] overflow-auto rounded-xl border border-kraft-line">
           <table className="min-w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-slate-600">
               <tr>
@@ -678,7 +678,7 @@ export default function PeriodEditor({
           </Button>
         </div>
 
-        <details className="rounded-lg border border-slate-200 bg-white p-3">
+        <details className="rounded-lg border border-kraft-line bg-sheet p-3">
           <summary className="cursor-pointer text-sm text-slate-700">
             Cargar una lista de estudiantes
           </summary>

@@ -31,7 +31,7 @@ export default function ReportDashboard({
 
   return (
     <div className="report-grid grid gap-6 lg:grid-cols-[280px_1fr]">
-      <aside className="no-print rounded-2xl border border-slate-200 bg-white p-4">
+      <aside className="no-print rounded-2xl border border-kraft-line bg-sheet p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-800">Estudiantes</h2>
           <span className="text-xs text-slate-600">{rankedStudents.length}</span>
