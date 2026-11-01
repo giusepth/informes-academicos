@@ -12,12 +12,32 @@ const emptyRow = () => ({ id: `w_${Math.random().toString(36).slice(2, 10)}`, na
  * hand the draft to the period editor; an Excel of per-student texts shows a
  * preview and lets the teacher pick the editor or the reports view.
  */
-export default function ManualEntryWizard({ onOpenEditor, onSaveAndOpenReports, onCancel }) {
-  const [step, setStep] = useState('students')
-  const [grade, setGrade] = useState('')
-  const [teacher, setTeacher] = useState('')
-  const [subjects, setSubjects] = useState([{ id: 'subject-0', name: 'Matemáticas' }])
-  const [students, setStudents] = useState([emptyRow()])
+export default function ManualEntryWizard({
+  imported = null,
+  onOpenEditor,
+  onSaveAndOpenReports,
+  onCancel,
+}) {
+  // Import mode: an already-parsed workbook seeds the same flow at the
+  // confirmation stop instead of the students step.
+  const seeded = imported
+    ? {
+        grade: imported.grade ?? '',
+        teacher: imported.teacher ?? '',
+        subjects: (imported.subjects?.length ? imported.subjects : ['Matemáticas']).map(
+          (name, index) => ({ id: `subject-${index}`, name }),
+        ),
+        students: (imported.students ?? []).map((student) => ({
+          id: student.id ?? `w_${Math.random().toString(36).slice(2, 10)}`,
+          name: student.name ?? '',
+        })),
+      }
+    : null
+  const [step, setStep] = useState(imported ? 'confirm' : 'students')
+  const [grade, setGrade] = useState(seeded?.grade ?? '')
+  const [teacher, setTeacher] = useState(seeded?.teacher ?? '')
+  const [subjects, setSubjects] = useState(seeded?.subjects ?? [{ id: 'subject-0', name: 'Matemáticas' }])
+  const [students, setStudents] = useState(seeded?.students ?? [emptyRow()])
   const [rosterText, setRosterText] = useState('')
   const [performanceByKey, setPerformanceByKey] = useState(null)
   const [excelName, setExcelName] = useState('')
@@ -62,17 +82,22 @@ export default function ManualEntryWizard({ onOpenEditor, onSaveAndOpenReports, 
     grade: grade.trim(),
     teacher: teacher.trim(),
     subjects: namedSubjects,
-    teachers: {},
-    students: namedStudents.map((name) => ({
-      name,
-      scores: {},
-      performances: Object.fromEntries(
-        namedSubjects.map((subject) => [
-          subject,
-          performances?.[finalPerformanceKey(name)]?.[subject] ?? '',
-        ]),
-      ),
-    })),
+    teachers: imported?.teachers ?? {},
+    students: namedStudents.map((name) => {
+      const source =
+        imported?.students?.find((student) => (student.name ?? '').trim() === name) ?? null
+      const overrides = performances?.[finalPerformanceKey(name)] ?? null
+      return {
+        name,
+        scores: { ...(source?.scores ?? {}) },
+        performances: Object.fromEntries(
+          namedSubjects.map((subject) => [
+            subject,
+            overrides?.[subject] ?? source?.performances?.[subject] ?? '',
+          ]),
+        ),
+      }
+    }),
   })
 
   const savePayload = () => {
@@ -81,10 +106,23 @@ export default function ManualEntryWizard({ onOpenEditor, onSaveAndOpenReports, 
       ...draft,
       students: draft.students.map((student) => ({
         ...student,
-        scores: Object.fromEntries(namedSubjects.map((subject) => [subject, null])),
+        scores: imported
+          ? student.scores
+          : Object.fromEntries(namedSubjects.map((subject) => [subject, null])),
       })),
     }
   }
+
+  const importedPerformances = imported
+    ? (imported.students ?? []).reduce(
+        (count, student) =>
+          count +
+          Object.values(student.performances ?? {}).filter(
+            (text) => String(text ?? '').trim() !== '',
+          ).length,
+        0,
+      )
+    : 0
 
   const readPerformances = async (file) => {
     if (!file) return
@@ -305,6 +343,12 @@ export default function ManualEntryWizard({ onOpenEditor, onSaveAndOpenReports, 
           <p className="text-sm text-slate-600">
             Puedes cargarlos ahora, antes de las notas, o dejarlo para la pantalla de edición.
           </p>
+          {importedPerformances > 0 ? (
+            <p className="text-xs text-slate-500">
+              El archivo importado ya trae {importedPerformances}{' '}
+              {importedPerformances === 1 ? 'desempeño' : 'desempeños'}; puedes completar el resto.
+            </p>
+          ) : null}
           <input
             ref={fileInputRef}
             type="file"
