@@ -59,7 +59,7 @@ const enterTool = async (page, institution = 'Colegio Matriz') => {
   await expect(page.getByRole('heading', { name: 'Gestión de informes' })).toBeVisible()
 }
 
-const loadLandingMatrix = async (page, buffer = MATRIX) => {
+const loadMenuMatrix = async (page, buffer = MATRIX) => {
   await page
     .locator('input[aria-label="Archivo de matriz del próximo período"]')
     .setInputFiles(fileFor(buffer))
@@ -68,12 +68,17 @@ const loadLandingMatrix = async (page, buffer = MATRIX) => {
 const pendingStatus = (root) =>
   root.getByRole('status').filter({ hasText: 'Matriz del próximo período' })
 
-test('the landing offers the next-period matrix actions and state', async ({ page }) => {
+test('the landing no longer offers next-period matrix actions; gestión does', async ({ page }) => {
   await page.goto('/')
   await waitForHydrated(page)
 
-  const section = page.getByRole('region', { name: 'Desempeños antes de empezar' })
-  await expect(section).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Desempeños antes de empezar' })).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Cargar desempeños del próximo período (.xlsx)' }),
+  ).toHaveCount(0)
+
+  await enterTool(page)
+  const section = page.getByRole('region', { name: 'Desempeños' })
   await expect(
     section.getByRole('button', { name: 'Cargar desempeños del próximo período (.xlsx)' }),
   ).toBeVisible()
@@ -83,45 +88,13 @@ test('the landing offers the next-period matrix actions and state', async ({ pag
   await expect(
     section.getByRole('button', { name: 'Descargar ejemplo de desempeños' }),
   ).toBeVisible()
-
-  const template = await download(page, 'Descargar plantilla de desempeños')
-  expect(template.suggestedFilename()).toBe('plantilla-desempenos.xlsx')
-  const templatePath = await template.path()
-  expect((await fs.stat(templatePath)).size).toBeGreaterThan(0)
-  const sample = await download(page, 'Descargar ejemplo de desempeños')
-  expect(sample.suggestedFilename()).toBe('ejemplo-desempenos.xlsx')
-  expect((await fs.stat(await sample.path())).size).toBeGreaterThan(0)
-
-  // An unedited template is rejected and arms nothing.
-  await section
-    .locator('input[aria-label="Archivo de matriz del próximo período"]')
-    .setInputFiles(templatePath)
-  await expect(section.getByText(EMPTY_MATRIX_MESSAGE, { exact: true })).toBeVisible()
-  await expect(pendingStatus(section)).toHaveCount(0)
-  await expect.poll(() => page.evaluate((key) => sessionStorage.getItem(key), NEXT_KEY)).toBeNull()
-
-  // A real matrix shows the detected subjects and the single-use promise.
-  await loadLandingMatrix(page)
-  await expect(pendingStatus(section)).toContainText('2 asignaturas detectadas')
-  await expect(
-    section.getByText(
-      'Se aplicará al primer período que crees, solo a celdas vacías y cuando existan notas.',
-      { exact: true },
-    ),
-  ).toBeVisible()
-  await expect(section.getByRole('button', { name: 'Reemplazar archivo' })).toBeVisible()
-  await expect.poll(() => page.evaluate((key) => sessionStorage.getItem(key), NEXT_KEY)).not.toBeNull()
-
-  await section.getByRole('button', { name: 'Quitar matriz' }).click()
-  await expect(pendingStatus(section)).toHaveCount(0)
-  await expect.poll(() => page.evaluate((key) => sessionStorage.getItem(key), NEXT_KEY)).toBeNull()
 })
 
-test('a landing matrix applies once to the first manually created period', async ({ page }) => {
+test('a menu matrix applies once to the first manually created period', async ({ page }) => {
   await page.goto('/')
   await waitForHydrated(page)
-  await loadLandingMatrix(page)
   await enterTool(page)
+  await loadMenuMatrix(page)
 
   // The pending payload is visible in the menu through the shared component.
   const menuPerformances = page.getByRole('region', { name: 'Desempeños' })
@@ -169,17 +142,22 @@ test('a landing matrix applies once to the first manually created period', async
   expect(after[1].students[0].performances?.['Matemáticas'] ?? '').toBe('')
 })
 
-test('a landing matrix fills only empty cells of the first imported period', async ({ page }) => {
+test('a menu matrix fills only empty cells of the first imported period', async ({ page }) => {
   await page.goto('/')
   await waitForHydrated(page)
-  await loadLandingMatrix(page)
   await enterTool(page)
+  await loadMenuMatrix(page)
 
   await page
     .locator('input[type=file]')
     .first()
     .setInputFiles(fileFor(periodWorkbook('Ana', 'Juicio propio')))
-  await expect(page.getByText(/Informe 1 cargado/)).toBeVisible()
+  // Imported workbooks enter the guided flow before any period is stored.
+  await expect(page.getByText(/Se han cargado 1 estudiante y 2 asignaturas/)).toBeVisible()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Omitir por ahora' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
+  await page.getByRole('button', { name: 'Crear período' }).click()
   await waitForPersisted(
     page,
     'informes.reports',
@@ -198,6 +176,11 @@ test('a landing matrix fills only empty cells of the first imported period', asy
     .locator('input[type=file]')
     .first()
     .setInputFiles(fileFor(periodWorkbook('Luis')))
+  await expect(page.getByText(/Se han cargado 1 estudiante y 2 asignaturas/)).toBeVisible()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Omitir por ahora' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
+  await page.getByRole('button', { name: 'Crear período' }).click()
   await waitForPersisted(page, 'informes.reports', (value) => value?.length === 2)
   const second = await readDataKey(page, 'informes.reports')
   expect(second[1].students[0].performances?.['Matemáticas'] ?? '').toBe('')

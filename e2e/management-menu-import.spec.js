@@ -65,7 +65,13 @@ test('a period imported from the menu keeps student ids and isolated scores', as
   await openManagementMenu(page)
   await importFile(page, singleSheet())
 
-  await expect(page.getByText(/Informe 2 importado con 2 estudiantes/)).toBeVisible()
+  // Imported workbooks enter the guided flow instead of jumping to reports.
+  await expect(page.getByText(/Se han cargado 2 estudiantes y 1 asignatura/)).toBeVisible()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Cargar manualmente' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
+  await page.getByRole('button', { name: 'Crear período' }).click()
+  await expect(page.getByText(/Informe 2 creado con 2 estudiantes/)).toBeVisible()
   await waitForPersisted(page, 'informes.reports', (value) => value?.length === 2)
 
   const stored = await readDataKey(page, 'informes.reports')
@@ -97,7 +103,11 @@ test('a period workbook with a stray sheet appends instead of replacing existing
   await openManagementMenu(page)
   await importFile(page, multiSheetWithNotes())
 
-  await expect(page.getByText(/Informe 3 importado con 2 estudiantes/)).toBeVisible()
+  await expect(page.getByText(/Se han cargado 2 estudiantes y 1 asignatura/)).toBeVisible()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Omitir por ahora' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuevo período' })).toBeVisible()
+  await page.getByRole('button', { name: 'Crear período' }).click()
   await waitForPersisted(page, 'informes.reports', (value) => value?.length === 3)
 
   const stored = await readDataKey(page, 'informes.reports')

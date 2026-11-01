@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
-import { parsePerformancesWorkbook } from './parser'
+import { buildStudentPerformancesWorkbook, parsePerformancesWorkbook } from './parser'
 
 const workbookBytes = (aoa) => {
   const workbook = XLSX.utils.book_new()
@@ -40,5 +40,18 @@ describe('parsePerformancesWorkbook', () => {
   it('throws a descriptive error when the sheet lacks the expected columns', async () => {
     const bytes = workbookBytes([['Nombre', 'Curso'], ['Ana', '5A']])
     await expect(parsePerformancesWorkbook(bytes)).rejects.toThrow(/Estudiante, Asignatura y Desempeño/)
+  })
+})
+
+describe('buildStudentPerformancesWorkbook', () => {
+  it('builds the per-student template with empty texts and a guide sheet', async () => {
+    const { workbook, fileName } = await buildStudentPerformancesWorkbook()
+    expect(fileName).toBe('plantilla-desempenos-estudiantes.xlsx')
+    expect(workbook.SheetNames).toEqual(['Desempeños', 'Instrucciones'])
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Desempeños'], { header: 1, defval: '' })
+    expect(rows[0]).toEqual(['Estudiante', 'Asignatura', 'Desempeño'])
+    // Loading the template unedited must be a no-op: no texts to apply.
+    const bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
+    await expect(parsePerformancesWorkbook(bytes)).resolves.toEqual({})
   })
 })
